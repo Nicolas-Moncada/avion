@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('/assets/fonts/fonts.css');
 
 /* =====================================================================
    SISTEMA DE DISEÑO AERO FLOW AIRLINES (ESTILO ENTERPRISE & CONTORNOS NÍTIDOS)
@@ -1457,19 +1457,19 @@ body:not(.light-mode) .hero-security-pill,
 }
 
 .hero-media-slide.slide-a350 {
-  background-image: url('https://images.unsplash.com/photo-1542296332-2e4473faf563?auto=format&fit=crop&w=1600&q=80');
+  background-image: url('/assets/img/unsplash-1.svg');
 }
 
 .hero-media-slide.slide-cabin {
-  background-image: url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1600&q=80');
+  background-image: url('/assets/img/unsplash-2.svg');
 }
 
 .hero-media-slide.slide-airport {
-  background-image: url('https://images.unsplash.com/photo-1473862170180-84427c485aca?auto=format&fit=crop&w=1600&q=80');
+  background-image: url('/assets/img/unsplash-3.svg');
 }
 
 .hero-media-slide.slide-cockpit {
-  background-image: url('https://images.unsplash.com/photo-1520437358207-323b43b50729?auto=format&fit=crop&w=1600&q=80');
+  background-image: url('/assets/img/unsplash-4.svg');
 }
 
 .hero-glass-veil {

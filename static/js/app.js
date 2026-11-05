@@ -247,25 +247,25 @@ const DESTINATION_LANDMARKS = {
 
 // URLs fijas verificadas de Wikimedia Commons para carga instantánea sincronizada (0ms) y fallback seguro
 const VERIFIED_LANDMARK_FALLBACKS = {
-  'BOG': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8f/2017_Bogot%C3%A1_Bas%C3%ADlica_del_Se%C3%B1or_Ca%C3%ADdo_de_Monserrate.jpg/3840px-2017_Bogot%C3%A1_Bas%C3%ADlica_del_Se%C3%B1or_Ca%C3%ADdo_de_Monserrate.jpg',
-  'MDE': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/7/76/Centro_de_Medell%C3%ADn_en_dron_04.jpg/3840px-Centro_de_Medell%C3%ADn_en_dron_04.jpg',
-  'CTG': 'https://upload.wikimedia.org/wikipedia/commons/3/30/Museo_Naval_del_Caribe.JPG',
-  'CLO': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4e/Santiago_de_Cali.jpg/3840px-Santiago_de_Cali.jpg',
-  'BAQ': 'https://upload.wikimedia.org/wikipedia/commons/c/cf/Antigua_Aduana_de_Barranquilla.jpg',
-  'SMR': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Bah%C3%ADa_de_Santa_Marta.jpg/3840px-Bah%C3%ADa_de_Santa_Marta.jpg',
-  'ADZ': 'https://upload.wikimedia.org/wikipedia/commons/e/e3/San_Andres_Island_Montage.jpg',
-  'MEX': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Bellas_Artes_01.jpg/3840px-Bellas_Artes_01.jpg',
-  'CUN': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Cancun_Strand_Luftbild_%2822143397586%29.jpg/3840px-Cancun_Strand_Luftbild_%2822143397586%29.jpg',
-  'MIA': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Miami%2C_Florida%2C_Skyline_4.jpg/3840px-Miami%2C_Florida%2C_Skyline_4.jpg',
-  'JFK': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/6/69/Luchtfoto_van_Lower_Manhattan.jpg/3840px-Luchtfoto_van_Lower_Manhattan.jpg',
-  'MAD': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Puerta_de_Alcal%C3%A1_2025.jpg/3840px-Puerta_de_Alcal%C3%A1_2025.jpg',
-  'BCN': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/SF_maig_2_cropped.jpg',
-  'LHR': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/db/Palace_of_Westminster_as_seen_from_Westminster_Bridge.jpg/3840px-Palace_of_Westminster_as_seen_from_Westminster_Bridge.jpg',
-  'CDG': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/La_Tour_Eiffel_vue_de_la_Tour_Saint-Jacques%2C_Paris_ao%C3%BBt_2014_%282%29.jpg/3840px-La_Tour_Eiffel_vue_de_la_Tour_Saint-Jacques%2C_Paris_ao%C3%BBt_2014_%282%29.jpg',
-  'EZE': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Puente_de_la_Mujer_in_2026.jpg',
-  'SCL': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/CostaneraCenter2016.jpg/3840px-CostaneraCenter2016.jpg',
-  'GRU': 'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b1/Vista_a%C3%A9rea_de_la_Avenida_Paulista_de_S%C3%A3o_Paulo_02.jpg/3840px-Vista_a%C3%A9rea_de_la_Avenida_Paulista_de_S%C3%A3o_Paulo_02.jpg',
-  'PTY': 'https://upload.wikimedia.org/wikipedia/commons/0/02/Panama_Papers_%28148830809%29.jpeg'
+  'BOG': '/assets/img/destino-placeholder.svg',
+  'MDE': '/assets/img/destino-placeholder.svg',
+  'CTG': '/assets/img/destino-placeholder.svg',
+  'CLO': '/assets/img/destino-placeholder.svg',
+  'BAQ': '/assets/img/destino-placeholder.svg',
+  'SMR': '/assets/img/destino-placeholder.svg',
+  'ADZ': '/assets/img/destino-placeholder.svg',
+  'MEX': '/assets/img/destino-placeholder.svg',
+  'CUN': '/assets/img/destino-placeholder.svg',
+  'MIA': '/assets/img/destino-placeholder.svg',
+  'JFK': '/assets/img/destino-placeholder.svg',
+  'MAD': '/assets/img/destino-placeholder.svg',
+  'BCN': '/assets/img/destino-placeholder.svg',
+  'LHR': '/assets/img/destino-placeholder.svg',
+  'CDG': '/assets/img/destino-placeholder.svg',
+  'EZE': '/assets/img/destino-placeholder.svg',
+  'SCL': '/assets/img/destino-placeholder.svg',
+  'GRU': '/assets/img/destino-placeholder.svg',
+  'PTY': '/assets/img/destino-placeholder.svg'
 };
 
 const IMAGE_CACHE = {};
@@ -551,9 +551,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   initPrintListeners();
 
-  // Asegurar inicio en Vista Integral por defecto sin restricciones de visualización
-  if (typeof filtrarModoRol === 'function') {
-    filtrarModoRol('todos');
+  // Sincronizar rol con sesión activa de autenticación (auth.js)
+  try {
+    const sesion = (typeof obtenerSesionActual === 'function') ? obtenerSesionActual() : JSON.parse(sessionStorage.getItem('aeroflow_session') || 'null');
+    if (sesion && sesion.rol) {
+      const rolModo = (sesion.rol === 'pasajero') ? 'cliente' : (sesion.rol === 'operador') ? 'operador' : 'todos';
+      if (typeof filtrarModoRol === 'function') filtrarModoRol(rolModo);
+    }
+  } catch (e) {
+    if (typeof filtrarModoRol === 'function') filtrarModoRol('cliente');
   }
 
   // Fecha de salida del formulario con valor del día actual
@@ -774,17 +780,26 @@ window.filtrarModoRol = function(rol) {
 };
 
 window.activarTab = function(tabTarget) {
-  // Si el usuario hace clic en el Directorio pero está en modo cliente, restaurar Integral para visualización inmediata
-  if (tabTarget === 'tab-pasajeros' && document.body.classList.contains('role-mode-cliente')) {
-    filtrarModoRol('todos');
-  } else if (tabTarget === 'tab-compra-avion' && document.body.classList.contains('role-mode-operador')) {
-    filtrarModoRol('todos');
-  }
+  // Validación de permisos por rol autenticado (auth.js)
+  try {
+    const sesion = (typeof obtenerSesionActual === 'function') ? obtenerSesionActual() : JSON.parse(sessionStorage.getItem('aeroflow_session') || 'null');
+    const rolActual = sesion ? sesion.rol : 'pasajero';
+    if (typeof tienePermiso === 'function' && !tienePermiso(rolActual, tabTarget)) {
+      if (typeof window.showToast === 'function') {
+        if (rolActual === 'operador' && tabTarget === 'tab-compra-avion') {
+          window.showToast('⚠️ Acceso restringido: El flujo de reserva y compra es exclusivo para pasajeros.', true);
+        } else {
+          window.showToast('⚠️ Módulo restringido para tu perfil actual.', true);
+        }
+      }
+      return false;
+    }
+  } catch (e) {}
 
-  document.querySelectorAll('.island-nav-item, .nav-link-item').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.island-nav-item, .nav-link-item, .mobile-nav-item').forEach(l => l.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
-  document.querySelectorAll(`.island-nav-item[data-tab="${tabTarget}"], .nav-link-item[data-tab="${tabTarget}"]`).forEach(l => {
+  document.querySelectorAll(`.island-nav-item[data-tab="${tabTarget}"], .nav-link-item[data-tab="${tabTarget}"], .mobile-nav-item[data-tab="${tabTarget}"]`).forEach(l => {
     l.classList.add('active');
   });
 

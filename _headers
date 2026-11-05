@@ -1,0 +1,30 @@
+# Netlify / Vercel / Static Hosting — Security Headers
+# AERO FLOW AIRLINES
+
+# Default security headers for all routes
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://fpijnntmbkbhyedvhtxc.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://fpijnntmbkbhyedvhtxc.supabase.co wss://fpijnntmbkbhyedvhtxc.supabase.co https://en.wikipedia.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# Service Worker — no cache
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Manifest — cache aggressively
+/manifest.webmanifest
+  Cache-Control: public, max-age=31536000, immutable
+
+# Static assets — cache aggressively
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Offline page — no cache
+/offline.html
+  Cache-Control: no-cache

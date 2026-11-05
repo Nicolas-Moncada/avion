@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AERO FLOW AIRLINES | Vuelos, Tiquetes y Operaciones</title>
+  <meta name="description" content="AERO FLOW AIRLINES — Reserva vuelos, emite tiquetes y gestiona operaciones aéreas en tiempo real con estructuras de datos (Hash Map, Árbol AVL, Lista Enlazada y Cola FIFO).">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <script>
+    (function() {
+      try {
+        var stored = localStorage.getItem('aeroflow_theme');
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        var t = (stored === 'light' || stored === 'dark') ? stored : (prefersLight ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'dark') {
+          document.documentElement.classList.add('dark-mode');
+          document.documentElement.classList.remove('light-mode');
+        } else {
+          document.documentElement.classList.add('light-mode');
+          document.documentElement.classList.remove('dark-mode');
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <!-- PWA & Mobile Web App Manifest -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Aero Flow">
+  <meta name="theme-color" content="#0B1320">
+
+  <link rel="stylesheet" href="/assets/fonts/fonts.css">
+  <link rel="stylesheet" href="/static/css/tactical.css?v=35.0">
+  <link rel="stylesheet" href="/static/css/login.css?v=35.0">
+</head>
+<body>
+
+  <a class="skip-link" href="#main-app-root">Saltar al contenido principal</a>
+
+  <!-- ================================================================ -->
+  <!-- CONTENEDOR EXCLUSIVO DE IMPRESIÓN (EVITA HOJAS EN BLANCO EN PDF) -->
+  <!-- ================================================================ -->
+  <div id="print-ticket-area"></div>
+
+  <!-- ================================================================ -->
+  <!-- PANTALLA DE LOGIN SEPARADA POR ROL (AERO FLOW AUTHENTICATION)    -->
+  <!-- ================================================================ -->
+  <div id="aeroflow-login-overlay" class="login-fullscreen-overlay">
+    <div class="login-glass-card" role="dialog" aria-labelledby="login-dialog-title" aria-modal="true">
+      
+      <!-- Cabecera de Marca -->
+      <div class="login-header-group">
+        <div class="login-brand-logo">
+          <svg class="login-logo-svg" viewBox="0 0 100 80" fill="none" aria-hidden="true">
+            <path d="M10 20 C25 15, 60 10, 85 45 C70 40, 50 42, 40 50 C55 46, 75 48, 88 65 C70 60, 45 62, 35 70 C50 68, 68 70, 78 78 C45 78, 20 65, 10 20 Z" fill="url(#loginWingGrad)"/>
+            <path d="M30 68 C45 65, 65 67, 78 78 C55 78, 38 74, 30 68 Z" fill="#DA291C"/>
+            <defs>
+              <linearGradient id="loginWingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38BDF8"/>
+                <stop offset="50%" stop-color="#1D4ED8"/>
+                <stop offset="100%" stop-color="#0B192C"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="login-brand-text">
+            <span class="login-brand-main">AERO FLOW</span>
+            <span class="login-brand-sub">AIRLINES</span>
+          </div>
+        </div>
+        <h1 class="login-title-h1" id="login-dialog-title">Iniciar Sesión por Perfil</h1>
+        <p class="login-subtitle-p">Selecciona tu rol de acceso para ingresar a la plataforma de operaciones y servicios comerciales.</p>
+      </div>
+
+      <!-- Selector de Tipo de Acceso (3 Pestañas / Tarjetas) -->
+      <div class="login-role-tabs-container" role="tablist" aria-label="Seleccionar perfil de acceso">
+        <button type="button" class="login-role-tab-btn active" data-login-role="pasajero" onclick="seleccionarTabLogin('pasajero')" role="tab" aria-selected="true">
+          <span class="login-role-dot dot-pasajero"></span>
+          <span class="login-role-tab-title">Pasajero</span>
+          <span class="login-role-tab-desc">Cliente</span>
+        </button>
+        <button type="button" class="login-role-tab-btn" data-login-role="operador" onclick="seleccionarTabLogin('operador')" role="tab" aria-selected="false">
+          <span class="login-role-dot dot-operador"></span>
+          <span class="login-role-tab-title">Operador</span>
+          <span class="login-role-tab-desc">Rampa/Torre</span>
+        </button>
+        <button type="button" class="login-role-tab-btn" data-login-role="integral" onclick="seleccionarTabLogin('integral')" role="tab" aria-selected="false">
+          <span class="login-role-dot dot-integral"></span>
+          <span class="login-role-tab-title">Integral</span>
+          <span class="login-role-tab-desc">Total / Dual</span>
+        </button>
+      </div>
+
+      <!-- Pill descriptiva del rol activo -->
+      <div class="login-active-role-pill">
+        <div class="login-role-info-left">
+          <span class="login-role-dot dot-pasajero" id="login-active-dot"></span>
+          <span id="login-active-label">Portal Pasajero</span>
+        </div>
+        <span class="login-role-scope-tag" id="login-active-scope">Búsqueda, reserva, mapa de cabina, pago en COP y pase de abordar</span>
+      </div>
+
+      <!-- Mensaje de Error (reactivo) -->
+      <div class="login-error-banner" id="login-error-banner" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="login-error-text">Credenciales incorrectas</span>
+      </div>
+
+      <!-- Formulario de Autenticación & Registro -->
+      <form id="form-login-auth" novalidate>
+        <div class="login-form-group" id="login-group-nombre" style="display:none;">
+          <label class="login-field-label" for="login-input-nombre">Nombre Completo</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+            <input type="text" id="login-input-nombre" class="login-field-input" placeholder="ej. Carlos Mendoza" autocomplete="name">
+          </div>
+        </div>
+
+        <div class="login-form-group">
+          <label class="login-field-label" for="login-input-email">Usuario o Correo Electrónico</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            </span>
+            <input type="email" id="login-input-email" class="login-field-input" placeholder="ej. usuario@aeroflow.com" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="login-form-group">
+          <label class="login-field-label" for="login-input-password">Contraseña de Acceso</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </span>
+            <input type="password" id="login-input-password" class="login-field-input" placeholder="••••••••••••" required autocomplete="current-password">
+            <button type="button" class="login-btn-toggle-pwd" onclick="togglePasswordVisibility()" title="Mostrar / Ocultar contraseña" aria-label="Mostrar u ocultar contraseña">
+              <span id="btn-toggle-pwd-icon">👁️</span>
+            </button>
+          </div>
+          <div class="login-pwd-requirements-note">Mínimo 8 caracteres, al menos una letra y un número.</div>
+        </div>
+
+        <button type="submit" class="login-submit-btn" id="btn-login-submit">
+          <span>Ingresar a Portal Pasajero</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Alternador de Registro / Login -->
+      <div class="login-toggle-auth-container">
+        <button type="button" class="login-toggle-auth-btn" id="btn-toggle-to-register" onclick="alternarModoFormulario('registro')">
+          ¿No tienes cuenta? Regístrate gratis como Pasajero
+        </button>
+        <button type="button" class="login-toggle-auth-btn" id="btn-toggle-to-login" style="display:none;" onclick="alternarModoFormulario('login')">
+          ¿Ya tienes cuenta? Iniciar Sesión por Perfil
+        </button>
+      </div>
+
+      <!-- Conexión Supabase Cloud Database & RLS -->
+      <div class="login-supabase-footer">
+        <span>Cloud Database • Supabase RLS</span>
+        <button type="button" class="btn-open-sb-config" onclick="abrirModalConfiguracionSupabase()" title="Configurar URL y Llave de Supabase">
+          ⚙️ Base en la Nube
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- FONDO ATMOSFÉRICO ANIMADO ACELERADO POR GPU                      -->
+  <!-- ================================================================ -->
+  <div class="aeroflow-atmosphere-canvas" aria-hidden="true">
+    <!-- Video Corporativo Sutil de Fondo en Bucle (Loop Cinemático) -->
+    <video class="ambient-video-layer" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true">
+      <source src="https://assets.mixkit.co/videos/preview/mixkit-flying-above-the-clouds-at-sunset-41584-large.mp4" type="video/mp4">
+    </video>
+    <div class="ambient-orb orb-navy"></div>
+    <div class="ambient-orb orb-red"></div>
+    <div class="ambient-orb orb-cyan"></div>
+    <div class="ambient-orb orb-amber"></div>
+
+    <svg class="flight-routes-overlay" viewBox="0 0 1440 900" fill="none" preserveAspectRatio="none">
+      <defs>
+        <!-- Filtro de Resplandor Neón para Nodos y Rutas -->
+        <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <linearGradient id="routeGradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.1"/>
+          <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.1"/>
+        </linearGradient>
+        <linearGradient id="routeGradRed" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#DA291C" stop-opacity="0.1"/>
+          <stop offset="50%" stop-color="#DA291C" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#DA291C" stop-opacity="0.1"/>
+        </linearGradient>
+      </defs>
+
+      <!-- 1. Red de Rutas Aéreas Primarias (Corredores Transoceánicos) -->
+      <path class="route-line-1" d="M-80,180 C260,60 520,340 880,140 C1120,30 1340,240 1520,180" stroke="url(#routeGradCyan)" stroke-width="1.8" stroke-dasharray="10 14"/>
+      <path class="route-line-2" d="M-60,720 C240,540 640,780 1020,510 C1280,390 1440,630 1560,560" stroke="url(#routeGradRed)" stroke-width="1.8" stroke-dasharray="12 16"/>
+      <path class="route-line-3" d="M100,-80 C360,260 720,160 1100,680 C1280,820 1420,780 1540,920" stroke="rgba(148, 163, 184, 0.22)" stroke-width="1.5" stroke-dasharray="8 10"/>
+      <path class="route-line-4" d="M-100,440 C280,430 620,220 980,340 C1240,410 1420,260 1540,320" stroke="rgba(52, 211, 153, 0.24)" stroke-width="1.5" stroke-dasharray="9 12"/>
+      <path class="route-line-5" d="M200,950 C450,720 850,860 1250,300 C1380,120 1460,40 1520,-20" stroke="rgba(245, 158, 11, 0.2)" stroke-width="1.4" stroke-dasharray="7 11"/>
+
+      <!-- 2. Arcos Radiales Geodésicos Secundarios (Navegación Asistida) -->
+      <path d="M180,180 Q520,40 880,140" stroke="rgba(56, 189, 248, 0.12)" stroke-width="1" stroke-dasharray="4 6"/>
+      <path d="M240,540 Q640,620 1020,510" stroke="rgba(218, 41, 28, 0.12)" stroke-width="1" stroke-dasharray="4 6"/>
+      <path d="M520,340 Q780,500 1100,680" stroke="rgba(148, 163, 184, 0.1)" stroke-width="1" stroke-dasharray="4 6"/>
+      <path d="M280,430 Q600,280 980,340" stroke="rgba(52, 211, 153, 0.12)" stroke-width="1" stroke-dasharray="4 6"/>
+
+      <!-- 3. Balizas de Tráfico Aéreo (Waypoints & Radar Beacons) - Ubicadas en bordes con pointer-events:none -->
+      <!-- BOG (Hub Central) -->
+      <g class="waypoint-node" transform="translate(680, 480)">
+        <circle class="waypoint-radar-ring" r="14" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.2"/>
+        <circle class="waypoint-radar-ring ring-delay" r="22" stroke="rgba(56, 189, 248, 0.15)" stroke-width="1"/>
+        <circle r="4.5" fill="#38BDF8" opacity="0.4"/>
+        <text x="12" y="4" class="radar-tag">HUB // BOG</text>
+      </g>
+
+      <!-- MIA (Hub Norteamérica) -->
+      <g class="waypoint-node" transform="translate(940, 90)">
+        <circle class="waypoint-radar-ring" r="12" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1"/>
+        <circle r="4" fill="#38BDF8" opacity="0.3"/>
+        <text x="10" y="4" class="radar-tag">WPT // MIA</text>
+      </g>
+
+      <!-- MAD (Hub Transatlántico) -->
+      <g class="waypoint-node" transform="translate(1380, 140)">
+        <circle class="waypoint-radar-ring" r="14" stroke="rgba(218, 41, 28, 0.25)" stroke-width="1.2"/>
+        <circle r="4" fill="#DA291C" opacity="0.3"/>
+        <text x="10" y="4" class="radar-tag">EUR // MAD</text>
+      </g>
+
+      <!-- MEX (Hub Pacífico) -->
+      <g class="waypoint-node" transform="translate(140, 160)">
+        <circle class="waypoint-radar-ring" r="10" stroke="rgba(52, 211, 153, 0.25)" stroke-width="1"/>
+        <circle r="4" fill="#34D399" opacity="0.3"/>
+        <text x="10" y="4" class="radar-tag">PAC // MEX</text>
+      </g>
+
+      <!-- GRU / EZE (Hub Cono Sur) -->
+      <g class="waypoint-node" transform="translate(1120, 780)">
+        <circle class="waypoint-radar-ring" r="12" stroke="rgba(218, 41, 28, 0.25)" stroke-width="1"/>
+        <circle r="4" fill="#DA291C" opacity="0.3"/>
+        <text x="10" y="4" class="radar-tag">SUR // GRU</text>
+      </g>
+
+      <!-- JFK (Costa Este) -->
+      <g class="waypoint-node" transform="translate(1260, 60)">
+        <circle class="waypoint-radar-ring" r="11" stroke="rgba(245, 158, 11, 0.25)" stroke-width="1"/>
+        <circle r="4" fill="#F59E0B" opacity="0.3"/>
+        <text x="10" y="4" class="radar-tag">EAST // JFK</text>
+      </g>
+
+      <!-- Radar Blips (Aeronaves en Ruta en Tiempo Real) -->
+      <circle class="radar-aircraft-blip blip-1" r="3.2" fill="#FFFFFF" filter="url(#neonGlow)"/>
+      <circle class="radar-aircraft-blip blip-2" r="3.2" fill="#38BDF8" filter="url(#neonGlow)"/>
+      <circle class="radar-aircraft-blip blip-3" r="3" fill="#F87171" filter="url(#neonGlow)"/>
+    </svg>
+
+    <!-- Partículas Estelares / Polvo de Altitud (Micro-partículas flotantes) -->
+    <div class="aero-particle-field">
+      <span class="star-particle p1"></span>
+      <span class="star-particle p2"></span>
+      <span class="star-particle p3"></span>
+      <span class="star-particle p4"></span>
+      <span class="star-particle p5"></span>
+      <span class="star-particle p6"></span>
+      <span class="star-particle p7"></span>
+      <span class="star-particle p8"></span>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- 1. CABECERA SUPERIOR BLANCA PURA (AVIANCA.COM + AERO FLOW)       -->
+  <!-- ================================================================ -->
+  <!-- ================================================================ -->
+  <!-- HEADER PRINCIPAL DE ALTA PRECISIÓN: ALTURA EXACTA 76px          -->
+  <!-- ================================================================ -->
+  <header class="avianca-header">
+    <div class="header-left-brand">
+      
+      <!-- LOGOTIPO CORPORATIVO AERO FLOW CON ISOTIPO DE ALAS (GUÍA DE MARCA) -->
+      <div class="aeroflow-logo-group" onclick="activarTab('tab-fids')">
+        <svg class="logo-wing-svg" viewBox="0 0 100 80" fill="none">
+          <!-- Plumas superiores en degradé azul marino y celeste -->
+          <path d="M10 20 C25 15, 60 10, 85 45 C70 40, 50 42, 40 50 C55 46, 75 48, 88 65 C70 60, 45 62, 35 70 C50 68, 68 70, 78 78 C45 78, 20 65, 10 20 Z" fill="url(#wingGradientMaster)"/>
+          <!-- Pluma inferior acento coral / rojo Avianca -->
+          <path d="M30 68 C45 65, 65 67, 78 78 C55 78, 38 74, 30 68 Z" fill="#DA291C"/>
+          <defs>
+            <linearGradient id="wingGradientMaster" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38BDF8"/>
+              <stop offset="50%" stop-color="#1D4ED8"/>
+              <stop offset="100%" stop-color="#0B192C"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div class="logo-text-col">
+          <div class="logo-main-name">AERO FLOW</div>
+          <div class="logo-sub-name">AIRLINES</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- NAVEGACIÓN CENTRAL EN UNA SOLA LÍNEA HORIZONTAL (SIN DESBORDES) -->
+    <!-- ============================================================== -->
+    <div class="dynamic-island-nav-container">
+      
+      <!-- Badge de Sesión Activa por Rol & Botón Cerrar Sesión -->
+      <div class="header-session-bar" id="header-session-bar">
+        <div class="session-user-badge" id="session-active-chip">
+          <span class="session-role-dot dot-pasajero" id="header-session-dot"></span>
+          <div class="session-user-info">
+            <span class="session-role-label" id="header-session-role">Pasajero</span>
+            <span class="session-user-email" id="header-session-email"></span>
+          </div>
+        </div>
+        <button type="button" class="btn-logout-compact" id="btn-header-logout" onclick="cerrarSesion()" title="Cerrar sesión activa" aria-label="Cerrar sesión">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Salir</span>
+        </button>
+      </div>
+
+      <!-- Pestañas 01 a 04 Limpias y Fluidas en Línea Horizontal -->
+      <nav class="dynamic-island-capsule" id="dynamic-island-nav">
+        <button class="island-nav-item nav-link-item active" data-tab="tab-fids" data-role="cliente" type="button" title="Itinerarios, Búsqueda O(1) y Rutas Comerciales">
+          <span class="island-badge">01</span>
+          <span class="island-label">Vuelos</span>
+        </button>
+        <button class="island-nav-item nav-link-item" data-tab="tab-pasajeros" data-role="operador" type="button" title="Directorio AVL O(log n), Comprobantes y LifeMiles">
+          <span class="island-badge">02</span>
+          <span class="island-label">Directorio</span>
+        </button>
+        <button class="island-nav-item nav-link-item" data-tab="tab-compra-avion" data-role="cliente" type="button" title="Mapa Vectorial de Cabina y Pasarela AeroFlow Pay">
+          <span class="island-badge">03</span>
+          <span class="island-label">Asientos & Pago</span>
+        </button>
+        <button class="island-nav-item nav-link-item" data-tab="tab-puerta" data-role="dual" type="button" title="Boarding Pass Digital y Monitor en Puerta">
+          <span class="island-badge">04</span>
+          <span class="island-label">Pase & Puerta</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Herramientas Derecha: Moneda COP con Bandera y Sesión -->
+    <div class="header-right-tools">
+      <div class="currency-badge-cop" title="Moneda de transacción oficial de Colombia">
+        <!-- Bandera de Colombia SVG -->
+        <svg class="colombia-flag-icon" viewBox="0 0 900 600">
+          <rect width="900" height="300" fill="#FCD116"/>
+          <rect y="300" width="900" height="150" fill="#003893"/>
+          <rect y="450" width="900" height="150" fill="#CE1126"/>
+        </svg>
+        <span>COP</span>
+      </div>
+
+      <!-- Widget Reloj Local 12H -->
+      <div class="header-clock-box">
+        <span id="header-clock-12h">--:--:-- --</span>
+      </div>
+
+      <!-- Botón Instalar App PWA -->
+      <button type="button" class="btn-install-pwa" id="btn-install-pwa" style="display:none;" title="Instalar Aero Flow en tu dispositivo" aria-label="Instalar aplicación">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Instalar App</span>
+      </button>
+
+      <!-- Botón de Control de Audio Acústico Web Audio API v33.0 -->
+      <button type="button" class="theme-toggle-btn" id="btn-audio-toggle" onclick="toggleAudioMute()" title="Silenciar / Activar Efectos de Sonido" aria-label="Control de Sonido">
+        <span id="audio-icon-state">🔊</span>
+      </button>
+
+      <!-- Botón de Alternancia Modo Oscuro / Claro -->
+      <button type="button" class="theme-toggle-btn" id="btn-theme-toggle" title="Alternar Modo Oscuro / Claro" aria-label="Cambiar tema">
+        <span class="theme-icon-moon">🌙</span>
+        <span class="theme-icon-sun">☀️</span>
+      </button>
+
+    </div>
+  </header>
+
+  <!-- ================================================================ -->
+  <!-- CINTA INFORMATIVA FIDS DE AEROPUERTO (LIVE MARQUEE TICKER)      -->
+  <!-- ================================================================ -->
+  <div class="fids-marquee-bar" aria-label="Información Operativa en Tiempo Real">
+    <div class="fids-marquee-track">
+      <div class="fids-marquee-content">
+        <span class="fids-ticker-item"><strong class="fids-dot live"></strong> AEROPUERTO INTERNACIONAL EL DORADO (BOG) — OPERACIONES 100% ACTIVAS</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">PISTA 13R/31L: VISIBILIDAD &gt; 10KM // VIENTO 090/08KT // TEMP 18°C</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">TASA OFICIAL COP: TRM REFERENCIA $ 4,120 COP/USD</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">LLAMADO A EMBARQUE VIP: VUELOS AF1001 (MADRID) &amp; AF2040 (MIAMI) PUERTAS B4 Y B6</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">SISTEMA AEROFLOW PAY: VALIDACIÓN CRIPTOGRÁFICA 256-BIT EN LÍNEA</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">CABINA EN CONDICIONES ÓPTIMAS: PRESURIZACIÓN Y CLIMA ESTABILIZADOS</span>
+      </div>
+      <div class="fids-marquee-content" aria-hidden="true">
+        <span class="fids-ticker-item"><strong class="fids-dot live"></strong> AEROPUERTO INTERNACIONAL EL DORADO (BOG) — OPERACIONES 100% ACTIVAS</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">PISTA 13R/31L: VISIBILIDAD &gt; 10KM // VIENTO 090/08KT // TEMP 18°C</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">TASA OFICIAL COP: TRM REFERENCIA $ 4,120 COP/USD</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">LLAMADO A EMBARQUE VIP: VUELOS AF1001 (MADRID) &amp; AF2040 (MIAMI) PUERTAS B4 Y B6</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">SISTEMA AEROFLOW PAY: VALIDACIÓN CRIPTOGRÁFICA 256-BIT EN LÍNEA</span>
+        <span class="fids-ticker-separator">•</span>
+        <span class="fids-ticker-item">CABINA EN CONDICIONES ÓPTIMAS: PRESURIZACIÓN Y CLIMA ESTABILIZADOS</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- CONTENIDO PRINCIPAL: PORTAL DE VUELOS Y RESERVAS (VISTAS SPA)    -->
+  <!-- ================================================================ -->
+  <main class="main-app-content" id="main-app-root" style="padding-top: 1.5rem;">
+
+    <!-- ============================================================== -->
+    <!-- MÓDULO 1: ITINERARIO & PROGRAMACIÓN DE VUELOS                   -->
+    <!-- ============================================================== -->
+    <div id="tab-fids" class="tab-pane active">
+
+      <!-- Hero Banner Contextual: Módulo 01 -->
+      <div class="module-hero-banner hero-banner-multimedia">
+        <div class="hero-media-backdrop" aria-hidden="true">
+          <div class="hero-media-slide slide-a350 active"></div>
+          <div class="hero-media-slide slide-cabin"></div>
+          <div class="hero-media-slide slide-airport"></div>
+          <div class="hero-media-slide slide-cockpit"></div>
+          <div class="hero-glass-veil"></div>
+        </div>
+        <div class="hero-content-col">
+          <div class="hero-tag-row">
+            <span class="status-pill-clean abierto"><span class="live-dot"></span> ITINERARIOS Y RUTAS EN TIEMPO REAL</span>
+            <span class="hero-subtag">TARIFAS OFICIALES EN PESOS COLOMBIANOS (COP)</span>
+          </div>
+          <h1 class="hero-title">Vuelos Programados & Operaciones de Red</h1>
+          <p class="hero-description">Explora nuestras conexiones comerciales, consulta el estado de rampa en vivo y elige tu próximo destino con tarifas directas y transparentes.</p>
+        </div>
+        <div class="hero-stats-badge">
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-stat-vuelos-count">--</span>
+            <span class="hero-stat-label">Rutas Activas</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" style="color:#059669;">100%</span>
+            <span class="hero-stat-label">Disponibilidad</span>
+          </div>
+        </div>
+        <div class="hero-slide-indicators" aria-label="Fotografías de cabina y flota">
+          <button type="button" class="slide-dot active" title="Airbus A350 en Vuelo" onclick="cambiarSlideManual(this, 0)"></button>
+          <button type="button" class="slide-dot" title="Cabina Ejecutiva Clase Business" onclick="cambiarSlideManual(this, 1)"></button>
+          <button type="button" class="slide-dot" title="Terminal Aeroportuaria Internacional" onclick="cambiarSlideManual(this, 2)"></button>
+          <button type="button" class="slide-dot" title="Cockpit y Navegación Vectorial" onclick="cambiarSlideManual(this, 3)"></button>
+        </div>
+      </div>
+      
+      <!-- Buscador de Vuelos Comercial -->
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Consulta de Operaciones de Vuelo</div>
+            <div class="bento-subtitle">Búsqueda rápida en el catálogo de vuelos activos y rutas internacionales</div>
+          </div>
+          <span class="status-pill-clean abierto">Consulta Inmediata</span>
+        </div>
+
+        <div style="display:flex; gap:1.25rem; align-items:flex-end; flex-wrap:wrap;">
+          <div style="flex:1; min-width:340px;">
+            <label class="clean-label" for="select-buscar-vuelo">Seleccionar Vuelo del Directorio</label>
+            <select id="select-buscar-vuelo" class="form-select-clean" style="font-weight:700;"></select>
+          </div>
+          <button id="btn-buscar-vuelo" class="btn-avianca-red">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Buscar Vuelo
+          </button>
+        </div>
+        <div id="vuelo-search-card" style="display:none; margin-top:1.25rem; padding:1.25rem; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-sm); color:var(--text-main);"></div>
+        <!-- Widget de Telemetría Aeronáutica en Vivo v32.0 -->
+        <div id="flight-live-telemetry" style="display:none; margin-top:1rem;"></div>
+        <div id="destination-hero-m1" style="display:none; margin-top:1.25rem;"></div>
+      </div>
+
+      <!-- Vuelos en Operación / Rampa -->
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Operaciones en Rampa / Embarque Inmediato</div>
+            <div class="bento-subtitle">Vuelos en estado de abordaje activo con prioridad de salida</div>
+          </div>
+          <span class="status-pill-clean embarcando">EMBARCANDO AHORA</span>
+        </div>
+
+        <table class="avianca-styled-table">
+          <thead>
+            <tr>
+              <th>Vuelo</th>
+              <th>Origen</th>
+              <th>Destino</th>
+              <th>Aeronave</th>
+              <th>Salida (12H)</th>
+              <th>Puerta</th>
+              <th>Ocupación</th>
+              <th>En Espera</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-en-curso-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Itinerario de Vuelos Comerciales -->
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Itinerario de Vuelos Comerciales AERO FLOW</div>
+            <div class="bento-subtitle">Rutas internacionales transcontinentales y vuelos de corto y largo alcance</div>
+          </div>
+          <span id="fids-telemetria-badge" class="status-pill-clean programado">--</span>
+        </div>
+
+        <table class="avianca-styled-table">
+          <thead>
+            <tr>
+              <th>Vuelo</th>
+              <th>Destino</th>
+              <th>Aeronave</th>
+              <th>Salida (12H)</th>
+              <th>Puerta</th>
+              <th>Ocupación</th>
+              <th>Estado</th>
+              <th>Reserva</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-proximos-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Panel de Administración de Flota (Plegable para uso de aerolínea) -->
+      <details class="admin-collapsible-section" data-section-role="operador">
+        <summary class="admin-collapsible-summary">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <span>Programación de Vuelos en Flota (Uso de Aerolínea)</span>
+          </div>
+          <span class="role-badge-pill operador">🛠️ OPERADOR</span>
+        </summary>
+
+        <div style="padding-top:1.25rem;">
+          <form id="form-crear-vuelo" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; align-items:end;">
+            <div>
+              <label class="clean-label" for="vuelo-codigo">Código de Vuelo</label>
+              <input type="text" id="vuelo-codigo" class="form-input-clean" placeholder="ej. AF2040" required>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-origen">Origen</label>
+              <select id="vuelo-origen" class="form-select-clean" required>
+                <option value="BOG - Bogotá El Dorado" selected>BOG - Bogotá El Dorado</option>
+                <option value="MDE - Medellín José María Córdova">MDE - Medellín José María Córdova</option>
+                <option value="CLO - Cali Alfonso Bonilla Aragón">CLO - Cali Alfonso Bonilla Aragón</option>
+                <option value="CTG - Cartagena Rafael Núñez">CTG - Cartagena Rafael Núñez</option>
+                <option value="BAQ - Barranquilla Ernesto Cortissoz">BAQ - Barranquilla Ernesto Cortissoz</option>
+                <option value="SMR - Santa Marta Simón Bolívar">SMR - Santa Marta Simón Bolívar</option>
+                <option value="ADZ - San Andrés Gustavo Rojas Pinilla">ADZ - San Andrés Gustavo Rojas Pinilla</option>
+                <option value="MIA - Miami International">MIA - Miami International</option>
+                <option value="JFK - Nueva York John F. Kennedy">JFK - Nueva York John F. Kennedy</option>
+                <option value="MAD - Madrid Barajas">MAD - Madrid Barajas</option>
+                <option value="BCN - Barcelona El Prat">BCN - Barcelona El Prat</option>
+                <option value="LHR - Londres Heathrow">LHR - Londres Heathrow</option>
+                <option value="CDG - París Charles de Gaulle">CDG - París Charles de Gaulle</option>
+                <option value="EZE - Buenos Aires Ezeiza">EZE - Buenos Aires Ezeiza</option>
+                <option value="SCL - Santiago de Chile">SCL - Santiago de Chile</option>
+                <option value="GRU - São Paulo Guarulhos">GRU - São Paulo Guarulhos</option>
+                <option value="MEX - Ciudad de México Benito Juárez">MEX - Ciudad de México Benito Juárez</option>
+                <option value="CUN - Cancún International">CUN - Cancún International</option>
+                <option value="PTY - Ciudad de Panamá Tocumen">PTY - Ciudad de Panamá Tocumen</option>
+              </select>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-destino">Destino</label>
+              <select id="vuelo-destino" class="form-select-clean" required>
+                <option value="MIA - Miami International" selected>MIA - Miami International</option>
+                <option value="BOG - Bogotá El Dorado">BOG - Bogotá El Dorado</option>
+                <option value="MDE - Medellín José María Córdova">MDE - Medellín José María Córdova</option>
+                <option value="CLO - Cali Alfonso Bonilla Aragón">CLO - Cali Alfonso Bonilla Aragón</option>
+                <option value="CTG - Cartagena Rafael Núñez">CTG - Cartagena Rafael Núñez</option>
+                <option value="BAQ - Barranquilla Ernesto Cortissoz">BAQ - Barranquilla Ernesto Cortissoz</option>
+                <option value="SMR - Santa Marta Simón Bolívar">SMR - Santa Marta Simón Bolívar</option>
+                <option value="ADZ - San Andrés Gustavo Rojas Pinilla">ADZ - San Andrés Gustavo Rojas Pinilla</option>
+                <option value="JFK - Nueva York John F. Kennedy">JFK - Nueva York John F. Kennedy</option>
+                <option value="MAD - Madrid Barajas">MAD - Madrid Barajas</option>
+                <option value="BCN - Barcelona El Prat">BCN - Barcelona El Prat</option>
+                <option value="LHR - Londres Heathrow">LHR - Londres Heathrow</option>
+                <option value="CDG - París Charles de Gaulle">CDG - París Charles de Gaulle</option>
+                <option value="EZE - Buenos Aires Ezeiza">EZE - Buenos Aires Ezeiza</option>
+                <option value="SCL - Santiago de Chile">SCL - Santiago de Chile</option>
+                <option value="GRU - São Paulo Guarulhos">GRU - São Paulo Guarulhos</option>
+                <option value="MEX - Ciudad de México Benito Juárez">MEX - Ciudad de México Benito Juárez</option>
+                <option value="CUN - Cancún International">CUN - Cancún International</option>
+                <option value="PTY - Ciudad de Panamá Tocumen">PTY - Ciudad de Panamá Tocumen</option>
+              </select>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-aeronave">Modelo de Aeronave</label>
+              <select id="vuelo-aeronave" class="form-select-clean">
+                <option value="Embraer Praetor 600 Regional">Embraer Praetor 600 Regional (12 asientos: 4 VIP / 8 Eco)</option>
+                <option value="Airbus A319 Corporate" selected>Airbus A319 Corporate (26 asientos: 6 VIP / 20 Eco)</option>
+                <option value="Airbus A320neo">Airbus A320neo (36 asientos: 8 VIP / 28 Eco)</option>
+                <option value="Boeing 737 MAX 8">Boeing 737 MAX 8 (48 asientos: 8 VIP / 40 Eco)</option>
+                <option value="Boeing 787-9 Dreamliner">Boeing 787-9 Dreamliner (64 asientos: 12 VIP / 52 Eco)</option>
+                <option value="Airbus A350-900 XWB">Airbus A350-900 XWB (80 asientos: 16 VIP / 64 Eco)</option>
+                <option value="Boeing 777-300ER Flagship">Boeing 777-300ER Flagship (100 asientos: 20 VIP / 80 Eco)</option>
+              </select>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-fecha">Fecha de Salida</label>
+              <input type="date" id="vuelo-fecha" class="form-input-clean" required>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-hora-salida">Salida (12H)</label>
+              <input type="text" id="vuelo-hora-salida" class="form-input-clean" value="09:15 PM" required>
+            </div>
+            <div>
+              <label class="clean-label" for="vuelo-puerta">Puerta</label>
+              <input type="text" id="vuelo-puerta" class="form-input-clean" value="B-08" required>
+            </div>
+            <div>
+              <button type="submit" class="btn-avianca-red" style="width:100%;">
+                Programar en Flota
+              </button>
+            </div>
+          </form>
+
+          <!-- Tabla de Control Operativo y Cancelación de Vuelos -->
+          <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border-card);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+              <div>
+                <div class="bento-title" style="font-size:1.05rem;">Control Operativo y Auditoría de Flota</div>
+                <div class="bento-subtitle" style="font-size:0.8rem;">Cancelación manual por error de programación, reactivación de vuelos y archivo operativo.</div>
+              </div>
+              <span id="admin-vuelos-badge" class="status-pill-clean programado" style="font-size:0.75rem;">0 Vuelos</span>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="avianca-styled-table" style="font-size:0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Vuelo</th>
+                    <th>Ruta</th>
+                    <th>Aeronave</th>
+                    <th>Salida / Puerta</th>
+                    <th>Ocupación</th>
+                    <th>Estado Operativo</th>
+                    <th style="text-align:center;">Acciones Operativas</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-admin-vuelos-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Botón de Flujo Guiado: Continuar al Módulo 03 -->
+      <div class="module-step-flow-bar">
+        <div>
+          <div class="flow-step-text">¿Listo para elegir tu lugar a bordo?</div>
+          <div class="flow-step-subtext">Selecciona tu vuelo en el itinerario y continúa a la visualización de cabina en tiempo real</div>
+        </div>
+        <button type="button" class="btn-avianca-red" onclick="irAReservarVuelo(document.getElementById('select-buscar-vuelo')?.value || state.selectedFlightCode)">
+          Continuar a Selección de Asientos ➔
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MÓDULO 2: PASAJEROS Y PROGRAMA DE MILLAS                       -->
+    <!-- ============================================================== -->
+    <div id="tab-pasajeros" class="tab-pane">
+      
+      <!-- Hero Banner Contextual: Módulo 02 -->
+      <div class="module-hero-banner hero-banner-multimedia">
+        <div class="hero-media-backdrop" aria-hidden="true">
+          <div class="hero-media-slide slide-cabin active"></div>
+          <div class="hero-media-slide slide-a350"></div>
+          <div class="hero-media-slide slide-airport"></div>
+          <div class="hero-media-slide slide-cockpit"></div>
+          <div class="hero-glass-veil"></div>
+        </div>
+        <div class="hero-content-col">
+          <div class="hero-tag-row">
+            <span class="status-pill-clean abierto">AEROFLOW PAY & LIFEMILES</span>
+            <span class="hero-subtag">COMPROBANTES Y PAGOS CONFIRMADOS</span>
+          </div>
+          <h1 class="hero-title">Pasajeros Recientes, Pagos & Programa de Millas</h1>
+          <p class="hero-description">Consulta los comprobantes de pago emitidos, verifica el estado de abordaje de los pasajeros, descarga tickets oficiales o inscribe nuevos viajeros frecuentes.</p>
+        </div>
+        <div class="hero-stats-badge">
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" id="hero-stat-pagos-count" style="color:var(--avianca-red);">26</span>
+            <span class="hero-stat-label">Pagos Registrados</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat-item">
+            <span class="hero-stat-num" style="color:#059669;">100%</span>
+            <span class="hero-stat-label">Transacciones Seguras</span>
+          </div>
+        </div>
+        <div class="hero-slide-indicators" aria-label="Fotografías de cabina y flota">
+          <button type="button" class="slide-dot active" title="Cabina Ejecutiva Clase Business" onclick="cambiarSlideManual(this, 0)"></button>
+          <button type="button" class="slide-dot" title="Airbus A350 en Vuelo" onclick="cambiarSlideManual(this, 1)"></button>
+          <button type="button" class="slide-dot" title="Terminal Aeroportuaria Internacional" onclick="cambiarSlideManual(this, 2)"></button>
+          <button type="button" class="slide-dot" title="Cockpit y Navegación Vectorial" onclick="cambiarSlideManual(this, 3)"></button>
+        </div>
+      </div>
+
+      <!-- Panel de KPIs Operativos y Financieros Animados v32.0 -->
+      <div id="panel-kpis-operativos" class="kpi-grid-container" data-section-role="operador" style="margin-bottom:1.5rem;">
+        <!-- Card 1: Recaudación Total COP -->
+        <div class="kpi-metric-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Recaudación Total Flota</span>
+            <span class="kpi-icon-badge">💰</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-currency-symbol">$</span>
+            <span class="kpi-main-number" id="kpi-total-recaudo">0</span>
+            <span class="kpi-currency-tag">COP</span>
+          </div>
+          <div class="kpi-subtext">Ingresos auditados en pasarela segura</div>
+        </div>
+
+        <!-- Card 2: Ocupación de Cabina -->
+        <div class="kpi-metric-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Ocupación Global Flota</span>
+            <span class="kpi-icon-badge">✈️</span>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-main-number" id="kpi-porcentaje-ocupacion">0%</span>
+            <span class="kpi-fraction" id="kpi-fraccion-sillas">(0 / 0 Sillas)</span>
+          </div>
+          <div class="kpi-progress-bar-bg">
+            <div id="kpi-ocupacion-fill" class="kpi-progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="kpi-subtext" id="kpi-ocupacion-status">Calculando disponibilidad...</div>
+        </div>
+
+        <!-- Card 3: Pasajeros VIP vs Estándar -->
+        <div class="kpi-metric-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Clases en Vuelo</span>
+            <span class="kpi-icon-badge">👑</span>
+          </div>
+          <div class="kpi-split-row">
+            <div class="kpi-split-item vip">
+              <span class="kpi-split-num" id="kpi-pax-vip">0</span>
+              <span class="kpi-split-lbl">VIP First Class</span>
+            </div>
+            <div class="kpi-split-divider"></div>
+            <div class="kpi-split-item eco">
+              <span class="kpi-split-num" id="kpi-pax-eco">0</span>
+              <span class="kpi-split-lbl">Clase Economy</span>
+            </div>
+          </div>
+          <div class="kpi-subtext">Segregación por categoría de cabina</div>
+        </div>
+
+        <!-- Card 4: Abordados vs En Sala -->
+        <div class="kpi-metric-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Estado de Tránsito</span>
+            <span class="kpi-icon-badge">🚪</span>
+          </div>
+          <div class="kpi-split-row">
+            <div class="kpi-split-item boarded">
+              <span class="kpi-split-num" id="kpi-pax-abordados">0</span>
+              <span class="kpi-split-lbl">A Bordo (100%)</span>
+            </div>
+            <div class="kpi-split-divider"></div>
+            <div class="kpi-split-item waiting">
+              <span class="kpi-split-num" id="kpi-pax-espera">0</span>
+              <span class="kpi-split-lbl">En Sala de Espera</span>
+            </div>
+          </div>
+          <div class="kpi-subtext">Flujo de puerta y validación biométrica</div>
+        </div>
+      </div>
+
+      <!-- Tarjeta Principal: Pasajeros y Pagos Cerrada por Avión (Requerimiento 2) -->
+      <div class="bento-card" data-section-role="operador">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Registro de Pasajeros y Pagos Cerrado por Avión</div>
+            <div class="bento-subtitle">Manifiesto segregado por aeronave con recaudo financiero y reimpresión individual de tiquetes</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="role-badge-pill operador">🛠️ OPERADOR</span>
+            <span id="badge-total-pagos-recientes" class="status-pill-clean abierto">26 Pagos Registrados</span>
+          </div>
+        </div>
+
+        <div id="contenedor-manifiestos-aviones" style="display:flex; flex-direction:column; gap:1rem;">
+          <div style="text-align:center; padding:1.5rem; color:var(--text-muted);">
+            Cargando manifiestos por aeronave...
+          </div>
+        </div>
+      </div>
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Consulta de Viajero Frecuente</div>
+            <div class="bento-subtitle">Verifica el estado de viajero, categoría VIP o asignación de vuelo</div>
+          </div>
+          <span class="status-pill-clean abierto">Directorio Oficial</span>
+        </div>
+
+        <div style="display:flex; gap:1.25rem; align-items:flex-end; flex-wrap:wrap;">
+          <div style="flex:1; min-width:340px;">
+            <label class="clean-label" for="select-buscar-pasajero">Seleccionar Pasajero en Directorio</label>
+            <select id="select-buscar-pasajero" class="form-select-clean" style="font-weight:700;"></select>
+          </div>
+          <button id="btn-buscar-pasajero" class="btn-avianca-red">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Consultar Información de Pasajero
+          </button>
+        </div>
+        <div id="pasajero-search-card" style="display:none; margin-top:1.25rem; padding:1.25rem; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-sm); color:var(--text-main);"></div>
+      </div>
+
+      <!-- Formulario Registro Pasajero Frecuente (Destacado para el comprador) -->
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Registro de Nuevo Pasajero & Programa de Viajero Frecuente</div>
+            <div class="bento-subtitle">Inscríbete para acumular millas, acceder a categoría VIP y agilizar tus compras</div>
+          </div>
+        </div>
+
+        <form id="form-crear-pasajero" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; align-items:end;">
+          <div>
+            <label class="clean-label" for="pasajero-doc">Documento de Identidad</label>
+            <input type="text" id="pasajero-doc" class="form-input-clean" placeholder="ej. 109847291" required>
+          </div>
+          <div>
+            <label class="clean-label" for="pasajero-nombre">Nombre Completo</label>
+            <input type="text" id="pasajero-nombre" class="form-input-clean" placeholder="ej. Camilo Restrepo" required>
+          </div>
+          <div>
+            <label class="clean-label" for="pasajero-nac">Nacionalidad</label>
+            <input type="text" id="pasajero-nac" class="form-input-clean" value="Colombia" required>
+          </div>
+          <div>
+            <label class="clean-label" for="pasajero-cat">Categoría de Viajero</label>
+            <select id="pasajero-cat" class="form-select-clean">
+              <option value="Estándar">Estándar</option>
+              <option value="VIP">VIP / First Class</option>
+            </select>
+          </div>
+          <div>
+            <button type="submit" class="btn-avianca-red" style="width:100%;">
+              Guardar en Directorio
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Directorio General de Pasajeros Registrados (Plegable para inspección) -->
+      <details open class="admin-collapsible-section" data-section-role="operador">
+        <summary class="admin-collapsible-summary">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Directorio General de Pasajeros Registrados (Base de Datos Oficial)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="role-badge-pill operador">🛠️ OPERADOR</span>
+            <span id="avl-metrics-badge" class="status-pill-clean programado" style="font-size:0.75rem;">--</span>
+          </div>
+        </summary>
+
+        <div style="padding-top:1.25rem;">
+          <!-- Barra de Búsqueda Instantánea y Filtros Rápidos v33.0 -->
+          <div class="passenger-search-filter-bar">
+            <div class="search-input-wrapper">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="input-filtro-directorio" class="form-input-clean search-clean-input" placeholder="Buscar por documento, nombre o vuelo..." aria-label="Buscar pasajero por documento, nombre o vuelo" oninput="filtrarTablaPasajerosDirectorio()">
+            </div>
+            <div class="passenger-filter-pills" role="tablist">
+              <button type="button" class="filter-pill-btn active" data-filter="todos" onclick="setFiltroCategoriaDirectorio('todos')">Todos</button>
+              <button type="button" class="filter-pill-btn" data-filter="vip" onclick="setFiltroCategoriaDirectorio('vip')">👑 Solo VIP</button>
+              <button type="button" class="filter-pill-btn" data-filter="estandar" onclick="setFiltroCategoriaDirectorio('estandar')">Estándar</button>
+              <button type="button" class="filter-pill-btn" data-filter="espera" onclick="setFiltroCategoriaDirectorio('espera')">⏳ En Espera</button>
+            </div>
+          </div>
+
+          <table class="avianca-styled-table">
+            <thead>
+              <tr>
+                <th>Documento</th>
+                <th>Nombre Completo</th>
+                <th>Nacionalidad</th>
+                <th>Categoría</th>
+                <th>Vuelo Asignado</th>
+                <th style="text-align:center; width:120px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-pasajeros-body"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- Botón de Flujo Guiado: Continuar al Módulo 03 -->
+      <div class="module-step-flow-bar">
+        <div>
+          <div class="flow-step-text">¿Pasajero registrado en el directorio?</div>
+          <div class="flow-step-subtext">Continúa directamente a la selección de tu butaca y emisión del tiquete</div>
+        </div>
+        <button type="button" class="btn-avianca-red" onclick="activarTab('tab-compra-avion')">
+          Continuar a Selección de Asientos ➔
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MÓDULO 3: COMPRA DE BOLETO, MAPA VECTORIAL EXACTO & CHECK-IN   -->
+    <!-- ============================================================== -->
+    <div id="tab-compra-avion" class="tab-pane">
+
+      <!-- Hero Banner Contextual: Módulo 03 -->
+      <div class="module-hero-banner hero-banner-multimedia">
+        <div class="hero-media-backdrop" aria-hidden="true">
+          <div class="hero-media-slide slide-cockpit active"></div>
+          <div class="hero-media-slide slide-a350"></div>
+          <div class="hero-media-slide slide-cabin"></div>
+          <div class="hero-media-slide slide-airport"></div>
+          <div class="hero-glass-veil"></div>
+        </div>
+        <div class="hero-content-col">
+          <div class="hero-tag-row">
+            <span class="status-pill-clean embarcando">MAPA DE CABINA VECTORIAL</span>
+            <span class="hero-subtag">ASIGNACIÓN EN TIEMPO REAL</span>
+          </div>
+          <h1 class="hero-title">Selección de Butacas & Pasarela AeroFlow Pay</h1>
+          <p class="hero-description">Visualiza la silueta aerodinámica de la aeronave, elige tu asiento en doble cabina y procesa tu pago con total seguridad en Pesos Colombianos ($ COP).</p>
+        </div>
+        <div class="hero-security-pill">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Pasarela Segura PCI-DSS 256-bit</span>
+        </div>
+        <div class="hero-slide-indicators" aria-label="Fotografías de cabina y flota">
+          <button type="button" class="slide-dot active" title="Cockpit y Navegación Vectorial" onclick="cambiarSlideManual(this, 0)"></button>
+          <button type="button" class="slide-dot" title="Airbus A350 en Vuelo" onclick="cambiarSlideManual(this, 1)"></button>
+          <button type="button" class="slide-dot" title="Cabina Ejecutiva Clase Business" onclick="cambiarSlideManual(this, 2)"></button>
+          <button type="button" class="slide-dot" title="Terminal Aeroportuaria Internacional" onclick="cambiarSlideManual(this, 3)"></button>
+        </div>
+      </div>
+      
+      <!-- Selector de Vuelo -->
+      <div class="bento-card">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Selección de Ruta & Mapa de Asientos</div>
+            <div class="bento-subtitle">Visualiza la silueta aerodinámica de la aeronave y elige tu butaca en cabina doble</div>
+          </div>
+          <span id="seatmap-flight-badge" class="status-pill-clean embarcando">-- / -- Asientos</span>
+        </div>
+
+        <div style="display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap;">
+          <div style="flex:1; min-width:320px;">
+            <select id="select-seatmap-vuelo" class="form-select-clean" aria-label="Seleccionar vuelo para mapa de cabina" style="font-size:1rem; font-weight:700; padding:0.75rem;"></select>
+          </div>
+          <div id="flight-specs-summary" style="display:flex; gap:1.5rem; font-size:0.85rem; color:var(--avianca-gray-text);">
+            <div>AERONAVE: <strong id="spec-plane" style="color:var(--avianca-black);">--</strong></div>
+            <div>RUTA: <strong id="spec-route" style="color:var(--avianca-red);">--</strong></div>
+            <div>SALIDA (12H): <strong id="spec-time" style="color:var(--avianca-black);">--</strong></div>
+          </div>
+        </div>
+        <div id="destination-hero-m3" style="display:none; margin-top:1.25rem;"></div>
+      </div>
+
+      <!-- Gran Contenedor Fuselaje Horizontal Técnico (AERO FLOW // CABIN SEAT MAP) -->
+      <div class="dark-fuselage-master-card">
+        
+        <!-- Encabezado del Mapa Horizontal (Exacto a la Imagen Adjunta) -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem; border-bottom:1px solid #1E293B; padding-bottom:0.75rem;">
+          <div>
+            <div style="font-family:'Plus Jakarta Sans', sans-serif; font-size:1.35rem; font-weight:900; letter-spacing:0.04em; color:#FFFFFF;">
+              AERO FLOW <span style="color:#DA291C;">//</span> CABIN SEAT MAP
+            </div>
+            <div id="fuselage-aircraft-subtitle" style="font-size:0.85rem; font-weight:600; color:#94A3B8; margin-top:2px;">
+              (Boeing 787 o Airbus A320)
+            </div>
+          </div>
+          <span id="seatmap-flight-badge-internal" class="status-pill-clean embarcando">-- / -- Asientos</span>
+        </div>
+
+        <!-- Viewport Horizontal Técnico con Scroll Suave si es necesario -->
+        <div class="fuselage-viewport-horizontal">
+          <svg id="aircraft-svg-fuselage" viewBox="0 0 1150 500" style="min-width:1050px; width:100%; max-width:1300px; height:auto;">
+            <!-- Renderizado dinámico 100% horizontal en app.js -->
+          </svg>
+        </div>
+
+        <!-- Leyenda Oficial Inferior (Exacta a la Imagen de Referencia) -->
+        <div class="fuselage-official-legend-row">
+          <div class="legend-chip"><span class="chip-color vip"></span> VIP First Class</div>
+          <div class="legend-chip"><span class="chip-color eco"></span> Economy Libre</div>
+          <div class="legend-chip"><span class="chip-color sel"></span> Seleccionada</div>
+          <div class="legend-chip"><span class="chip-color occ">✕</span> Butaca Ocupada</div>
+        </div>
+
+      </div>
+
+      <!-- Panel de Checkout y Emisión de Tiquetes en COP (Debajo del Fuselaje) -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.75rem; margin-top:1.5rem;">
+        
+        <!-- Panel de Resumen de tu Reserva / Checkout Financiero -->
+        <div class="checkout-panel-avianca" style="margin-bottom:0;">
+          <div style="border-bottom:1px solid rgba(255, 255, 255, 0.1); padding-bottom:1rem; margin-bottom:1.25rem;">
+            <div style="font-size:1.2rem; font-weight:800; color:#F8FAFC;">Resumen de tu Reserva</div>
+            <div style="font-size:0.8rem; color:#94A3B8; margin-top:0.2rem;">Precios oficiales en Pesos Colombianos ($ COP)</div>
+          </div>
+
+          <!-- Asiento Seleccionado -->
+          <div style="background:rgba(30, 41, 59, 0.7); border:1.5px solid #334155; border-radius:var(--radius-sm); padding:1rem; margin-bottom:1.25rem; color:#F8FAFC;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.75rem; font-weight:700; color:#94A3B8; text-transform:uppercase;">Asiento Seleccionado</span>
+              <span id="selected-seat-badge" class="status-pill-clean abierto">ELIGE UNA BUTACA</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:0.4rem;">
+              <div id="selected-seat-id" style="font-family:var(--font-mono); font-size:1.8rem; font-weight:800; color:#F8FAFC;">--</div>
+              <div id="selected-seat-type" style="font-size:0.85rem; font-weight:600; color:#94A3B8;">--</div>
+            </div>
+          </div>
+
+          <!-- Desglose de Tarifas e Impuestos Estilo Checkout Avianca -->
+          <div style="display:flex; flex-direction:column; gap:0.25rem;">
+            <div class="checkout-row-item">
+              <span>Tarifa Base de Cabina:</span>
+              <strong id="chk-tarifa-base">$ 0 COP</strong>
+            </div>
+            <div class="checkout-row-item">
+              <span>Tarifa Administrativa / Emisión:</span>
+              <strong id="chk-tarifa-admin">$ 0 COP</strong>
+            </div>
+            <div class="checkout-row-item">
+              <span>IVA (19% sobre tarifa base):</span>
+              <strong id="chk-iva">$ 0 COP</strong>
+            </div>
+            <div class="checkout-row-item">
+              <span>Tasa Aeroportuaria (STAX):</span>
+              <strong id="chk-tasa">$ 0 COP</strong>
+            </div>
+          </div>
+
+          <!-- Total a Pagar en COP -->
+          <div class="checkout-total-card">
+            <div class="total-headline">Total a Pagar</div>
+            <div id="chk-total-cop" class="total-amount-cop">$ 0 COP</div>
+          </div>
+        </div>
+
+        <!-- Formulario de Emisión con Menús Desplegables Inteligentes -->
+        <div class="bento-card" style="margin-bottom:0;">
+          <div class="bento-header">
+            <div>
+              <div class="bento-title">Emisión de Tiquete y Asignación de Asiento</div>
+              <div class="bento-subtitle">Confirma la reserva o añade a la lista de espera prioritaria si el vuelo está lleno</div>
+            </div>
+          </div>
+
+          <form id="form-emitir-boleto" style="display:flex; flex-direction:column; gap:0.9rem;">
+            <div>
+              <label class="clean-label" for="compra-pasajero-select">Seleccionar Pasajero en Directorio</label>
+              <select id="compra-pasajero-select" class="form-select-clean" style="font-weight:600;"></select>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
+              <div>
+                <label class="clean-label" for="compra-pasajero-doc">Documento de Identidad</label>
+                <input type="text" id="compra-pasajero-doc" class="form-input-clean" placeholder="ej. 101829384" required>
+              </div>
+              <div>
+                <label class="clean-label" for="compra-pasajero-nombre">Nombre Completo</label>
+                <input type="text" id="compra-pasajero-nombre" class="form-input-clean" placeholder="Nombre completo">
+              </div>
+            </div>
+
+            <div>
+              <label class="clean-label" for="compra-asiento-select">Seleccionar Asiento en Cabina (O Clic en el Avión)</label>
+              <select id="compra-asiento-select" class="form-select-clean" style="font-weight:600;"></select>
+            </div>
+
+            <button type="submit" id="btn-confirmar-compra" class="btn-avianca-red" style="width:100%; padding:0.9rem; margin-top:0.5rem;">
+              Confirmar Pago y Emitir Tiquete
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- Panel de Control Interno de Cabina & Manifiesto (Plegable para inspección técnica) -->
+      <details id="panel-operativo-cabina-details" class="admin-collapsible-section" data-section-role="operador" style="margin-top:2rem;">
+        <summary class="admin-collapsible-summary">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>Control de Manifiesto y Operaciones de Cabina (Uso Interno de Aeropuerto)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="role-badge-pill operador">🛠️ OPERADOR</span>
+            <span class="status-pill-clean programado" style="font-size:0.75rem;">DETALLES OPERATIVOS</span>
+          </div>
+        </summary>
+
+        <div style="padding-top:1.5rem;">
+          <!-- Manifiesto Oficial de Vuelo y Asignación de Cabina -->
+          <div class="bento-card" style="margin-bottom:1.5rem;">
+            <div class="bento-header">
+              <div>
+                <div class="bento-title">Manifiesto Oficial de Vuelo y Asignación de Cabina</div>
+                <div class="bento-subtitle">Secuencia cronológica de abordaje y distribución de asientos en cabina</div>
+              </div>
+              <span class="status-pill-clean abierto">Manifiesto Activo</span>
+            </div>
+
+            <div style="background:var(--bg-card); padding:1.1rem; border-radius:var(--radius-sm); border:1px solid var(--border-card); overflow-x:auto;">
+              <div id="linkedlist-chain-track" style="display:flex; align-items:center; gap:0.6rem; min-width:max-content; font-family:var(--font-mono); font-size:0.82rem;"></div>
+            </div>
+          </div>
+
+          <!-- Pasajeros Confirmados y Standby -->
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:1.75rem;">
+            
+            <div class="bento-card" style="margin-bottom:0;">
+              <div class="bento-header">
+                <div>
+                  <div class="bento-title">Pasajeros Confirmados con Asiento Asignado</div>
+                  <div class="bento-subtitle">Al liberar un asiento se activa el ascenso automático del primer pasajero en espera</div>
+                </div>
+              </div>
+
+              <table class="avianca-styled-table">
+                <thead>
+                  <tr>
+                    <th>Asiento</th>
+                    <th>Clase</th>
+                    <th>Documento</th>
+                    <th>Pasajero</th>
+                    <th>Check-in (12H)</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-manifiesto-body"></tbody>
+              </table>
+            </div>
+
+            <div class="bento-card" style="margin-bottom:0;">
+              <div class="bento-header">
+                <div>
+                  <div class="bento-title">Lista de Espera Prioritaria</div>
+                  <div class="bento-subtitle">Asignación automática de cupo según orden estricto de registro</div>
+                </div>
+                <span class="status-pill-clean llamada">Lista Prioritaria</span>
+              </div>
+
+              <table class="avianca-styled-table">
+                <thead>
+                  <tr>
+                    <th>Pos</th>
+                    <th>Doc</th>
+                    <th>Pasajero</th>
+                    <th>Ingreso (12H)</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-standby-body"></tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </details>
+
+      <!-- Botón de Flujo Guiado: Continuar al Módulo 04 -->
+      <div class="module-step-flow-bar">
+        <div>
+          <div class="flow-step-text">¿Completaste tu reserva o consulta?</div>
+          <div class="flow-step-subtext">Visualiza tu Pase de Abordar oficial o supervisa el proceso de salida en puerta</div>
+        </div>
+        <button type="button" class="btn-avianca-red" onclick="activarTab('tab-puerta')">
+          Continuar a Pase de Abordar y Puerta ➔
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MÓDULO 4: PASE DE ABORDAR & ESTADO EN PUERTA                    -->
+    <!-- ============================================================== -->
+    <div id="tab-puerta" class="tab-pane">
+
+      <!-- Hero Banner Contextual: Módulo 04 -->
+      <div class="module-hero-banner hero-banner-multimedia">
+        <div class="hero-media-backdrop" aria-hidden="true">
+          <div class="hero-media-slide slide-airport active"></div>
+          <div class="hero-media-slide slide-a350"></div>
+          <div class="hero-media-slide slide-cabin"></div>
+          <div class="hero-media-slide slide-cockpit"></div>
+          <div class="hero-glass-veil"></div>
+        </div>
+        <div class="hero-content-col">
+          <div class="hero-tag-row">
+            <span class="status-pill-clean abierto">DOCUMENTOS DE VIAJE & PUERTA</span>
+            <span class="hero-subtag">EMISIÓN EN VIVO 12H AM/PM</span>
+          </div>
+          <h1 class="hero-title">Pase de Abordar Digital & Monitor en Puerta</h1>
+          <p class="hero-description">Consulta tu tarjeta de embarque oficial con código QR y código de barras vectorial, descarga tu comprobante de compra o sigue el llamado de abordaje en puerta.</p>
+        </div>
+        <div class="hero-quick-action">
+          <button type="button" class="btn-avianca-red" onclick="window.print()" id="btn-hero-imprimir" style="padding:0.75rem 1.6rem; font-size:0.9rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            🖨️ Imprimir Ticket / Guardar PDF
+          </button>
+        </div>
+        <div class="hero-slide-indicators" aria-label="Fotografías de cabina y flota">
+          <button type="button" class="slide-dot active" title="Terminal Aeroportuaria Internacional" onclick="cambiarSlideManual(this, 0)"></button>
+          <button type="button" class="slide-dot" title="Airbus A350 en Vuelo" onclick="cambiarSlideManual(this, 1)"></button>
+          <button type="button" class="slide-dot" title="Cabina Ejecutiva Clase Business" onclick="cambiarSlideManual(this, 2)"></button>
+          <button type="button" class="slide-dot" title="Cockpit y Navegación Vectorial" onclick="cambiarSlideManual(this, 3)"></button>
+        </div>
+      </div>
+      
+      <!-- Pase de Abordar Digital (Principal para el Pasajero) -->
+      <div class="bento-card" data-section-role="cliente">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Tu Pase de Abordar Digital (Boarding Pass)</div>
+            <div class="bento-subtitle">Pase oficial con código de barras, confirmación de asiento y horario de salida</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <!-- Selector Rápido de Pasajero en Vuelo Activo v33.0 -->
+            <div class="quick-pax-selector-box" id="quick-pax-selector-box" style="display:none;">
+              <label for="select-pax-boarding-pass" style="font-size:0.75rem; font-weight:700; color:var(--avianca-gray-text); margin-right:4px;">Pasajero:</label>
+              <select id="select-pax-boarding-pass" class="form-select-clean select-compact-pax" onchange="onCambiarPasajeroBoardingPass(this.value)">
+              </select>
+            </div>
+            <span class="role-badge-pill cliente">👤 PASAJERO</span>
+            <span class="status-pill-clean abierto">DOCUMENTO DE VIAJE</span>
+          </div>
+        </div>
+
+        <div id="boarding-pass-container" style="padding:1.5rem 0;">
+          <div class="empty-state-wizard">
+            <div class="empty-state-icon">🎫</div>
+            <div class="empty-state-title">¿Listo para consultar tu Pase de Abordar Digital?</div>
+            <div class="empty-state-subtitle">Selecciona un vuelo de la red o elige tu asiento para generar tu tarjeta de embarque oficial con código QR y código de barras.</div>
+            <div class="empty-state-actions">
+              <button type="button" class="btn-avianca-red" onclick="activarTab('tab-fids')" style="padding:0.65rem 1.4rem;">
+                ✈️ Explorar Vuelos y Rutas
+              </button>
+              <button type="button" class="btn-secondary" onclick="cargarPrimerPaseDeVuelo('AF1001')" style="padding:0.65rem 1.4rem;">
+                🎫 Ver Pase del Vuelo Activo (AF1001)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monitor de Abordaje y Puerta de Embarque -->
+      <div class="bento-card" data-section-role="operador">
+        <div class="bento-header">
+          <div>
+            <div class="bento-title">Monitoreo de Vuelo y Estado en Puerta</div>
+            <div class="bento-subtitle">Llamado de pasajeros y progreso de abordaje en tiempo real</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="role-badge-pill operador">🛠️ OPERADOR</span>
+            <span class="status-pill-clean embarcando">ESTADO EN PUERTA</span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.85rem; align-items:center; flex-wrap:wrap;">
+          <div style="flex:1; min-width:260px;">
+            <select id="select-puerta-vuelo" class="form-select-clean" aria-label="Seleccionar vuelo para control de embarque" style="font-size:1rem; font-weight:700; padding:0.75rem;"></select>
+          </div>
+          <button id="btn-abordar-individual" type="button" class="btn-scan-boarding" onclick="abordarSiguientePasajeroManual()" title="Escanear y abordar al siguiente pasajero pendiente (1 a 1, priorizando categoría VIP)" style="padding:0.75rem 1.4rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <polyline points="17 11 19 13 23 9"></polyline>
+            </svg>
+            <span>Escanear y Abordar Siguiente Pasajero (1 a 1)</span>
+          </button>
+          <button id="btn-iniciar-embarque" class="btn-avianca-red" style="padding:0.75rem 1.4rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Auto-Embarque Completo</span>
+          </button>
+          <button id="btn-cancelar-embarque" type="button" class="btn-cancelar-operacion" onclick="cancelarOperacionEmbarque()" title="Abortar o revertir el proceso de embarque de este vuelo">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+            <span>Cancelar Operación</span>
+          </button>
+        </div>
+        <div id="destination-hero-m4" style="display:none; margin-top:1.25rem;"></div>
+
+        <div style="margin-top:1.5rem;">
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.78rem; font-weight:700; margin-bottom:0.4rem;">
+            <span>ESTADO DEL EMBARQUE</span>
+            <span id="gate-progress-text" style="color:var(--avianca-red);">0 / 0 Pasajeros Abordados (0%)</span>
+          </div>
+          <div style="width:100%; height:10px; background:var(--border-input); border-radius:var(--radius-pill); overflow:hidden;">
+            <div id="gate-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #F59E0B, var(--avianca-red)); transition:width 0.4s ease;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de Flujo Guiado: Volver al Inicio -->
+      <div class="module-step-flow-bar">
+        <div>
+          <div class="flow-step-text">¿Deseas gestionar otro viaje o revisar otros itinerarios?</div>
+          <div class="flow-step-subtext">Regresa al catálogo general de vuelos y destinos de AERO FLOW AIRLINES</div>
+        </div>
+        <button type="button" class="btn-secondary" onclick="activarTab('tab-fids')">
+          Volver a Consultar Vuelos / Inicio ↺
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================================================================ -->
+  <!-- MODAL DE PASARELA DE PAGOS COMERCIAL: "AEROFLOW PAY" ($ COP)     -->
+  <!-- ================================================================ -->
+  <div id="modal-aeroflow-pay" class="modal-pay-overlay" style="display:none;">
+    <div class="modal-pay-container">
+      
+      <!-- Cabecera del Modal -->
+      <div class="modal-pay-header">
+        <div class="pay-brand">
+          <svg class="pay-logo-wing" viewBox="0 0 100 80" fill="none">
+            <path d="M10 20 C25 15, 60 10, 85 45 C70 40, 50 42, 40 50 C55 46, 75 48, 88 65 C70 60, 45 62, 35 70 C50 68, 68 70, 78 78 C45 78, 20 65, 10 20 Z" fill="url(#wingGradientModal)"/>
+            <path d="M30 68 C45 65, 65 67, 78 78 C55 78, 38 74, 30 68 Z" fill="#DA291C"/>
+            <defs>
+              <linearGradient id="wingGradientModal" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38BDF8"/>
+                <stop offset="50%" stop-color="#1D4ED8"/>
+                <stop offset="100%" stop-color="#0B192C"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div>
+            <div class="pay-brand-title">AERO FLOW <span style="color:#DA291C;">PAY</span></div>
+            <div class="pay-brand-subtitle">Pasarela Oficial de Pagos // Transacción en Pesos Colombianos ($ COP)</div>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="cerrarModalPago()" title="Cerrar Pasarela">✕</button>
+      </div>
+
+      <!-- Cuerpo del Modal: 2 Columnas -->
+      <div class="modal-pay-body">
+        
+        <!-- Columna Izquierda: Métodos de Pago y Formularios Interactivos -->
+        <div class="modal-pay-methods-col">
+          
+          <!-- Pestañas de Métodos -->
+          <div class="pay-tabs-nav">
+            <button type="button" class="pay-tab-btn active" data-paymethod="card" onclick="seleccionarMetodoPago('card')">
+              💳 Tarjeta Débito / Crédito
+            </button>
+            <button type="button" class="pay-tab-btn" data-paymethod="pse" onclick="seleccionarMetodoPago('pse')">
+              🏦 PSE / Bancos Colombia
+            </button>
+            <button type="button" class="pay-tab-btn" data-paymethod="miles" onclick="seleccionarMetodoPago('miles')">
+              ✨ Millas AeroFlow
+            </button>
+          </div>
+
+          <!-- Vista 1: Tarjeta con Plástico Virtual Interactivo -->
+          <div id="pay-view-card" class="pay-view-tab active">
+            
+            <div class="virtual-card-wrapper">
+              <div class="virtual-card">
+                <div class="card-chip-row">
+                  <div class="card-emv-chip"></div>
+                  <div class="card-brand-badge">AERO FLOW PLATINUM</div>
+                </div>
+                <div class="card-number-display" id="vcard-number">•••• •••• •••• ••••</div>
+                <div class="card-info-row">
+                  <div>
+                    <div class="vcard-label">TITULAR DEL TIQUETE</div>
+                    <div class="vcard-val" id="vcard-holder">NOMBRE DEL PASAJERO</div>
+                  </div>
+                  <div>
+                    <div class="vcard-label">VENCIMIENTO</div>
+                    <div class="vcard-val" id="vcard-expiry">10/28</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pay-inputs-grid">
+              <div style="grid-column: 1 / -1;">
+                <label class="pay-label" for="pay-card-num">Número de Tarjeta</label>
+                <input type="text" id="pay-card-num" class="form-input-clean" placeholder="4532 8912 3456 7890" maxlength="19">
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label class="pay-label" for="pay-card-name">Nombre en la Tarjeta</label>
+                <input type="text" id="pay-card-name" class="form-input-clean" placeholder="NOMBRE COMPLETO">
+              </div>
+              <div>
+                <label class="pay-label" for="pay-card-exp">Vencimiento (MM/AA)</label>
+                <input type="text" id="pay-card-exp" class="form-input-clean" placeholder="10/28" maxlength="5">
+              </div>
+              <div>
+                <label class="pay-label" for="pay-card-cvv">Código CVV</label>
+                <input type="password" id="pay-card-cvv" class="form-input-clean" placeholder="•••" maxlength="4">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Vista 2: PSE Transferencia Bancaria Directa -->
+          <div id="pay-view-pse" class="pay-view-tab" style="display:none;">
+            <div class="pse-bank-banner">
+              ⚡ Pago seguro debitado en tiempo real desde tu cuenta bancaria o billetera digital colombiana mediante la red PSE.
+            </div>
+
+            <div class="pay-inputs-grid" style="margin-top:1.25rem;">
+              <div style="grid-column: 1 / -1;">
+                <label class="pay-label" for="pay-pse-bank">Selecciona tu Banco / Billetera</label>
+                <select id="pay-pse-bank" class="form-select-clean">
+                  <option value="Bancolombia" selected>Bancolombia (Personas / App)</option>
+                  <option value="Nequi">Nequi (Bancolombia)</option>
+                  <option value="Davivienda">Davivienda / DaviPlata</option>
+                  <option value="Banco de Bogotá">Banco de Bogotá (Grupo Aval)</option>
+                  <option value="Nu Colombia">Nu Colombia (Cuenta Nu)</option>
+                  <option value="BBVA">BBVA Colombia</option>
+                  <option value="Scotiabank Colpatria">Scotiabank Colpatria</option>
+                  <option value="Banco de Occidente">Banco de Occidente</option>
+                  <option value="Lulo Bank">Lulo Bank</option>
+                  <option value="Dale!">Dale! (Billetera Aval)</option>
+                </select>
+              </div>
+              <div>
+                <label class="pay-label" for="pay-pse-type">Tipo de Cliente</label>
+                <select id="pay-pse-type" class="form-select-clean">
+                  <option value="Natural">Persona Natural</option>
+                  <option value="Juridica">Persona Jurídica</option>
+                </select>
+              </div>
+              <div>
+                <label class="pay-label" for="pay-pse-doc">Documento del Pagador</label>
+                <input type="text" id="pay-pse-doc" class="form-input-clean" placeholder="Número de cédula">
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label class="pay-label" for="pay-pse-email">Correo Notificación PSE</label>
+                <input type="email" id="pay-pse-email" class="form-input-clean" placeholder="tu-correo@ejemplo.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista 3: Redención de Millas AeroFlow -->
+          <div id="pay-view-miles" class="pay-view-tab" style="display:none;">
+            <div class="miles-balance-card">
+              <div class="miles-title">Saldo Disponible en tu Cuenta</div>
+              <div class="miles-amount">45.000 Millas LifeMiles / AeroFlow</div>
+              <div class="miles-redemption-row">
+                <span>Costo de redención de este tiquete:</span>
+                <strong style="color:var(--avianca-red); font-size:1.1rem;" id="pay-miles-cost">18.500 Millas</strong>
+              </div>
+              <div class="miles-cash-row">
+                <span>Saldo en efectivo a pagar:</span>
+                <strong style="color:#059669;">$ 0 COP (100% Cubierto con Millas)</strong>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna Derecha: Resumen Financiero y Botón de Cobro -->
+        <div class="modal-pay-summary-col">
+          <div class="summary-box">
+            <div>
+              <div class="summary-title">Resumen de la Compra</div>
+
+              <div class="summary-flight-row">
+                <div>
+                  <div class="summary-flight-cod" id="pay-summary-flight-cod">AF1001</div>
+                  <div class="summary-flight-route" id="pay-summary-route">BOG ✈ MAD</div>
+                </div>
+                <div class="summary-seat-badge" id="pay-summary-seat">--</div>
+              </div>
+
+              <div class="summary-divider"></div>
+
+              <div class="summary-item-row">
+                <span>Pasajero:</span>
+                <strong id="pay-summary-passenger">--</strong>
+              </div>
+              <div class="summary-item-row">
+                <span>Doc. Identidad:</span>
+                <strong id="pay-summary-doc">--</strong>
+              </div>
+              <div class="summary-item-row">
+                <span>Salida (12H):</span>
+                <strong id="pay-summary-time">--</strong>
+              </div>
+
+              <div class="summary-divider"></div>
+
+              <div class="summary-breakdown">
+                <div class="summary-item-row">
+                  <span>Tarifa Base de Cabina:</span>
+                  <strong id="pay-sum-base">$ 0 COP</strong>
+                </div>
+                <div class="summary-item-row">
+                  <span>Tarifa Administrativa:</span>
+                  <strong id="pay-sum-admin">$ 0 COP</strong>
+                </div>
+                <div class="summary-item-row">
+                  <span>IVA (19% sobre base):</span>
+                  <strong id="pay-sum-iva">$ 0 COP</strong>
+                </div>
+                <div class="summary-item-row">
+                  <span>Tasa Aeroportuaria (STAX):</span>
+                  <strong id="pay-sum-tasa">$ 0 COP</strong>
+                </div>
+              </div>
+
+              <div class="summary-total-row">
+                <span style="font-weight:800; font-size:0.9rem; color:var(--avianca-red); text-transform:uppercase;">Total a Pagar:</span>
+                <span class="summary-total-val" id="pay-sum-total">$ 0 COP</span>
+              </div>
+            </div>
+
+            <div>
+              <button type="button" id="btn-pay-execute" class="btn-avianca-red btn-pay-now" onclick="procesarPagoAeroFlow()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span>Pagar Ahora con AeroFlow Pay</span>
+              </button>
+
+              <div class="security-guarantee">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>Certificado PCI-DSS Nivel 1 • Cifrado Bancario Seguro</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pantalla de Procesamiento Bancario y Aprobación (Overlay Interior) -->
+      <div id="modal-pay-processing-overlay" class="modal-pay-overlay-inner" style="display:none;">
+        <div class="processing-content" id="pay-processing-spinner-box">
+          <div class="banking-spinner"></div>
+          <div class="processing-title">Verificando transacción con la entidad bancaria...</div>
+          <div class="processing-subtitle">Por favor, no recargues la página ni cierres el navegador mientras se autorizan los fondos.</div>
+          <div class="processing-ref">Cifrado de Red Bancaria SSL 256-bit</div>
+        </div>
+
+        <div class="processing-content" id="pay-processing-success-box" style="display:none;">
+          <div class="success-checkmark-circle">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <div class="success-title">¡Pago Aprobado con Éxito!</div>
+          <div class="success-ref" id="pay-success-ref">Referencia Bancaria: #AF-8942-CO</div>
+          <div class="success-subtitle">Tu tiquete y asignación de asiento han sido confirmados en la aeronave.</div>
+          
+          <div style="display:flex; gap:1rem; justify-content:center; margin-top:1.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn-avianca-red" onclick="irAPaseDeAbordarDesdePago()">
+              Ver Pase de Abordar y Recibo ➔
+            </button>
+            <button type="button" class="btn-secondary" onclick="imprimirTicketDirecto()">
+              🖨️ Imprimir Ticket Físico / Guardar PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal Táctico de Confirmación Personalizado (Zero Alerts Nativas v33.0) -->
+  <div id="tactical-confirm-modal" class="tactical-modal-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="tactical-modal-card">
+      <div class="tactical-modal-icon-badge" id="confirm-modal-icon">⚠️</div>
+      <div class="tactical-modal-title" id="confirm-modal-title">Confirmar Acción Táctica</div>
+      <div class="tactical-modal-desc" id="confirm-modal-desc">¿Estás seguro de que deseas ejecutar esta operación?</div>
+      <div class="tactical-modal-actions">
+        <button type="button" class="btn-secondary" id="confirm-modal-btn-cancel" onclick="cerrarTacticalConfirmModal(false)">
+          Cancelar / Volver
+        </button>
+        <button type="button" class="btn-avianca-red" id="confirm-modal-btn-execute" onclick="cerrarTacticalConfirmModal(true)">
+          Confirmar Acción
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <div id="aero-global-progress" class="aero-global-progress" aria-hidden="true"><i></i></div>
+
+  <!-- Barra de Navegación Táctil Inferior para Móviles (Fase 4 Mobile-First) -->
+  <nav class="mobile-bottom-nav" aria-label="Navegación Móvil Principal">
+    <button type="button" class="mobile-nav-item active" data-tab="tab-fids" onclick="activarTab('tab-fids')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
+      <span>01 Vuelos</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-pasajeros" onclick="activarTab('tab-pasajeros')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span>02 Directorio</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-compra-avion" onclick="activarTab('tab-compra-avion')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+      <span>03 Asientos</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-puerta" onclick="activarTab('tab-puerta')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path><circle cx="6" cy="12" r="1"></circle></svg>
+      <span>04 Puerta</span>
+    </button>
+  </nav>
+
+  <script src="/vendor/supabase.js"></script>
+  <script src="/js/config.js"></script>
+  <script src="/static/js/core.js?v=35.0"></script>
+  <script src="/static/js/app.js?v=35.0"></script>
+  <script src="/static/js/auth.js?v=35.0"></script>
+</body>
+</html>

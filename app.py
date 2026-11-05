@@ -5,11 +5,12 @@
 =============================================================================
 """
 
+import os
 import time
 import logging
 import threading
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, g
+from flask import Flask, request, jsonify, render_template, g, send_from_directory
 import config
 import database as db
 import validation
@@ -272,8 +273,41 @@ def generar_reemplazo_vuelo_interno(codigo_anterior):
     return nuevo_vuelo
 
 # =====================================================================
-# RUTAS DE INTERFAZ & TELEMETRÍA GLOBAL
+# RUTAS DE INTERFAZ & TELEMETRÍA GLOBAL & PWA ASSETS
 # =====================================================================
+@app.route('/manifest.webmanifest')
+def serve_manifest():
+    response = send_from_directory(config.BASE_DIR, 'manifest.webmanifest')
+    response.headers['Content-Type'] = 'application/manifest+json; charset=utf-8'
+    return response
+
+@app.route('/sw.js')
+def serve_sw():
+    response = send_from_directory(config.BASE_DIR, 'sw.js')
+    response.headers['Content-Type'] = 'application/javascript; charset=utf-8'
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+@app.route('/offline.html')
+def serve_offline():
+    return send_from_directory(config.BASE_DIR, 'offline.html')
+
+@app.route('/icons/<path:filename>')
+def serve_icons(filename):
+    return send_from_directory(os.path.join(config.BASE_DIR, 'icons'), filename)
+
+@app.route('/vendor/<path:filename>')
+def serve_vendor(filename):
+    return send_from_directory(os.path.join(config.BASE_DIR, 'vendor'), filename)
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory(os.path.join(config.BASE_DIR, 'assets'), filename)
+
+@app.route('/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory(os.path.join(config.BASE_DIR, 'js'), filename)
+
 @app.route('/')
 def index():
     return render_template('index.html')

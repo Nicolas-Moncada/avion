@@ -24,7 +24,17 @@
       } catch(e) {}
     })();
   </script>
+  <!-- PWA & Mobile Web App Manifest -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Aero Flow">
+  <meta name="theme-color" content="#0B1320">
+
+  <link rel="stylesheet" href="/assets/fonts/fonts.css">
   <link rel="stylesheet" href="/static/css/tactical.css?v=35.0">
+  <link rel="stylesheet" href="/static/css/login.css?v=35.0">
 </head>
 <body>
 
@@ -36,12 +46,146 @@
   <div id="print-ticket-area"></div>
 
   <!-- ================================================================ -->
+  <!-- PANTALLA DE LOGIN SEPARADA POR ROL (AERO FLOW AUTHENTICATION)    -->
+  <!-- ================================================================ -->
+  <div id="aeroflow-login-overlay" class="login-fullscreen-overlay">
+    <div class="login-glass-card" role="dialog" aria-labelledby="login-dialog-title" aria-modal="true">
+      
+      <!-- Cabecera de Marca -->
+      <div class="login-header-group">
+        <div class="login-brand-logo">
+          <svg class="login-logo-svg" viewBox="0 0 100 80" fill="none" aria-hidden="true">
+            <path d="M10 20 C25 15, 60 10, 85 45 C70 40, 50 42, 40 50 C55 46, 75 48, 88 65 C70 60, 45 62, 35 70 C50 68, 68 70, 78 78 C45 78, 20 65, 10 20 Z" fill="url(#loginWingGrad)"/>
+            <path d="M30 68 C45 65, 65 67, 78 78 C55 78, 38 74, 30 68 Z" fill="#DA291C"/>
+            <defs>
+              <linearGradient id="loginWingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38BDF8"/>
+                <stop offset="50%" stop-color="#1D4ED8"/>
+                <stop offset="100%" stop-color="#0B192C"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="login-brand-text">
+            <span class="login-brand-main">AERO FLOW</span>
+            <span class="login-brand-sub">AIRLINES</span>
+          </div>
+        </div>
+        <h1 class="login-title-h1" id="login-dialog-title">Iniciar Sesión por Perfil</h1>
+        <p class="login-subtitle-p">Selecciona tu rol de acceso para ingresar a la plataforma de operaciones y servicios comerciales.</p>
+      </div>
+
+      <!-- Selector de Tipo de Acceso (3 Pestañas / Tarjetas) -->
+      <div class="login-role-tabs-container" role="tablist" aria-label="Seleccionar perfil de acceso">
+        <button type="button" class="login-role-tab-btn active" data-login-role="pasajero" onclick="seleccionarTabLogin('pasajero')" role="tab" aria-selected="true">
+          <span class="login-role-dot dot-pasajero"></span>
+          <span class="login-role-tab-title">Pasajero</span>
+          <span class="login-role-tab-desc">Cliente</span>
+        </button>
+        <button type="button" class="login-role-tab-btn" data-login-role="operador" onclick="seleccionarTabLogin('operador')" role="tab" aria-selected="false">
+          <span class="login-role-dot dot-operador"></span>
+          <span class="login-role-tab-title">Operador</span>
+          <span class="login-role-tab-desc">Rampa/Torre</span>
+        </button>
+        <button type="button" class="login-role-tab-btn" data-login-role="integral" onclick="seleccionarTabLogin('integral')" role="tab" aria-selected="false">
+          <span class="login-role-dot dot-integral"></span>
+          <span class="login-role-tab-title">Integral</span>
+          <span class="login-role-tab-desc">Total / Dual</span>
+        </button>
+      </div>
+
+      <!-- Pill descriptiva del rol activo -->
+      <div class="login-active-role-pill">
+        <div class="login-role-info-left">
+          <span class="login-role-dot dot-pasajero" id="login-active-dot"></span>
+          <span id="login-active-label">Portal Pasajero</span>
+        </div>
+        <span class="login-role-scope-tag" id="login-active-scope">Búsqueda, reserva, mapa de cabina, pago en COP y pase de abordar</span>
+      </div>
+
+      <!-- Mensaje de Error (reactivo) -->
+      <div class="login-error-banner" id="login-error-banner" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="login-error-text">Credenciales incorrectas</span>
+      </div>
+
+      <!-- Formulario de Autenticación & Registro -->
+      <form id="form-login-auth" novalidate>
+        <div class="login-form-group" id="login-group-nombre" style="display:none;">
+          <label class="login-field-label" for="login-input-nombre">Nombre Completo</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+            <input type="text" id="login-input-nombre" class="login-field-input" placeholder="ej. Carlos Mendoza" autocomplete="name">
+          </div>
+        </div>
+
+        <div class="login-form-group">
+          <label class="login-field-label" for="login-input-email">Usuario o Correo Electrónico</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            </span>
+            <input type="email" id="login-input-email" class="login-field-input" placeholder="ej. usuario@aeroflow.com" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="login-form-group">
+          <label class="login-field-label" for="login-input-password">Contraseña de Acceso</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </span>
+            <input type="password" id="login-input-password" class="login-field-input" placeholder="••••••••••••" required autocomplete="current-password">
+            <button type="button" class="login-btn-toggle-pwd" onclick="togglePasswordVisibility()" title="Mostrar / Ocultar contraseña" aria-label="Mostrar u ocultar contraseña">
+              <span id="btn-toggle-pwd-icon">👁️</span>
+            </button>
+          </div>
+          <div class="login-pwd-requirements-note">Mínimo 8 caracteres, al menos una letra y un número.</div>
+        </div>
+
+        <button type="submit" class="login-submit-btn" id="btn-login-submit">
+          <span>Ingresar a Portal Pasajero</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Alternador de Registro / Login -->
+      <div class="login-toggle-auth-container">
+        <button type="button" class="login-toggle-auth-btn" id="btn-toggle-to-register" onclick="alternarModoFormulario('registro')">
+          ¿No tienes cuenta? Regístrate gratis como Pasajero
+        </button>
+        <button type="button" class="login-toggle-auth-btn" id="btn-toggle-to-login" style="display:none;" onclick="alternarModoFormulario('login')">
+          ¿Ya tienes cuenta? Iniciar Sesión por Perfil
+        </button>
+      </div>
+
+      <!-- Conexión Supabase Cloud Database & RLS -->
+      <div class="login-supabase-footer">
+        <span>Cloud Database • Supabase RLS</span>
+        <button type="button" class="btn-open-sb-config" onclick="abrirModalConfiguracionSupabase()" title="Configurar URL y Llave de Supabase">
+          ⚙️ Base en la Nube
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
   <!-- FONDO ATMOSFÉRICO ANIMADO ACELERADO POR GPU                      -->
   <!-- ================================================================ -->
   <div class="aeroflow-atmosphere-canvas" aria-hidden="true">
     <!-- Video Corporativo Sutil de Fondo en Bucle (Loop Cinemático) -->
     <video class="ambient-video-layer" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true">
-      <source src="https://assets.mixkit.co/videos/preview/mixkit-flying-above-the-clouds-at-sunset-41584-large.mp4" type="video/mp4">
+      <!-- Video corporativo local (reemplazar con archivo propio en assets/video/) -->
+      <!-- <source src="/assets/video/background.mp4" type="video/mp4"> -->
     </video>
     <div class="ambient-orb orb-navy"></div>
     <div class="ambient-orb orb-red"></div>
@@ -183,16 +327,22 @@
     <!-- ============================================================== -->
     <div class="dynamic-island-nav-container">
       
-      <!-- Selector de Modo / Rol en Píldora Compacta Horizontal -->
-      <div class="role-selector-bar" role="tablist" aria-label="Filtro de Rol">
-        <button type="button" class="role-chip-btn active" id="btn-role-todos" onclick="filtrarModoRol('todos')" title="Ver todos los módulos">
-          <span class="role-dot dot-all"></span> Integral
-        </button>
-        <button type="button" class="role-chip-btn" id="btn-role-cliente" onclick="filtrarModoRol('cliente')" title="Portal de Pasajero">
-          <span class="role-dot dot-client"></span> Pasajero
-        </button>
-        <button type="button" class="role-chip-btn" id="btn-role-operador" onclick="filtrarModoRol('operador')" title="Consola Operativa">
-          <span class="role-dot dot-operator"></span> Operador
+      <!-- Badge de Sesión Activa por Rol & Botón Cerrar Sesión -->
+      <div class="header-session-bar" id="header-session-bar">
+        <div class="session-user-badge" id="session-active-chip">
+          <span class="session-role-dot dot-pasajero" id="header-session-dot"></span>
+          <div class="session-user-info">
+            <span class="session-role-label" id="header-session-role">Pasajero</span>
+            <span class="session-user-email" id="header-session-email"></span>
+          </div>
+        </div>
+        <button type="button" class="btn-logout-compact" id="btn-header-logout" onclick="cerrarSesion()" title="Cerrar sesión activa" aria-label="Cerrar sesión">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Salir</span>
         </button>
       </div>
 
@@ -233,6 +383,12 @@
       <div class="header-clock-box">
         <span id="header-clock-12h">--:--:-- --</span>
       </div>
+
+      <!-- Botón Instalar App PWA -->
+      <button type="button" class="btn-install-pwa" id="btn-install-pwa" style="display:none;" title="Instalar Aero Flow en tu dispositivo" aria-label="Instalar aplicación">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Instalar App</span>
+      </button>
 
       <!-- Botón de Control de Audio Acústico Web Audio API v33.0 -->
       <button type="button" class="theme-toggle-btn" id="btn-audio-toggle" onclick="toggleAudioMute()" title="Silenciar / Activar Efectos de Sonido" aria-label="Control de Sonido">
@@ -1478,7 +1634,30 @@
 
   <div id="aero-global-progress" class="aero-global-progress" aria-hidden="true"><i></i></div>
 
+  <!-- Barra de Navegación Táctil Inferior para Móviles (Fase 4 Mobile-First) -->
+  <nav class="mobile-bottom-nav" aria-label="Navegación Móvil Principal">
+    <button type="button" class="mobile-nav-item active" data-tab="tab-fids" onclick="activarTab('tab-fids')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
+      <span>01 Vuelos</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-pasajeros" onclick="activarTab('tab-pasajeros')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span>02 Directorio</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-compra-avion" onclick="activarTab('tab-compra-avion')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+      <span>03 Asientos</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-puerta" onclick="activarTab('tab-puerta')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path><circle cx="6" cy="12" r="1"></circle></svg>
+      <span>04 Puerta</span>
+    </button>
+  </nav>
+
+  <script src="/vendor/supabase.js"></script>
+  <script src="/js/config.js"></script>
   <script src="/static/js/core.js?v=35.0"></script>
   <script src="/static/js/app.js?v=35.0"></script>
+  <script src="/static/js/auth.js?v=35.0"></script>
 </body>
 </html>
