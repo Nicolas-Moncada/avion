@@ -1,0 +1,23 @@
+[
+  "tests/test_api.py::AeroFlowAPITestCase::test_01_health",
+  "tests/test_api.py::AeroFlowAPITestCase::test_02_vuelos_semilla",
+  "tests/test_api.py::AeroFlowAPITestCase::test_03_crear_vuelo_valido",
+  "tests/test_api.py::AeroFlowAPITestCase::test_04_crear_vuelo_duplicado_409",
+  "tests/test_api.py::AeroFlowAPITestCase::test_05_crear_vuelo_invalido_400",
+  "tests/test_api.py::AeroFlowAPITestCase::test_06_crear_vuelo_mismo_origen_400",
+  "tests/test_api.py::AeroFlowAPITestCase::test_07_registrar_pasajero_valido",
+  "tests/test_api.py::AeroFlowAPITestCase::test_08_registrar_pasajero_duplicado_409",
+  "tests/test_api.py::AeroFlowAPITestCase::test_09_registrar_pasajero_invalido_400",
+  "tests/test_api.py::AeroFlowAPITestCase::test_10_checkin_confirmado",
+  "tests/test_api.py::AeroFlowAPITestCase::test_11_checkin_duplicado_mismo_vuelo_400",
+  "tests/test_api.py::AeroFlowAPITestCase::test_12_checkin_otro_vuelo_activo_409",
+  "tests/test_api.py::AeroFlowAPITestCase::test_13_standby_y_ascenso_por_cancelacion",
+  "tests/test_api.py::AeroFlowAPITestCase::test_14_api_404_json",
+  "tests/test_api.py::AeroFlowAPITestCase::test_15_buscar_pasajero_inexistente_404",
+  "tests/test_api.py::AeroFlowAPITestCase::test_16_body_oversize_413",
+  "tests/test_api.py::AeroFlowAPITestCase::test_17_eliminar_pasajero_libera_recursos",
+  "tests/test_api.py::AeroFlowAPITestCase::test_18_abordar_individual_siguiente",
+  "tests/test_api.py::AeroFlowAPITestCase::test_19_cancelar_embarque",
+  "tests/test_api.py::AeroFlowAPITestCase::test_20_cancelar_vuelo_operador",
+  "tests/test_api.py::AeroFlowAPITestCase::test_21_expirar_vuelo_timeout"
+]

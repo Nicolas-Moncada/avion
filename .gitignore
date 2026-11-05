@@ -1,0 +1,39 @@
+# ============================================================
+#  AERO FLOW AIRLINES — exclusiones de repositorio
+# ============================================================
+
+# Base de datos operacional y artefactos SQLite (WAL)
+aerocore.db
+aerocore.db-wal
+aerocore.db-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Cachés de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Respaldos locales
+*.zip
+*backup*
+env_e2e_out.txt
+
+# Archivos de escritorio / sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
