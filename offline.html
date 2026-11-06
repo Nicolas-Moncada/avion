@@ -2,143 +2,141 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sin Conexión — AERO FLOW AIRLINES</title>
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
   <style>
-    :root {
-      --bg: #070D18;
-      --card-bg: rgba(15, 23, 42, 0.85);
-      --border: rgba(255, 255, 255, 0.12);
-      --text: #F8FAFC;
-      --text-muted: #94A3B8;
-      --accent-red: #DA291C;
-      --accent-blue: #38BDF8;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      background: radial-gradient(circle at 50% 20%, #0F172A 0%, #070D18 100%);
-      color: var(--text);
+      font-family: 'Plus Jakarta Sans', 'JetBrains Mono', 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 15%, rgba(15, 23, 42, 0.96) 0%, rgba(7, 13, 24, 0.99) 100%);
+      color: #F8FAFC;
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 1.5rem;
-      text-align: center;
+      padding: 1rem;
     }
-    .offline-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+    .container {
+      max-width: 480px;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 20px;
       padding: 2.5rem 2rem;
-      max-width: 440px;
-      width: 100%;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.7);
     }
-    .radar-icon {
+    .logo {
       width: 64px;
       height: 64px;
       margin: 0 auto 1.5rem;
-      position: relative;
-    }
-    .radar-pulse {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 2px solid var(--accent-red);
-      opacity: 0.8;
-      animation: pulseRing 2s infinite ease-out;
-    }
-    @keyframes pulseRing {
-      0% { transform: scale(0.6); opacity: 1; }
-      100% { transform: scale(1.4); opacity: 0; }
-    }
-    .radar-center {
-      position: absolute;
-      inset: 16px;
-      background: var(--accent-red);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 16px rgba(218, 41, 28, 0.6);
+      display: block;
+      filter: drop-shadow(0 4px 12px rgba(218, 41, 28, 0.35));
     }
     h1 {
-      font-size: 1.35rem;
+      font-size: 1.5rem;
       font-weight: 800;
-      margin-bottom: 0.75rem;
+      color: #F8FAFC;
+      margin-bottom: 0.5rem;
       letter-spacing: -0.02em;
     }
     p {
-      font-size: 0.9rem;
-      color: var(--text-muted);
+      color: #94A3B8;
+      font-size: 0.95rem;
       line-height: 1.5;
-      margin-bottom: 1.75rem;
+      margin-bottom: 2rem;
     }
-    .btn-retry {
-      background: linear-gradient(135deg, var(--accent-red), #B91C1C);
-      color: #FFFFFF;
-      border: none;
-      padding: 0.85rem 1.6rem;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 0.9rem;
-      cursor: pointer;
+    .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      box-shadow: 0 4px 18px rgba(218, 41, 28, 0.35);
-      transition: all 0.2s ease;
+      justify-content: center;
+      gap: 0.6rem;
+      background: linear-gradient(135deg, #DA291C 0%, #B51F14 100%);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 12px;
+      padding: 0.85rem 1.5rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 8px 20px -4px rgba(218, 41, 28, 0.45);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .btn-retry:hover {
+    .btn:hover {
+      background: linear-gradient(135deg, #EF4444 0%, #DA291C 100%);
       transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(218, 41, 28, 0.5);
     }
-    .btn-retry:active {
-      transform: translateY(0);
+    .btn:active { transform: translateY(0); }
+    .status {
+      margin-top: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: #64748B;
     }
-    .brand-sub {
-      margin-top: 2rem;
-      font-size: 0.75rem;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-      text-transform: uppercase;
+    .status.online { color: #10B981; }
+    .status.offline { color: #EF4444; }
+    @media (max-width: 520px) {
+      .container { padding: 1.5rem 1rem; border-radius: 16px; }
+      h1 { font-size: 1.25rem; }
+      p { font-size: 0.85rem; }
     }
   </style>
 </head>
 <body>
-  <div class="offline-card">
-    <div class="radar-icon">
-      <div class="radar-pulse"></div>
-      <div class="radar-center">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5">
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
-          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
-          <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
-          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
-          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-          <line x1="12" y1="20" x2="12.01" y2="20"></line>
-        </svg>
-      </div>
-    </div>
-    <h1>Sin Señal de Telemetría</h1>
-    <p>AERO FLOW AIRLINES requiere conexión a internet para sincronizar la telemetría satelital de vuelos, reservas en tiempo real y asignación de puertas en rampa.</p>
-    <button class="btn-retry" onclick="window.location.reload()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="23 4 23 10 17 10"></polyline>
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+  <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#0b1220"/>
+    <path d="M8 36 L26 32 L44 14 L50 16 L38 32 L54 30 L58 34 L38 38 L30 52 L25 50 L26 38 Z" fill="#DA291C" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+  </svg>
+
+  <div class="container">
+    <h1>Sin Conexión a Internet</h1>
+    <p>
+      Parece que no tienes conexión a internet en este momento. Algunas funciones de AERO FLOW AIRLINES
+      requieren conexión para consultar vuelos, reservar asientos y procesar pagos.
+    </p>
+    <button class="btn" onclick="reintentarConexion()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 4 9 12l-6 8M21 4l-6 8H4a2 2 0 0 1-2-2V4c0-1.1.9-2 2-2h16a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H6c-1.1 0-2-.9-2-2v-2a2 2 0 0 1 2-2z"/>
+        <circle cx="15.5" cy="11.5" r="0.5" fill="currentColor" stroke="currentColor"/>
       </svg>
-      Reintentar Conexión
+      Reintentar
     </button>
-    <div class="brand-sub">Aero Flow Airlines • PWA Offline Core</div>
+    <div class="status offline" id="estado-conexion">
+      ● Sin conexión
+    </div>
   </div>
+
+  <script>
+    function reintentarConexion() {
+      const estado = document.getElementById('estado-conexion');
+      if (navigator.onLine) {
+        estado.textContent = '● Conexión restaurada';
+        estado.className = 'status online';
+        setTimeout(() => { window.location.reload(); }, 800);
+      } else {
+        estado.textContent = '● Aún sin conexión';
+        estado.className = 'status offline';
+      }
+    }
+
+    window.addEventListener('online', () => {
+      const estado = document.getElementById('estado-conexion');
+      estado.textContent = '● Conexión restaurada';
+      estado.className = 'status online';
+      setTimeout(() => { window.location.reload(); }, 800);
+    });
+
+    // Verificar estado inicial
+    if (navigator.onLine) {
+      document.getElementById('estado-conexion').textContent = '● Conexión restaurada';
+      document.getElementById('estado-conexion').className = 'status online';
+      setTimeout(() => { window.location.reload(); }, 800);
+    }
+  </script>
 </body>
 </html>
-

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AERO FLOW AIRLINES | Vuelos, Tiquetes y Operaciones</title>
   <meta name="description" content="AERO FLOW AIRLINES — Reserva vuelos, emite tiquetes y gestiona operaciones aéreas en tiempo real con estructuras de datos (Hash Map, Árbol AVL, Lista Enlazada y Cola FIFO).">
   <meta name="theme-color" content="#0b1220">
@@ -1654,10 +1654,115 @@
     </button>
   </nav>
 
+  <!-- Botón "Instalar app" (PWA) -->
+  <div id="install-app-container" class="install-app-container" style="display:none;">
+    <button type="button" class="install-app-btn" id="btn-install-app" onclick="instalarApp()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12c0-4.71-3.89-8.59-8.67-8.84C13.04 2.92 12.29 2 12 2c-5.14 0-9.25 4.21-9.25 9.43 0 1.11.25 2.17.68 3.16l-3.11 3.11a1 1 0 0 0 0 1.42l4.83 4.83a1 1 0 0 0 1.42 0l4.83-4.83a1 1 0 0 0 0-1.42l-3.11-3.11A8.9 8.9 0 0 1 12 20c1.42 0 2.69-.36 3.84-1.01l1.59 1.59C17.73 21.88 19.89 22 22 22c4.71 0 8.67-3.89 8.84-8.59C22.04 15.09 22 13.69 22 12z"/>
+        <line x1="12" y1="2" x2="12" y2="22"/>
+      </svg>
+      <span>Instalar app</span>
+    </button>
+    <button type="button" class="install-app-dismiss" id="btn-install-dismiss" onclick="ocultarInstallApp()" aria-label="Cerrar">✕</button>
+  </div>
+
+  <!-- Guía de instalación para iPhone -->
+  <div id="iphone-install-guide" class="iphone-install-guide" style="display:none;">
+    <div class="iphone-guide-card">
+      <div class="iphone-guide-header">
+        <span class="iphone-guide-title">Instalar en iPhone</span>
+        <button type="button" class="iphone-guide-close" onclick="ocultarIphoneGuide()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="iphone-guide-steps">
+        <div class="iphone-step">
+          <span class="iphone-step-num">1</span>
+          <span>Toca <strong>Compartir</strong> (ícono de cuadrado con flecha hacia arriba)</span>
+        </div>
+        <div class="iphone-step">
+          <span class="iphone-step-num">2</span>
+          <span>Desliza y toca <strong>Añadir a pantalla de inicio</strong></span>
+        </div>
+        <div class="iphone-step">
+          <span class="iphone-step-num">3</span>
+          <span>Confirma el nombre y toca <strong>Añadir</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/vendor/supabase.js"></script>
   <script src="/js/config.js"></script>
   <script src="/static/js/core.js?v=35.0"></script>
   <script src="/static/js/app.js?v=35.0"></script>
   <script src="/static/js/auth.js?v=35.0"></script>
+
+  <!-- Service Worker + PWA Install Logic -->
+  <script>
+    // Registro del Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => {
+            console.log('[SW] Registrado con scope:', reg.scope);
+          })
+          .catch((err) => {
+            console.log('[SW] Error al registrar:', err);
+          });
+      });
+    }
+
+    // Lógica de "Instalar app" (beforeinstallprompt)
+    let deferredPrompt = null;
+    const installContainer = document.getElementById('install-app-container');
+    const btnInstall = document.getElementById('btn-install-app');
+    const btnDismiss = document.getElementById('btn-install-dismiss');
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevenir el mini-infobar automático de Chrome
+      e.preventDefault();
+      deferredPrompt = e;
+
+      if (isIOS) {
+        // iPhone: mostrar guía manual
+        document.getElementById('iphone-install-guide').style.display = 'block';
+      } else if (installContainer) {
+        // Android / PC: mostrar botón de instalar
+        installContainer.style.display = 'flex';
+      }
+    });
+
+    function instalarApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('[PWA] Usuario aceptó la instalación');
+          }
+          deferredPrompt = null;
+        });
+      }
+      if (installContainer) installContainer.style.display = 'none';
+    }
+
+    function ocultarInstallApp() {
+      if (installContainer) installContainer.style.display = 'none';
+    }
+
+    function ocultarIphoneGuide() {
+      document.getElementById('iphone-install-guide').style.display = 'none';
+    }
+
+    // Ocultar botón si la app ya está instalada (standalone)
+    window.addEventListener('appinstalled', () => {
+      console.log('[PWA] App instalada');
+      if (installContainer) installContainer.style.display = 'none';
+      deferredPrompt = null;
+    });
+
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+      if (installContainer) installContainer.style.display = 'none';
+    }
+  </script>
 </body>
 </html>
