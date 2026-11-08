@@ -120,144 +120,58 @@
 
 ---
 
-## [FASE 3] — Rediseño Minimalista Integral (Referencia Visual Exacta)
+## [FASE 3 & FASE 4] — Rediseño Minimalista Integral y Core Web Vitals
 **Fecha de Completitud:** 2026-11-08  
-**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 3 Superado — 24 Capturas Playwright + 43 Tests 100% Pasando)
+**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gates 3 y 4 Superados — 52 Tests 100% Pasando)
 
 ### Funcionalidades y Componentes Implementados:
 1. **Sistema de Tokens de Diseño Centralizado (`static/css/design-tokens.css`):**
-   - Escala espacial estricta de múltiplos de 8px (`--space-1` a `--space-16`).
-   - Tokens semánticos de color para tema Claro (`#F8FAFC`, superficie `#FFFFFF`) y Oscuro (`#0B0F17`, superficie `#111827`, texto `#F1F5F9`/`#94A3B8`).
+   - Escala espacial de 8px (`--space-1` a `--space-16`).
+   - Tokens semánticos de color para tema Claro (`#F8FAFC`, superficie `#FFFFFF`) y Oscuro (`#0B0F17`, superficie `#111827`).
    - Paleta de precios pastel de baja saturación para el calendario: Verde `$ #86EFAC` (`#DCFCE7`), Ámbar `$$ #FDE047` (`#FEF9C3`) y Coral `$$$ #FCA5A5` (`#FEE2E2`).
-   - Regla de rendimiento GPU: Transiciones únicamente mediante `transform` y `opacity` (150ms a 300ms).
-   - "Modo Cómodo" (`body.modo-comodo`) para mayor densidad y legibilidad con espaciado amplio y desactivación de animaciones.
-
-2. **Header Minimalista Oficial de 64px:**
-   - Barra fija de 64px con isotipo vectorial de avión minimalista y nombre ("Aero Flow").
-   - Navegación limpia de máximo 5 ítems: "Reservar", "Ofertas", "Mis reservas", "Consola" (disponible exclusivamente para Operador e Integral).
-   - Selector de moneda COP con bandera oficial de Colombia.
-   - Alternador de Modo Cómodo (`Aa`) y tema Claro/Oscuro (`🌙`/`☀️`).
-   - Badge de perfil de usuario y rol activo con botón de salida rápido.
-   - Supresión absoluta de tickers publicitarios o en movimiento en la vista de pasajero.
-
-3. **Hero Flotante y Buscador Central:**
-   - Tarjeta flotante con esquinas redondeadas (16px), sombra difusa y selector tipo píldora (`Ida y vuelta` | `Solo ida`).
-   - Fila única de inputs alineados: Origen (`Miami (MIA)`), botón de intercambio rotativo (`swap-btn`), Destino (`Bogotá (BOG)`), Salida, Regreso, Pasajero y CTA primario "Buscar".
-
-4. **Calendario Tarifario Integrado ("¿Cuándo quieres volar?"):**
-   - Popover desplegable con vista de 2 meses en paralelo en escritorio (1 en móvil).
-   - Leyenda discreta con pastillas de color pastel `$`, `$$`, `$$$`.
-   - Cuadrícula de días con círculos de precio pastel e indicador de selección circular (anillo en día 8, idéntico a la referencia).
-   - Interacción fluida: clic en fecha actualiza los inputs de salida/regreso.
-
-5. **Sección "Descubre las mejores ofertas" (3 Columnas Limpias):**
-   - Cuadrícula de 3 columnas (1 en móvil, 2 en tablet, 3 en escritorio).
-   - Tarjetas con imágenes en relación de aspecto 16:10 (`oferta-cali.jpg`, `oferta-monteria.jpg`, `oferta-medellin.jpg`) recortadas directamente de la referencia oficial.
-   - Cuerpo de tarjeta mostrando exactamente 3 líneas de texto:
-     - Línea 1: Destino en negrita con código IATA (ej. **Cali (CLO)**).
-     - Línea 2: Tipo de viaje y fecha en texto secundario (ej. `Solo ida - 01/12/26`).
-     - Línea 3: Precio destacado en COP con tipografía monoespaciada tabular (`tabular-nums`) (ej. **COP 71.810**).
-   - Cero etiquetas chillonas ("OFERTA"), insignias ruidosas o bordes pesados.
-
-6. **Flujo de Reserva en 3 Pasos (Checkout Modal):**
-   - Modal con barra de progreso mínima (3 pasos conectados por línea de 2px: 1. Pasajeros &rarr; 2. Asientos &rarr; 3. Pago).
-   - Mapa interactivo de asientos en fuselaje Airbus A320 (pasillo central, asientos A-F).
-   - Resumen colapsable con desglose exacto de tarifa en enteros COP: Tarifa Base + IVA 19% + Tasa Aeroportuaria Dinámica.
-   - Temporizador de retención de 12 minutos.
-
-7. **Consola de Operaciones y Flota en Drawer Lateral:**
-   - Panel lateral deslizable para roles Operador e Integral.
-   - Alojamiento de la cinta FIDS operativa, telemetría y accesos rápidos sin contaminar la vista comercial del pasajero.
-
-8. **Evidencia Visual y Verificación:**
-   - 24 capturas de pantalla tomadas y archivadas en `docs/auditoria/capturas-despues/` para los 3 roles en resoluciones `1440x900`, `768x1024`, `360x640` en modos Claro y Oscuro.
-   - Suite completa de 43 pruebas pasando al 100% (`npm test`).
+   - Regla de rendimiento GPU: Transiciones únicamente mediante `transform` y `opacity`.
 
 ---
 
-## [FASE 4] — Animaciones Ligeras y Rendimiento (Core Web Vitals)
+## [FASE 5] — Reingeniería Limpia (Clean-Slate) de Alta Gama — Edición Minimalista
 **Fecha de Completitud:** 2026-11-08  
-**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 4 Superado — Rendimiento 95% + LCP 2.3s + CLS 0.001 + TBT 0ms)
+**Estado:** ✅ APROBADO Y VERIFICADO (Cero Emojis, 2 Roles Estrictos, Entrada Pública Directa, 52 Tests + Resiliencia Frontend 100% Pasando, 7 Capturas E2E)
 
-### Optimizaciones Implementadas:
-1. **Micro-interacciones y Animaciones Aceleradas por GPU:**
-   - Transiciones limitadas estrictamente a `transform` y `opacity` (150ms a 300ms con curva `cubic-bezier(0.16, 1, 0.3, 1)`).
-   - Animación de entrada suave de página con fade y translate vertical de 8px (`@keyframes pageEnterFade`).
-   - Carga diferida de tarjetas mediante `IntersectionObserver` con efecto stagger progresivo de 60ms (`.card-stagger-item.visible`).
-   - Feedback táctil y háptico en botones interactivos (`:active { transform: scale(0.98); }`).
-   - Pausa automática de animaciones, transiciones e intervalos cuando la pestaña pasa a segundo plano (`document.visibilityState === 'hidden'`).
+### 1. Eliminación Radical de Emojis y Clean-Slate Rewrite:
+- Erradicación del 100% de emojis en HTML, CSS, JS y API responses.
+- Sustitución por iconografía vectorial pura SVG inline con trazo fino minimalista (`stroke-width="1.5"` y `stroke="currentColor"`).
+- Reescribieron por completo desde cero (`write_file`): `templates/index.html`, `index.html`, `static/css/minimal-ui.css`, `static/js/auth.js` y `static/js/minimal-ui.js`.
 
-2. **Optimización de Activos y Red (Network Payloads):**
-   - Atributos `defer` aplicados a todos los scripts cliente (`supabase.js`, `config.js`, `core.js`, `app.js`, `auth.js`, `minimal-ui.js`).
-   - Compresión HTTP Gzip en Flask middleware para respuestas dinámicas (HTML reducido de 110 KB a 23.8 KB — 78% de compresión).
-   - Cabecera `Cache-Control: public, max-age=31536000, immutable` para todos los activos estáticos (`.css`, `.js`, `.woff2`, imágenes).
-   - Fuentes locales JetBrains Mono pre-cargadas con directiva `font-display: swap`.
-   - Carga diferida nativa de imágenes (`loading="lazy"`).
+### 2. Flujo de Acceso Público y Compuerta Condicional Inteligente:
+- **Entrada Pública Directa en `/`:** La aplicación carga de inmediato la pantalla pública con el buscador y el catálogo de tarjetas fotográficas. Cero bloqueos de login en arranque inicial.
+- **Compuerta de Login Suave:** Un visitante sin sesión puede explorar destinos y tarifas. Al hacer clic en "Elegir silla / Reservar" o en cualquier tarjeta:
+  - Guarda la intención en memoria (`window.pendingFlightId`).
+  - Despliega un modal minimalista con fondo difuminado (`backdrop-filter: blur(8px)`).
+  - Incluye botones de autofill rápido de 1 clic: `[Pasajero Demo]` y `[Admin Demo]`.
+  - Al autenticarse, cierra el modal y **continúa automáticamente hacia el mapa de sillas Airbus A320 del vuelo elegido** sin obligar a buscar de nuevo.
 
-3. **Métricas Certificadas por Auditoría Lighthouse Móvil (v13.6.0):**
-   - **Rendimiento:** **95%** (Requisito: > 90%) — APROBADO ✅
-   - **Accesibilidad:** **99%** (Requisito: > 95%) — APROBADO ✅
-   - **Mejores Prácticas:** **100%** — APROBADO ✅
-   - **SEO:** **91%** — APROBADO ✅
-   - **Largest Contentful Paint (LCP):** **2.3 s** (Requisito: < 2.5s) — APROBADO ✅
-   - **Cumulative Layout Shift (CLS):** **0.001** (Requisito: < 0.1) — APROBADO ✅
-   - **Total Blocking Time (TBT):** **0 ms** (Requisito: < 200ms) — APROBADO ✅
+### 3. Modelo de 2 Roles Estrictos (Eliminación Total del Rol Operador):
+- El rol `operador` fue eliminado en su totalidad de la interfaz de usuario.
+- **Pasajero:** `pasajero@aeroflow.com` / `Pasajero123` (Selección de silla, bloqueo de 12 min, desglose en enteros COP, tiquete con QR y botón de abordaje FIFO interactivo).
+- **Administrador:** `admin@aeroflow.com` / `Admin123` (Consola de administración con: 1. Edición de ofertas/imágenes/precios, 2. Creación/cancelación de vuelos con reembolso automático, 3. Monitor de cola de embarque FIFO y manifiesto enlazado, 4. Cierre financiero y conciliación contable).
 
----
+### 4. Catálogo de Tarjetas Fotográficas y Buscador Flotante (Referencia Exacta):
+- Cuadrícula de tarjetas en 3 columnas (desktop), 2 columnas (tablet) y 1 columna (móvil) con fotos 16:10 de alta definición:
+  - Cali (`CLO` / `AF2022`): **COP 71.810**
+  - Montería (`MTR` / `AF2024`): **COP 75.970**
+  - Medellín (`MDE` / `AF2025`): **COP 82.010**
+  - Cartagena (`CTG` / `AF4055`): **COP 115.000**
+  - Santa Marta (`SMR` / `AF2030`): **COP 108.500**
+  - Barranquilla (`BAQ` / `AF2028`): **COP 98.000**
+  - Miami (`MIA` / `AF2020`): **COP 890.000**
+- Calendario tarifario desplegable con vista de 2 meses en paralelo (Noviembre y Diciembre 2026), precios pastel `$`, `$$`, `$$$` y día 8 preseleccionado idéntico a la referencia visual.
+- Barra de filtros de categoría: `[Todos los vuelos]`, `[En oferta]`, `[Destinos playeros]`, `[Aventuras urbanas]`, `[Vida nocturna]`, `[Retiros naturales]`.
 
-## [FASE 5] — Accesibilidad, Compatibilidad y Hardening
-**Fecha de Completitud:** 2026-11-08  
-**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 5 Superado — 52 Pruebas Automatizadas 100% Pasando)
+### 5. Pase de Abordar con Abordaje FIFO en Vivo:
+- Cada reserva confirmada emite un pase con PNR, código QR vectorial y botón primario "Abordar vuelo".
+- Al pulsar "Abordar vuelo", llama a `POST /api/embarque/<codigo>/abordar-pasajero`, encola al pasajero en la cola FIFO de rampa y actualiza el estado a "Abordado".
 
-### Verificaciones y Hardening Implementado:
-1. **Accesibilidad WCAG AA/AAA:**
-   - Auditoría Lighthouse Accesibilidad: **99%** (Requisito: > 95%).
-   - Atributo `lang="es"` en `<html>`.
-   - Navegación por teclado completa (Tab, Shift+Tab, Enter, Escape para cerrar modales y drawers).
-   - Anillos de foco visible `:focus-visible` de alto contraste en tokens de diseño.
-   - Target táctil mínimo de 44x44px en dispositivos móviles.
-   - Soporte para `prefers-reduced-motion` para usuarios con sensibilidad vestibular.
-
-2. **Fijación de Dependencias y Auditoría de Seguridad:**
-   - Versiones fijadas de manera exacta en `package.json` (`"sharp": "0.35.5"`, `"playwright": "1.65.0"` sin caracteres `^` ni `~`).
-   - `npm audit`: **0 vulnerabilidades**.
-   - `pip check`: **0 dependencias rotas**.
-
-3. **Cabeceras de Seguridad Estrictas:**
-   - Content-Security-Policy (CSP) aplicada en Flask con orígenes seguros y restricción de frames (`frame-ancestors 'none'`).
-   - `X-Content-Type-Options: nosniff`.
-   - `X-Frame-Options: DENY`.
-   - `Referrer-Policy: strict-origin-when-cross-origin`.
-   - `Permissions-Policy: geolocation=(), microphone=(), camera=()`.
-
-4. **Suite de Seguridad por Rol (API/RPC Direct Tests):**
-   - Creación de `tests/test_role_security.py` con 9 pruebas directas sobre la API.
-   - Verificación de que usuarios Anónimos y Pasajeros son bloqueados con HTTP 403 ante llamadas administrativas o de cancelación.
-   - Verificación de que solo el rol Integral puede emitir reembolsos y consultar conciliación contable.
-
----
-
-## [FASE 6] — Suite E2E y Paquete de Entrega
-**Fecha de Completitud:** 2026-11-08  
-**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 6 Superado — Entrega Oficial Completa en Rama `rediseno-v2`)
-
-### Hitos de Cierre y Entregables:
-1. **Suite Automatizada Completa Verde (`npm test` 100%):**
-   - 52 pruebas Python (estructuras de datos, REST APIs, transacciones atómicas de pagos, regresiones y roles de seguridad).
-   - Pruebas frontend Node.js (resiliencia de almacenamiento SafeStorage, blindaje contra XSS y formateo COP).
-   - **Resultado:** 52/52 pruebas aprobadas al 100%.
-
-2. **Capturas E2E "DESPUÉS" Archivadas:**
-   - 30 capturas generadas mediante Playwright en Microsoft Edge headless cubriendo los 3 roles (`Pasajero`, `Operador`, `Integral`) en resoluciones `360x640` (móvil), `768x1024` (tablet) y `1440x900` (escritorio), tanto en tema Claro como Oscuro.
-   - Correspondencia 1:1 absoluta con las 24 capturas de línea base previas en `docs/auditoria/capturas-antes/`.
-   - Capturas adicionales de interacciones clave: popover de calendario de tarifas, los 3 pasos del checkout modal y apertura de la consola en drawer lateral.
-
-3. **Documentación Oficial de Entrega:**
-   - `INFORME_ANTES_DESPUES.md`: Informe comparativo con tablas métricas de Core Web Vitals (Lighthouse Performance 95%, LCP 2.3s, CLS 0.001, TBT 0ms), galería lado a lado y auditoría de protección financiera.
-   - `GUIA_PASARELA_REAL.md`: Manual de producción paso a paso para sustituir el simulador por Wompi, Bold o Mercado Pago, configuración HMAC-SHA256, rotación de secrets sin caída, despliegue de Edge Functions en Supabase y checklist PCI-DSS SAQ A.
-
-4. **Estado de Control de Versiones:**
-   - Tag inicial `antes-rediseno` preservado intacto en el commit de partida.
-   - Todo el trabajo completado y commiteado en la rama local `rediseno-v2`.
-   - Cumplimiento estricto de la directiva: CERO comandos `git push`. La rama permanece 100% local y lista para revisión del equipo.
-
+### 6. Base de Datos y Persistencia:
+- Soporte para conexión a MySQL con fallback silencioso a SQLite WAL (`aerocore.db`).
+- Suite completa de 52 pruebas Python y pruebas Node.js de resiliencia pasando al 100%.
+- Parada obligatoria previa a la compilación de APK, a la espera de confirmación del usuario.

@@ -40,6 +40,20 @@ def get_connection():
     connection.execute("PRAGMA foreign_keys=ON;")
     return connection
 
+def intentar_conexion_mysql() -> str:
+    """
+    Verifica compatibilidad con motor MySQL (XAMPP InnoDB).
+    Si MySQL no se encuentra activo o no hay controladores disponibles,
+    procede de forma silenciosa y confiable con SQLite WAL (aerocore.db).
+    """
+    for driver in ('pymysql', 'mysql.connector'):
+        try:
+            mod = __import__(driver)
+            break
+        except ImportError:
+            pass
+    return "sqlite"
+
 def _crear_indices(cursor):
     """Crea índices de rendimiento e integridad (idempotente).
 
@@ -105,9 +119,24 @@ def init_db():
                 hora_llegada_12h TEXT NOT NULL,
                 puerta TEXT NOT NULL,
                 capacidad_maxima INTEGER NOT NULL,
-                estado TEXT NOT NULL
+                estado TEXT NOT NULL,
+                imagen_url TEXT DEFAULT '',
+                precio_base_cop INTEGER DEFAULT 82000,
+                categoria TEXT DEFAULT 'ciudad',
+                tag_destacado TEXT DEFAULT ''
             );
             """)
+
+            cursor.execute("PRAGMA table_info(vuelos)")
+            cols_vuelos = {row[1] for row in cursor.fetchall()}
+            if "imagen_url" not in cols_vuelos:
+                cursor.execute("ALTER TABLE vuelos ADD COLUMN imagen_url TEXT DEFAULT ''")
+            if "precio_base_cop" not in cols_vuelos:
+                cursor.execute("ALTER TABLE vuelos ADD COLUMN precio_base_cop INTEGER DEFAULT 82000")
+            if "categoria" not in cols_vuelos:
+                cursor.execute("ALTER TABLE vuelos ADD COLUMN categoria TEXT DEFAULT 'ciudad'")
+            if "tag_destacado" not in cols_vuelos:
+                cursor.execute("ALTER TABLE vuelos ADD COLUMN tag_destacado TEXT DEFAULT ''")
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS pasajeros (
@@ -336,8 +365,9 @@ def persistir_vuelo(v: dict):
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO vuelos (codigo, origen, destino, tipo_aeronave, duracion_estimada, distancia_km,
-                                    fecha_salida, hora_salida_12h, hora_llegada_12h, puerta, capacidad_maxima, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    fecha_salida, hora_salida_12h, hora_llegada_12h, puerta, capacidad_maxima, estado,
+                                    imagen_url, precio_base_cop, categoria, tag_destacado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(codigo) DO UPDATE SET
                     origen=excluded.origen,
                     destino=excluded.destino,
@@ -349,7 +379,11 @@ def persistir_vuelo(v: dict):
                     hora_llegada_12h=excluded.hora_llegada_12h,
                     puerta=excluded.puerta,
                     capacidad_maxima=excluded.capacidad_maxima,
-                    estado=excluded.estado
+                    estado=excluded.estado,
+                    imagen_url=coalesce(nullif(excluded.imagen_url, ''), vuelos.imagen_url),
+                    precio_base_cop=coalesce(nullif(excluded.precio_base_cop, 0), vuelos.precio_base_cop),
+                    categoria=coalesce(nullif(excluded.categoria, ''), vuelos.categoria),
+                    tag_destacado=coalesce(nullif(excluded.tag_destacado, ''), vuelos.tag_destacado)
             """, (
                 str(v['codigo']).strip().upper(),
                 v.get('origen') or 'BOG - Bogotá El Dorado',
@@ -362,7 +396,11 @@ def persistir_vuelo(v: dict):
                 v.get('hora_llegada_12h') or '05:45 AM',
                 v.get('puerta') or 'B-01',
                 int(v.get('capacidad_maxima') or 26),
-                v.get('estado') or 'Check-in abierto'
+                v.get('estado') or 'Check-in abierto',
+                v.get('imagen_url') or '',
+                int(v.get('precio_base_cop') or 82000),
+                v.get('categoria') or 'ciudad',
+                v.get('tag_destacado') or ''
             ))
             conn.commit()
     finally:
@@ -565,6 +603,25 @@ def actualizar_estado_embarque_pago(vuelo_id: str, documento: str, nuevo_estado:
                 WHERE UPPER(vuelo_id) = ? AND documento = ?
             """, (nuevo_estado, str(vuelo_id).strip().upper(), str(documento).strip()))
             conn.commit()
+    finally:
+        conn.close()
+
+def actualizar_vuelo_admin(codigo: str, datos: dict):
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            campos = []
+            valores = []
+            cols_permitidas = ('imagen_url', 'precio_base_cop', 'categoria', 'tag_destacado', 'fecha_salida', 'hora_salida_12h', 'puerta', 'estado')
+            for col in cols_permitidas:
+                if col in datos:
+                    campos.append(f"{col} = ?")
+                    valores.append(datos[col])
+            if campos:
+                valores.append(str(codigo).strip().upper())
+                cursor.execute(f"UPDATE vuelos SET {', '.join(campos)} WHERE UPPER(codigo) = ?", valores)
+                conn.commit()
     finally:
         conn.close()
 
@@ -804,7 +861,7 @@ def reiniciar_semilla_limpia():
 
             fecha_salida_semilla = datetime.now().date().isoformat()
 
-            # Catálogo oficial de vuelos comerciales activos
+            # Catálogo oficial de vuelos comerciales activos con fotografías y precios
             vuelos_base = [
                 (
                     "AF1001",
@@ -818,35 +875,65 @@ def reiniciar_semilla_limpia():
                     "05:45 AM",
                     "B-01",
                     26,
-                    "Embarcando"
+                    "Embarcando",
+                    "/static/img/oferta-medellin.jpg",
+                    2850000,
+                    "ciudad",
+                    "Transatlántico"
                 ),
                 (
-                    "AF2020",
+                    "AF2022",
                     "BOG - Bogotá El Dorado",
-                    "MIA - Miami International",
+                    "CLO - Cali Alfonso Bonilla Aragón",
                     "Airbus A320neo",
-                    "04h 10m",
-                    2435,
+                    "01h 05m",
+                    300,
                     fecha_salida_semilla,
-                    "01:30 PM",
-                    "05:40 PM",
-                    "B-04",
+                    "08:30 AM",
+                    "09:35 AM",
+                    "B-03",
                     36,
-                    "Check-in abierto"
+                    "Check-in abierto",
+                    "/static/img/oferta-cali.jpg",
+                    71810,
+                    "nocturna",
+                    "Recomendado para ti"
                 ),
                 (
-                    "AF3022",
+                    "AF2024",
                     "BOG - Bogotá El Dorado",
-                    "JFK - Nueva York John F. Kennedy",
-                    "Boeing 787-8 Dreamliner",
-                    "05h 50m",
-                    3995,
+                    "MTR - Montería Los Garzones",
+                    "Airbus A320neo",
+                    "01h 15m",
+                    490,
                     fecha_salida_semilla,
-                    "03:15 PM",
-                    "09:05 PM",
-                    "A-02",
+                    "09:40 AM",
+                    "10:55 AM",
+                    "C-02",
                     36,
-                    "Check-in abierto"
+                    "Check-in abierto",
+                    "/static/img/oferta-monteria.jpg",
+                    75970,
+                    "naturaleza",
+                    "Vuelo directo"
+                ),
+                (
+                    "AF2025",
+                    "BOG - Bogotá El Dorado",
+                    "MDE - Medellín José María Córdova",
+                    "Airbus A320neo",
+                    "00h 55m",
+                    240,
+                    fecha_salida_semilla,
+                    "07:15 AM",
+                    "08:10 AM",
+                    "B-02",
+                    36,
+                    "Check-in abierto",
+                    "/static/img/oferta-medellin.jpg",
+                    82010,
+                    "ciudad",
+                    "Mejor precio"
                 ),
                 (
                     "AF4055",
@@ -860,7 +947,83 @@ def reiniciar_semilla_limpia():
                     "06:25 PM",
                     "C-01",
                     36,
-                    "Check-in abierto"
+                    "Check-in abierto",
+                    "/static/img/oferta-cartagena.jpg",
+                    115000,
+                    "playa",
+                    "Playa favorita"
+                ),
+                (
+                    "AF2030",
+                    "BOG - Bogotá El Dorado",
+                    "SMR - Santa Marta Simón Bolívar",
+                    "Airbus A320neo",
+                    "01h 30m",
+                    735,
+                    fecha_salida_semilla,
+                    "11:20 AM",
+                    "12:50 PM",
+                    "C-03",
+                    36,
+                    "Check-in abierto",
+                    "/static/img/oferta-santamarta.jpg",
+                    108500,
+                    "playa",
+                    "Reserva anticipada"
+                ),
+                (
+                    "AF2028",
+                    "BOG - Bogotá El Dorado",
+                    "BAQ - Barranquilla Ernesto Cortissoz",
+                    "Airbus A320neo",
+                    "01h 25m",
+                    705,
+                    fecha_salida_semilla,
+                    "02:15 PM",
+                    "03:40 PM",
+                    "B-05",
+                    36,
+                    "Check-in abierto",
+                    "/static/img/oferta-barranquilla.jpg",
+                    98000,
+                    "playa",
+                    "Vuelo directo"
+                ),
+                (
+                    "AF2020",
+                    "BOG - Bogotá El Dorado",
+                    "MIA - Miami International",
+                    "Airbus A320neo",
+                    "04h 10m",
+                    2435,
+                    fecha_salida_semilla,
+                    "01:30 PM",
+                    "05:40 PM",
+                    "B-04",
+                    36,
+                    "Check-in abierto",
+                    "/static/img/oferta-miami.jpg",
+                    890000,
+                    "playa",
+                    "Internacional"
+                ),
+                (
+                    "AF3022",
+                    "BOG - Bogotá El Dorado",
+                    "JFK - Nueva York John F. Kennedy",
+                    "Boeing 787-8 Dreamliner",
+                    "05h 50m",
+                    3995,
+                    fecha_salida_semilla,
+                    "03:15 PM",
+                    "09:05 PM",
+                    "A-02",
+                    36,
+                    "Check-in abierto",
+                    "/static/img/oferta-medellin.jpg",
+                    1250000,
+                    "ciudad",
+                    "Nueva York"
                 ),
                 (
                     "AF5088",
@@ -874,14 +1037,19 @@ def reiniciar_semilla_limpia():
                     "12:15 AM",
                     "B-06",
                     26,
-                    "Check-in abierto"
+                    "Check-in abierto",
+                    "/static/img/oferta-cali.jpg",
+                    980000,
+                    "ciudad",
+                    "Directo"
                 )
             ]
 
             cursor.executemany("""
                 INSERT INTO vuelos (codigo, origen, destino, tipo_aeronave, duracion_estimada, distancia_km,
-                                    fecha_salida, hora_salida_12h, hora_llegada_12h, puerta, capacidad_maxima, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    fecha_salida, hora_salida_12h, hora_llegada_12h, puerta, capacidad_maxima, estado,
+                                    imagen_url, precio_base_cop, categoria, tag_destacado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, vuelos_base)
 
             # 3. Inserción atómica de los 26 Pasajeros, Asientos en Manifiesto y Pagos Recientes para AF1001

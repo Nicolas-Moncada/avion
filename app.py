@@ -7,7 +7,6 @@
 
 import os
 import time
-import gzip
 import logging
 import threading
 from datetime import datetime, timedelta
@@ -174,28 +173,6 @@ def aplicar_head_seguridad(respuesta):
         "form-action 'self'; "
         "frame-ancestors 'none'"
     )
-
-    # Cache-Control para activos estáticos (CSS, JS, Fuentes, Imágenes)
-    path = request.path
-    if (path.startswith('/static/') or path.startswith('/assets/') or
-        path.startswith('/vendor/') or path.startswith('/icons/') or
-        path.endswith('.css') or path.endswith('.js') or path.endswith('.woff2')):
-        respuesta.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
-
-    # Compresión gzip para respuestas dinámicas (excluyendo passthrough de archivos estáticos)
-    accept_encoding = request.headers.get('Accept-Encoding', '')
-    if ('gzip' in accept_encoding and respuesta.status_code < 300 and
-        not getattr(respuesta, 'direct_passthrough', False) and
-        'Content-Encoding' not in respuesta.headers):
-        content_type = respuesta.headers.get('Content-Type', '')
-        if any(t in content_type for t in ['text/', 'application/javascript', 'application/json', 'image/svg+xml']):
-            data = respuesta.get_data()
-            if len(data) > 400:
-                compressed = gzip.compress(data, compresslevel=6)
-                respuesta.set_data(compressed)
-                respuesta.headers['Content-Encoding'] = 'gzip'
-                respuesta.headers['Content-Length'] = len(compressed)
-
     return respuesta
 
 # ------------------------------------------------------------------ Telemedida
@@ -362,6 +339,19 @@ def catalogo_flota():
 # =====================================================================
 # MÓDULO 1: VUELOS Y TABLERO FIDS (Hash Map O(1))
 # =====================================================================
+DESTINOS_METADATA = {
+    'CLO': {'imagen_url': '/static/img/oferta-cali.jpg', 'precio_base_cop': 71810, 'categoria': 'nocturna', 'tag_destacado': 'Recomendado para ti'},
+    'MTR': {'imagen_url': '/static/img/oferta-monteria.jpg', 'precio_base_cop': 75970, 'categoria': 'naturaleza', 'tag_destacado': 'Vuelo directo'},
+    'MDE': {'imagen_url': '/static/img/oferta-medellin.jpg', 'precio_base_cop': 82010, 'categoria': 'ciudad', 'tag_destacado': 'Mejor precio'},
+    'CTG': {'imagen_url': '/static/img/oferta-cartagena.jpg', 'precio_base_cop': 115000, 'categoria': 'playa', 'tag_destacado': 'Playa favorita'},
+    'SMR': {'imagen_url': '/static/img/oferta-santamarta.jpg', 'precio_base_cop': 108500, 'categoria': 'playa', 'tag_destacado': 'Reserva anticipada'},
+    'BAQ': {'imagen_url': '/static/img/oferta-barranquilla.jpg', 'precio_base_cop': 98000, 'categoria': 'playa', 'tag_destacado': 'Vuelo directo'},
+    'MIA': {'imagen_url': '/static/img/oferta-miami.jpg', 'precio_base_cop': 890000, 'categoria': 'playa', 'tag_destacado': 'Internacional'},
+    'MAD': {'imagen_url': '/static/img/oferta-medellin.jpg', 'precio_base_cop': 2850000, 'categoria': 'ciudad', 'tag_destacado': 'Transatlántico'},
+    'JFK': {'imagen_url': '/static/img/oferta-medellin.jpg', 'precio_base_cop': 1250000, 'categoria': 'ciudad', 'tag_destacado': 'Nueva York'},
+    'MEX': {'imagen_url': '/static/img/oferta-cali.jpg', 'precio_base_cop': 980000, 'categoria': 'ciudad', 'tag_destacado': 'Directo'}
+}
+
 @app.route('/api/vuelos', methods=['GET'])
 def listar_vuelos():
     vuelos_raw = tabla_vuelos.obtener_todos()
@@ -394,8 +384,40 @@ def listar_vuelos():
         elif es_despachado or es_cancelado or es_archivado or es_pasado:
             countdown = 0
 
+        # Metadatos visuales y ofertas
+        destino_upper = str(v.get('destino', '')).upper()
+        imagen_url = v.get('imagen_url') or ''
+        precio_base_cop = int(v.get('precio_base_cop') or 0)
+        categoria = v.get('categoria') or ''
+        tag_destacado = v.get('tag_destacado') or ''
+
+        for iata, meta in DESTINOS_METADATA.items():
+            if iata in destino_upper:
+                if not imagen_url:
+                    imagen_url = meta['imagen_url']
+                if not precio_base_cop:
+                    precio_base_cop = meta['precio_base_cop']
+                if not categoria:
+                    categoria = meta['categoria']
+                if not tag_destacado:
+                    tag_destacado = meta['tag_destacado']
+                break
+
+        if not imagen_url:
+            imagen_url = '/static/img/oferta-cali.jpg'
+        if not precio_base_cop:
+            precio_base_cop = 82000
+        if not categoria:
+            categoria = 'ciudad'
+        if not tag_destacado:
+            tag_destacado = 'Recomendado'
+
         vuelo_info = {
             **v,
+            'imagen_url': imagen_url,
+            'precio_base_cop': precio_base_cop,
+            'categoria': categoria,
+            'tag_destacado': tag_destacado,
             'ocupacion': ocupacion,
             'standby_count': standby_count,
             'embarcados_count': embarcados_count,
@@ -420,6 +442,7 @@ def listar_vuelos():
             proximos.append(vuelo_info)
 
     return jsonify({
+        'vuelos': proximos + en_curso,
         'en_curso': en_curso,
         'proximos': proximos,
         'despegados': despegados,
@@ -463,7 +486,7 @@ def crear_vuelo():
     asegurar_estructuras_vuelo(codigo)
     db.persistir_vuelo(vuelo_dict)
     bump_state()
-    app.logger.info("Vuelo %s programado (%s ➔ %s)", codigo, datos['origen'], datos['destino'])
+    app.logger.info("Vuelo %s programado (%s -> %s)", codigo, datos['origen'], datos['destino'])
 
     return jsonify({
         'mensaje': f'Vuelo {codigo} programado exitosamente en Hash Map O(1)',
@@ -869,7 +892,7 @@ def emitir_boleto_checkin():
         'nacionalidad': nodo_p.nacionalidad,
         'categoria': nodo_p.categoria_viajero,
         'vuelo_id': codigo_vuelo,
-        'origen_destino': f"{vuelo['origen'].split('-')[0].strip()} ✈ {vuelo['destino'].split('-')[0].strip()}",
+        'origen_destino': f"{vuelo['origen'].split('-')[0].strip()} -> {vuelo['destino'].split('-')[0].strip()}",
         'asiento': asiento_final,
         'metodo_pago': metodo_pago or 'Tarjeta Débito/Crédito Visa/Mastercard',
         'monto_cop': desglose['total_cop'],
@@ -957,7 +980,7 @@ def cancelar_checkin():
             'nacionalidad': 'Colombia',
             'categoria': primer_standby.categoria,
             'vuelo_id': codigo_vuelo,
-            'origen_destino': f"{vuelo['origen'].split('-')[0].strip()} ✈ {vuelo['destino'].split('-')[0].strip()}",
+            'origen_destino': f"{vuelo['origen'].split('-')[0].strip()} -> {vuelo['destino'].split('-')[0].strip()}",
             'asiento': asiento_liberado,
             'metodo_pago': 'Asignación Automática Lista Prioritaria',
             'monto_cop': tarifa_liberada,
@@ -1246,6 +1269,63 @@ def cancelar_proceso_embarque(codigo):
         'estado_vuelo': 'Check-in abierto'
     }), 200
 
+@app.route('/api/embarque/<codigo>/abordar-pasajero', methods=['POST'])
+def abordar_pasajero_especifico(codigo):
+    codigo = resolver_codigo_vuelo(codigo)
+    vuelo, _ = tabla_vuelos.buscar(codigo)
+    if not vuelo:
+        return jsonify({'error': 'Vuelo no encontrado'}), 404
+
+    data = request.get_json(silent=True) or {}
+    documento = str(data.get('documento', '')).strip()
+    nombre = str(data.get('nombre', 'Pasajero')).strip()
+    asiento = str(data.get('asiento', '')).strip()
+
+    asegurar_estructuras_vuelo(codigo)
+    cola_emb = colas_embarque[codigo]
+
+    # Encolar en FIFO
+    cola_emb.encolar(
+        pasajero_doc=documento,
+        pasajero_nombre=nombre,
+        categoria="Estándar",
+        hora_ingreso=hora_actual_12h()
+    )
+
+    if documento:
+        db.actualizar_estado_embarque_pago(codigo, documento, 'Abordado')
+
+    bump_state()
+    return jsonify({
+        'exito': True,
+        'mensaje': f'Pasajero {nombre} ha abordado exitosamente el vuelo {codigo}.',
+        'documento': documento,
+        'asiento': asiento,
+        'vuelo_codigo': codigo,
+        'posicion_cola': cola_emb.tamano,
+        'estado': 'Abordado'
+    }), 200
+
+@app.route('/api/admin/vuelos/editar', methods=['POST'])
+def api_admin_editar_vuelo():
+    rol = (request.headers.get('X-User-Role') or (request.get_json(silent=True) or {}).get('usuario_rol') or '').lower().strip()
+    if rol in ('pasajero', 'anonimo') or not rol:
+        return jsonify({'error': 'Acceso no autorizado: requiere rol Administrador o Integral'}), 403
+
+    data = request.get_json(silent=True) or {}
+    codigo = resolver_codigo_vuelo(data.get('codigo', ''))
+    vuelo, _ = tabla_vuelos.buscar(codigo)
+    if not vuelo:
+        return jsonify({'error': 'Vuelo no encontrado'}), 404
+
+    for key in ('imagen_url', 'precio_base_cop', 'categoria', 'tag_destacado', 'fecha_salida', 'hora_salida_12h', 'puerta'):
+        if key in data:
+            vuelo[key] = data[key]
+
+    db.actualizar_vuelo_admin(codigo, data)
+    bump_state()
+    return jsonify({'exito': True, 'mensaje': f'Vuelo {codigo} actualizado exitosamente', 'vuelo': vuelo}), 200
+
 @app.route('/api/pasajeros-recientes', methods=['GET'])
 def listar_pasajeros_recientes():
     registros = db.obtener_pasajeros_recientes_pagos()
@@ -1259,7 +1339,7 @@ def listar_pasajeros_recientes():
 def cancelar_vuelo_endpoint(codigo):
     rol = (request.headers.get('X-User-Role') or (request.get_json(silent=True) or {}).get('usuario_rol') or '').lower().strip()
     if rol in ('pasajero', 'anonimo'):
-        return jsonify({'error': 'Acceso restringido: requiere rol Operador o Integral'}), 403
+        return jsonify({'error': 'Acceso restringido: requiere rol Operador, Administrador o Integral'}), 403
 
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
@@ -1541,8 +1621,8 @@ def api_obtener_recibo(orden_id):
 @app.route('/api/pagos/conciliacion', methods=['GET'])
 def api_conciliacion():
     rol = (request.headers.get('X-User-Role') or request.args.get('rol', 'pasajero')).lower().strip()
-    if rol != 'integral':
-        return jsonify({'error': 'Acceso no autorizado: requiere rol Integral'}), 403
+    if rol not in ('integral', 'admin', 'administrador'):
+        return jsonify({'error': 'Acceso no autorizado: requiere rol Administrador o Integral'}), 403
     reporte = db.obtener_reporte_conciliacion_atomic()
     return jsonify(reporte)
 
