@@ -132,14 +132,42 @@ def obtener_configuracion_aeronave(tipo_aeronave: str) -> dict:
         return CATALOGO_AERONAVES["Airbus A319 Corporate"]
     return CATALOGO_AERONAVES.get(tipo_aeronave, CATALOGO_AERONAVES["Airbus A319 Corporate"])
 
-def calcular_desglose_cop(tarifa_base_cop: float):
-    tarifa_base = float(tarifa_base_cop)
-    tarifa_admin = 45000.0
-    iva_19 = round(tarifa_base * 0.19)
-    tasa_aeroportuaria = 158000.0
-    total = tarifa_base + tarifa_admin + iva_19 + tasa_aeroportuaria
+def calcular_desglose_cop(
+    tarifa_base_cop: int,
+    tasa_aeroportuaria_cop: int = 158000,
+    tarifa_admin_cop: int = 45000,
+    descuento_porcentaje: int = 0
+) -> dict:
+    """
+    Calcula el desglose financiero exacto en Pesos Colombianos (COP) utilizando
+    únicamente enteros exactos (int / BIGINT) sin tipos de coma flotante.
+    Valida que los descuentos no superen el 100% ni sean negativos.
+    """
+    tarifa_base = int(round(float(tarifa_base_cop)))
+    if tarifa_base < 0:
+        raise ValueError("La tarifa base no puede ser negativa.")
+
+    descuento_pct = int(descuento_porcentaje or 0)
+    if descuento_pct < 0 or descuento_pct > 100:
+        raise ValueError("El porcentaje de descuento debe estar entre 0% y 100%.")
+
+    if descuento_pct > 0:
+        monto_descuento = int(round(tarifa_base * descuento_pct / 100))
+        tarifa_aplicada = max(0, tarifa_base - monto_descuento)
+    else:
+        monto_descuento = 0
+        tarifa_aplicada = tarifa_base
+
+    tarifa_admin = int(tarifa_admin_cop if tarifa_admin_cop is not None else 45000)
+    tasa_aeroportuaria = int(tasa_aeroportuaria_cop if tasa_aeroportuaria_cop is not None else 158000)
+    iva_19 = int(round(tarifa_aplicada * 0.19))
+    total = int(tarifa_aplicada + tarifa_admin + iva_19 + tasa_aeroportuaria)
+
     return {
         "tarifa_base_cop": tarifa_base,
+        "descuento_porcentaje": descuento_pct,
+        "descuento_cop": monto_descuento,
+        "tarifa_aplicada_cop": tarifa_aplicada,
         "tarifa_admin_cop": tarifa_admin,
         "iva_cop": iva_19,
         "tasa_aeroportuaria_cop": tasa_aeroportuaria,

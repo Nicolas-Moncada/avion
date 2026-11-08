@@ -28,6 +28,7 @@ _RE_PUERTA = re.compile(r"^[A-Z0-9]{1,4}(?:-[A-Z0-9]{1,4})?$")
 _RE_HORA_12H = re.compile(r"^[01]?\d:[0-5]\d\s*(?:AM|PM)(?:\s*\(\+1\))?$", re.IGNORECASE)
 _RE_FECHA_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _RE_DURACION = re.compile(r"^\d{1,2}h\s+\d{2}m$")
+_RE_ASIENTO_ID = re.compile(r"^[0-9]{1,2}[A-F]$", re.IGNORECASE)
 
 ESTADOS_ACTIVOS_VALIDOS: frozenset = frozenset(
     {"Programado", "Check-in abierto", "Embarcando", "Última llamada"}
@@ -77,8 +78,8 @@ def validar_vuelo(data: Dict[str, Any]) -> Dict[str, Any]:
     except ValueError as e:
         raise ValidationError("La fecha de salida no es una fecha válida.") from e
     _require(
-        fecha_parseada >= date.today() - timedelta(days=730),
-        "La fecha de salida no puede ser anterior a dos años en el pasado.",
+        fecha_parseada >= date.today(),
+        "La fecha de salida no puede estar en el pasado.",
     )
 
     hora_salida = _limpiar(data.get("hora_salida_12h"))
@@ -183,9 +184,45 @@ def validar_checkin(data: Dict[str, Any]) -> Dict[str, str]:
             "El nombre del pasajero nuevo admite solo letras, espacios, acentos, punto, apóstrofe o guion.",
         )
 
+    asiento_id = _limpiar(data.get("asiento_id")).upper()
+    if asiento_id:
+        _require(
+            bool(_RE_ASIENTO_ID.match(asiento_id)),
+            "El identificador del asiento no es válido (ej. 1A, 3C, 12D).",
+        )
+
     return {
         "codigo_vuelo": codigo_vuelo,
         "documento": documento,
+        "asiento_id": asiento_id or None,
         "metodo_pago": metodo_pago,
         "nombre_nuevo": nombre_nuevo,
     }
+
+
+# ------------------------------------------------------------------ Validación Financiera
+def validar_descuento(porcentaje: Any) -> int:
+    """Valida que un porcentaje de descuento sea un entero en el rango cerrado [0, 100]."""
+    if porcentaje is None or porcentaje == "":
+        return 0
+    try:
+        val = int(porcentaje)
+    except (ValueError, TypeError) as e:
+        raise ValidationError("El porcentaje de descuento debe ser un número entero.") from e
+    _require(0 <= val <= 100, "El porcentaje de descuento debe estar entre 0% y 100%.")
+    return val
+
+
+def validar_precio_entero_cop(monto: Any) -> int:
+    """Valida que el valor en Pesos Colombianos (COP) sea un entero exacto no negativo (sin flotantes)."""
+    if monto is None or monto == "":
+        raise ValidationError("El monto en COP es obligatorio.")
+    if isinstance(monto, float) and not monto.is_integer():
+        raise ValidationError("El monto en COP no admite decimales. Debe ser un entero exacto.")
+    try:
+        val = int(monto)
+    except (ValueError, TypeError) as e:
+        raise ValidationError("El monto en COP debe ser un número entero válido.") from e
+    _require(val >= 0, "El monto en COP no puede ser negativo.")
+    return val
+

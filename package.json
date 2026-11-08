@@ -1,4 +1,10 @@
 {
+  "name": "aeroflow-airlines",
+  "version": "2.2.0",
+  "description": "Aero Flow Airlines — Plataforma SaaS comercial en marca blanca",
+  "scripts": {
+    "test": "node tests/run_tests.js"
+  },
   "dependencies": {
     "sharp": "^0.35.5"
   },

@@ -4,7 +4,7 @@
  * NUNCA cachea supabase.co ni autenticación.
  */
 
-const CACHE_NAME = 'aeroflow-shell-v1';
+const CACHE_NAME = 'aeroflow-shell-v2';
 const OFFLINE_URL = '/offline.html';
 
 // App shell: archivos estáticos que se cachean de antemano
@@ -124,3 +124,13 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// ============================================================
+// MENSAJES: SKIP_WAITING para actualización inmediata
+// ============================================================
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+

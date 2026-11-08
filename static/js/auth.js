@@ -404,9 +404,18 @@
   // 5. GESTIÓN DE LA SESIÓN EN sessionStorage
   // ===========================================================================
 
+  function obtenerStorageSesion() {
+    return (window.AeroCore && window.AeroCore.safeSessionStorage) || window.sessionStorage;
+  }
+
+  function obtenerStorageLocal() {
+    return (window.AeroCore && window.AeroCore.safeLocalStorage) || window.localStorage;
+  }
+
   function obtenerSesionActual() {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY_SESION);
+      const store = obtenerStorageSesion();
+      const raw = store.getItem(STORAGE_KEY_SESION);
       if (!raw) return null;
       return JSON.parse(raw);
     } catch (e) {
@@ -416,8 +425,32 @@
 
   function guardarSesion(sesion) {
     try {
-      sessionStorage.setItem(STORAGE_KEY_SESION, JSON.stringify(sesion));
+      const store = obtenerStorageSesion();
+      store.setItem(STORAGE_KEY_SESION, JSON.stringify(sesion));
     } catch (e) {}
+  }
+
+  async function asegurarSesionActiva() {
+    const sesion = obtenerSesionActual();
+    if (!sesion) return null;
+    const client = obtenerClienteSupabase();
+    if (client && client.auth) {
+      try {
+        const { data, error } = await client.auth.getSession();
+        if (data && data.session) {
+          if (data.session.access_token && data.session.access_token !== sesion.token) {
+            sesion.token = data.session.access_token;
+            guardarSesion(sesion);
+          }
+          return sesion;
+        } else if (error) {
+          console.warn('[Auth] Verificación de sesión Supabase:', error.message);
+        }
+      } catch (err) {
+        console.warn('[Auth] Excepción al asegurar sesión:', err);
+      }
+    }
+    return sesion;
   }
 
   async function cerrarSesion() {
@@ -429,7 +462,8 @@
     } catch (e) {}
 
     try {
-      sessionStorage.removeItem(STORAGE_KEY_SESION);
+      const store = obtenerStorageSesion();
+      store.removeItem(STORAGE_KEY_SESION);
     } catch (e) {}
 
     const pwdInput = document.getElementById('login-input-password');

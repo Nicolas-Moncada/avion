@@ -171,6 +171,52 @@
     };
   }
 
+  /* --------------------------------------------------- SafeStorage Fallback (AUD-06) */
+  function MemoryStorage() {
+    this._data = Object.create(null);
+  }
+  MemoryStorage.prototype.getItem = function (key) {
+    return Object.prototype.hasOwnProperty.call(this._data, key) ? this._data[key] : null;
+  };
+  MemoryStorage.prototype.setItem = function (key, value) {
+    this._data[key] = String(value);
+  };
+  MemoryStorage.prototype.removeItem = function (key) {
+    delete this._data[key];
+  };
+  MemoryStorage.prototype.clear = function () {
+    this._data = Object.create(null);
+  };
+
+  function createSafeStorage(type) {
+    var mem = new MemoryStorage();
+    try {
+      var store = global[type];
+      var testKey = '__aero_test__';
+      store.setItem(testKey, '1');
+      store.removeItem(testKey);
+      return {
+        getItem: function (k) {
+          try { return store.getItem(k); } catch (e) { return mem.getItem(k); }
+        },
+        setItem: function (k, v) {
+          try { store.setItem(k, v); } catch (e) { mem.setItem(k, v); }
+        },
+        removeItem: function (k) {
+          try { store.removeItem(k); } catch (e) { mem.removeItem(k); }
+        },
+        clear: function () {
+          try { store.clear(); } catch (e) { mem.clear(); }
+        }
+      };
+    } catch (err) {
+      return mem;
+    }
+  }
+
+  var safeLocalStorage = createSafeStorage('localStorage');
+  var safeSessionStorage = createSafeStorage('sessionStorage');
+
   global.AeroCore = {
     escapeHtml: escapeHtml,
     escapeAttr: escapeAttr,
@@ -185,7 +231,9 @@
     envolverTablas: envolverTablas,
     anunciar: anunciar,
     esqueletoHtml: esqueletoHtml,
-    debounce: debounce
+    debounce: debounce,
+    safeLocalStorage: safeLocalStorage,
+    safeSessionStorage: safeSessionStorage
   };
 
   document.addEventListener('DOMContentLoaded', function () {

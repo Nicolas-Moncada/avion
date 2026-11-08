@@ -359,6 +359,8 @@ def listar_vuelos():
         es_cancelado = 'CANCELADO' in estado_v
         es_archivado = 'ARCHIVADO' in estado_v
         es_despachado = estado_v in ['DESPEGADO', 'Despegado', 'Cerrado']
+        fecha_v = str(v.get('fecha_salida', '')).split(' ')[0]
+        es_pasado = bool(fecha_v and fecha_v < hoy_iso())
 
         # Temporizador en segundos según estado
         countdown = 720
@@ -366,7 +368,7 @@ def listar_vuelos():
             countdown = 300
         elif estado_v == 'Última llamada':
             countdown = 120
-        elif es_despachado or es_cancelado or es_archivado:
+        elif es_despachado or es_cancelado or es_archivado or es_pasado:
             countdown = 0
 
         vuelo_info = {
@@ -376,7 +378,8 @@ def listar_vuelos():
             'embarcados_count': embarcados_count,
             'countdown_segundos': countdown,
             'lleno': ocupacion >= v['capacidad_maxima'],
-            'activo': not (es_cancelado or es_archivado or es_despachado),
+            'activo': not (es_cancelado or es_archivado or es_despachado or es_pasado),
+            'es_pasado': es_pasado,
             'cancelado': es_cancelado,
             'archivado': es_archivado
         }
@@ -585,7 +588,7 @@ def eliminar_pasajero_endpoint(documento):
             if siguiente:
                 db.eliminar_standby_persistido(vuelo_cod, siguiente.pasajero_doc)
                 clase_ascenso = 'VIP' if asiento_liberado in ('1A', '1B', '2A', '2B', '3A', '3B') else 'Estándar'
-                tarifa_ascenso = 3850000.0 if clase_ascenso == 'VIP' else 1820000.0
+                tarifa_ascenso = 3850000 if clase_ascenso == 'VIP' else 1820000
 
                 arbol_pasajeros.actualizar_vuelo(siguiente.pasajero_doc, vuelo_cod)
                 lista.insertar_al_final(
@@ -709,6 +712,10 @@ def emitir_boleto_checkin():
     if vuelo.get('estado') in ['DESPEGADO', 'Despegado', 'Cerrado']:
         return jsonify({'error': f'El vuelo {codigo_vuelo} ya ha despegado o se encuentra cerrado para ventas'}), 400
 
+    fecha_vuelo = str(vuelo.get('fecha_salida', '')).split(' ')[0]
+    if fecha_vuelo and fecha_vuelo < hoy_iso():
+        return jsonify({'error': f'El vuelo {codigo_vuelo} corresponde a una fecha pasada ({fecha_vuelo}) y no admite reservas.'}), 400
+
     nodo_p, _, _ = arbol_pasajeros.buscar(documento)
     if not nodo_p:
         if nombre_nuevo:
@@ -789,7 +796,7 @@ def emitir_boleto_checkin():
 
     asiento_final = None
     clase_cabina = 'Estándar'
-    tarifa_base_cop = 780000.0
+    tarifa_base_cop = 780000
 
     if asiento_solicitado:
         if asiento_solicitado in asientos_ocupados:
@@ -1108,7 +1115,7 @@ def abordar_siguiente(codigo):
 
     asiento = 'TBD'
     clase_cabina = 'Estándar'
-    tarifa_pagada = 780000.0
+    tarifa_pagada = 780000
     p_manifiesto = lista.buscar(pasajero_nodo.pasajero_doc)
     if p_manifiesto:
         asiento = p_manifiesto.asiento

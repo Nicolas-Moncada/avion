@@ -227,7 +227,7 @@ def hydratar_memoria() -> Tuple[TablaHashVuelos, ArbolAVLPasajeros, dict[str, Li
                 hora_checkin=m['hora_checkin_12h'],
                 categoria=m['categoria'],
                 clase_cabina=m.get('clase_cabina', 'Estándar'),
-                tarifa_pagada=m.get('tarifa_pagada_cop', 780000.0)
+                tarifa_pagada=int(round(float(m.get('tarifa_pagada_cop', 780000))))
             )
 
     # 4. Cargar Colas Standby FIFO
@@ -326,7 +326,7 @@ def persistir_checkin(vuelo_codigo: str, nodo_dict: dict):
                 nodo_dict.get('hora_checkin_12h') or nodo_dict.get('hora_checkin') or '12:00 PM',
                 nodo_dict.get('categoria') or 'Estándar',
                 nodo_dict.get('clase_cabina') or 'Estándar',
-                float(nodo_dict.get('tarifa_pagada_cop') or nodo_dict.get('tarifa_pagada') or 780000.0)
+                int(round(float(nodo_dict.get('tarifa_pagada_cop') or nodo_dict.get('tarifa_pagada') or 780000)))
             ))
             cursor.execute("UPDATE pasajeros SET vuelo_asignado = ? WHERE documento = ?", (
                 str(vuelo_codigo).strip().upper(),
@@ -451,7 +451,7 @@ def persistir_pago_reciente(pago: dict):
                 pago.get('origen_destino') or 'BOG ✈ MAD',
                 pago.get('asiento') or 'N/A',
                 pago.get('metodo_pago') or 'Tarjeta Débito/Crédito Visa/Mastercard',
-                float(pago.get('monto_cop') or 1820000.0),
+                int(round(float(pago.get('monto_cop') or 1820000))),
                 pago.get('referencia_pago') or '#AF-1001-CO',
                 pago.get('estado_embarque') or 'Confirmado',
                 pago.get('fecha_hora_registro') or '2026-10-22 • 11:00 AM'
@@ -580,44 +580,44 @@ def archivar_vuelo_operativo(codigo: str):
 # 20 Estándar en Asientos 4A a 8D
 PASAJEROS_SEMILLA_26 = [
     # Fila 1 VIP
-    ("101829384", "Carlos Alberto Mendoza", "Colombia", "VIP", "1A", "Tarjeta Débito/Crédito Visa (•••• 4242)", 3850000.0, "08:15 AM"),
-    ("102938475", "Valeria Sofía Restrepo", "Colombia", "VIP", "1B", "PSE Bancolombia Transferencia", 3850000.0, "08:20 AM"),
+    ("101829384", "Carlos Alberto Mendoza", "Colombia", "VIP", "1A", "Tarjeta Débito/Crédito Visa (•••• 4242)", 3850000, "08:15 AM"),
+    ("102938475", "Valeria Sofía Restrepo", "Colombia", "VIP", "1B", "PSE Bancolombia Transferencia", 3850000, "08:20 AM"),
     # Fila 2 VIP
-    ("103847561", "Andrés Felipe Gómez", "Colombia", "VIP", "2A", "Tarjeta Débito/Crédito Mastercard (•••• 8901)", 3850000.0, "08:35 AM"),
-    ("104958672", "Mariana Lucía Morales", "Colombia", "VIP", "2B", "Millas AeroFlow Club (65.000 Millas)", 3850000.0, "08:45 AM"),
+    ("103847561", "Andrés Felipe Gómez", "Colombia", "VIP", "2A", "Tarjeta Débito/Crédito Mastercard (•••• 8901)", 3850000, "08:35 AM"),
+    ("104958672", "Mariana Lucía Morales", "Colombia", "VIP", "2B", "Millas AeroFlow Club (65.000 Millas)", 3850000, "08:45 AM"),
     # Fila 3 VIP
-    ("105748392", "Juan Sebastián Herrera", "Colombia", "VIP", "3A", "Tarjeta Débito/Crédito Visa (•••• 1122)", 3850000.0, "08:50 AM"),
-    ("106839201", "Elena Beatriz Rojas", "España", "Estándar", "3B", "PSE Davivienda / DaviPlata", 3850000.0, "09:00 AM"),
+    ("105748392", "Juan Sebastián Herrera", "Colombia", "VIP", "3A", "Tarjeta Débito/Crédito Visa (•••• 1122)", 3850000, "08:50 AM"),
+    ("106839201", "Elena Beatriz Rojas", "España", "Estándar", "3B", "PSE Davivienda / DaviPlata", 3850000, "09:00 AM"),
 
     # Fila 4 Economy
-    ("107294810", "Mateo David Silva", "Chile", "Estándar", "4A", "Tarjeta Débito/Crédito Visa (•••• 3344)", 1820000.0, "09:05 AM"),
-    ("108395019", "Gabriela Andrea Vega", "México", "Estándar", "4B", "PSE Nequi", 1820000.0, "09:10 AM"),
-    ("109485720", "Rodrigo Paz Quintana", "Argentina", "Estándar", "4C", "Tarjeta Débito/Crédito Mastercard (•••• 5566)", 1820000.0, "09:15 AM"),
-    ("110394857", "Diana Patricia Ramos", "Colombia", "Estándar", "4D", "PSE Nu Colombia", 1820000.0, "09:20 AM"),
+    ("107294810", "Mateo David Silva", "Chile", "Estándar", "4A", "Tarjeta Débito/Crédito Visa (•••• 3344)", 1820000, "09:05 AM"),
+    ("108395019", "Gabriela Andrea Vega", "México", "Estándar", "4B", "PSE Nequi", 1820000, "09:10 AM"),
+    ("109485720", "Rodrigo Paz Quintana", "Argentina", "Estándar", "4C", "Tarjeta Débito/Crédito Mastercard (•••• 5566)", 1820000, "09:15 AM"),
+    ("110394857", "Diana Patricia Ramos", "Colombia", "Estándar", "4D", "PSE Nu Colombia", 1820000, "09:20 AM"),
 
     # Fila 5 Economy
-    ("111849302", "Santiago Murillo Cárdenas", "Colombia", "Estándar", "5A", "Tarjeta Débito/Crédito Visa (•••• 7788)", 1820000.0, "09:25 AM"),
-    ("112948571", "Camila Isabel Castillo", "Panamá", "Estándar", "5B", "PSE Banco de Bogotá", 1820000.0, "09:30 AM"),
-    ("113049582", "Nicolás Eduardo Arango", "Colombia", "Estándar", "5C", "Millas AeroFlow Club (28.500 Millas)", 1820000.0, "09:35 AM"),
-    ("114958673", "Isabella María Torres", "Colombia", "Estándar", "5D", "Tarjeta Débito/Crédito Visa (•••• 9900)", 1820000.0, "09:40 AM"),
+    ("111849302", "Santiago Murillo Cárdenas", "Colombia", "Estándar", "5A", "Tarjeta Débito/Crédito Visa (•••• 7788)", 1820000, "09:25 AM"),
+    ("112948571", "Camila Isabel Castillo", "Panamá", "Estándar", "5B", "PSE Banco de Bogotá", 1820000, "09:30 AM"),
+    ("113049582", "Nicolás Eduardo Arango", "Colombia", "Estándar", "5C", "Millas AeroFlow Club (28.500 Millas)", 1820000, "09:35 AM"),
+    ("114958673", "Isabella María Torres", "Colombia", "Estándar", "5D", "Tarjeta Débito/Crédito Visa (•••• 9900)", 1820000, "09:40 AM"),
 
     # Fila 6 Economy
-    ("115849301", "Alejandro José Castro", "Perú", "Estándar", "6A", "PSE Scotiabank Colpatria", 1820000.0, "09:42 AM"),
-    ("116938472", "Sofía Alejandra Vargas", "Colombia", "Estándar", "6B", "Tarjeta Débito/Crédito Mastercard (•••• 2233)", 1820000.0, "09:45 AM"),
-    ("117849203", "Daniel Esteban Méndez", "Ecuador", "Estándar", "6C", "PSE BBVA Colombia", 1820000.0, "09:48 AM"),
-    ("118294857", "Luciana del Pilar Rios", "Colombia", "Estándar", "6D", "Tarjeta Débito/Crédito Visa (•••• 4455)", 1820000.0, "09:50 AM"),
+    ("115849301", "Alejandro José Castro", "Perú", "Estándar", "6A", "PSE Scotiabank Colpatria", 1820000, "09:42 AM"),
+    ("116938472", "Sofía Alejandra Vargas", "Colombia", "Estándar", "6B", "Tarjeta Débito/Crédito Mastercard (•••• 2233)", 1820000, "09:45 AM"),
+    ("117849203", "Daniel Esteban Méndez", "Ecuador", "Estándar", "6C", "PSE BBVA Colombia", 1820000, "09:48 AM"),
+    ("118294857", "Luciana del Pilar Rios", "Colombia", "Estándar", "6D", "Tarjeta Débito/Crédito Visa (•••• 4455)", 1820000, "09:50 AM"),
 
     # Fila 7 Economy
-    ("119384756", "Felipe Ignacio Navas", "Chile", "Estándar", "7A", "PSE Dale!", 1820000.0, "09:52 AM"),
-    ("120495837", "Paula Daniela Pinzón", "Colombia", "Estándar", "7B", "Tarjeta Débito/Crédito Visa (•••• 6677)", 1820000.0, "09:55 AM"),
-    ("121948573", "Martín Alonso Barreto", "Uruguay", "Estándar", "7C", "PSE Lulo Bank", 1820000.0, "09:58 AM"),
-    ("122839485", "Catalina María Osorio", "Colombia", "Estándar", "7D", "Tarjeta Débito/Crédito Mastercard (•••• 8899)", 1820000.0, "10:00 AM"),
+    ("119384756", "Felipe Ignacio Navas", "Chile", "Estándar", "7A", "PSE Dale!", 1820000, "09:52 AM"),
+    ("120495837", "Paula Daniela Pinzón", "Colombia", "Estándar", "7B", "Tarjeta Débito/Crédito Visa (•••• 6677)", 1820000, "09:55 AM"),
+    ("121948573", "Martín Alonso Barreto", "Uruguay", "Estándar", "7C", "PSE Lulo Bank", 1820000, "09:58 AM"),
+    ("122839485", "Catalina María Osorio", "Colombia", "Estándar", "7D", "Tarjeta Débito/Crédito Mastercard (•••• 8899)", 1820000, "10:00 AM"),
 
     # Fila 8 Economy
-    ("123847592", "Joaquín Manuel Pardo", "Colombia", "Estándar", "8A", "Millas AeroFlow Club (28.500 Millas)", 1820000.0, "10:02 AM"),
-    ("124958371", "Manuela Mercedes Cruz", "Guatemala", "Estándar", "8B", "Tarjeta Débito/Crédito Visa (•••• 1010)", 1820000.0, "10:05 AM"),
-    ("125839402", "Samuel David Cifuentes", "Colombia", "Estándar", "8C", "PSE Bancolombia", 1820000.0, "10:08 AM"),
-    ("126485930", "Emilia Rosa Salcedo", "Colombia", "Estándar", "8D", "Tarjeta Débito/Crédito Visa (•••• 2020)", 1820000.0, "10:10 AM")
+    ("123847592", "Joaquín Manuel Pardo", "Colombia", "Estándar", "8A", "Millas AeroFlow Club (28.500 Millas)", 1820000, "10:02 AM"),
+    ("124958371", "Manuela Mercedes Cruz", "Guatemala", "Estándar", "8B", "Tarjeta Débito/Crédito Visa (•••• 1010)", 1820000, "10:05 AM"),
+    ("125839402", "Samuel David Cifuentes", "Colombia", "Estándar", "8C", "PSE Bancolombia", 1820000, "10:08 AM"),
+    ("126485930", "Emilia Rosa Salcedo", "Colombia", "Estándar", "8D", "Tarjeta Débito/Crédito Visa (•••• 2020)", 1820000, "10:10 AM")
 ]
 
 def reiniciar_semilla_limpia():
