@@ -1257,6 +1257,10 @@ def listar_pasajeros_recientes():
 @app.route('/api/vuelo/cancelar/<codigo>', methods=['POST', 'DELETE'])
 @app.route('/api/vuelos/<codigo>/cancelar', methods=['POST', 'DELETE'])
 def cancelar_vuelo_endpoint(codigo):
+    rol = (request.headers.get('X-User-Role') or (request.get_json(silent=True) or {}).get('usuario_rol') or '').lower().strip()
+    if rol in ('pasajero', 'anonimo'):
+        return jsonify({'error': 'Acceso restringido: requiere rol Operador o Integral'}), 403
+
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
@@ -1536,6 +1540,9 @@ def api_obtener_recibo(orden_id):
 
 @app.route('/api/pagos/conciliacion', methods=['GET'])
 def api_conciliacion():
+    rol = (request.headers.get('X-User-Role') or request.args.get('rol', 'pasajero')).lower().strip()
+    if rol != 'integral':
+        return jsonify({'error': 'Acceso no autorizado: requiere rol Integral'}), 403
     reporte = db.obtener_reporte_conciliacion_atomic()
     return jsonify(reporte)
 

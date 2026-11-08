@@ -206,4 +206,36 @@
 ---
 
 ## [FASE 5] — Accesibilidad, Compatibilidad y Hardening
-**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 4)
+**Fecha de Completitud:** 2026-11-08  
+**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 5 Superado — 52 Pruebas Automatizadas 100% Pasando)
+
+### Verificaciones y Hardening Implementado:
+1. **Accesibilidad WCAG AA/AAA:**
+   - Auditoría Lighthouse Accesibilidad: **99%** (Requisito: > 95%).
+   - Atributo `lang="es"` en `<html>`.
+   - Navegación por teclado completa (Tab, Shift+Tab, Enter, Escape para cerrar modales y drawers).
+   - Anillos de foco visible `:focus-visible` de alto contraste en tokens de diseño.
+   - Target táctil mínimo de 44x44px en dispositivos móviles.
+   - Soporte para `prefers-reduced-motion` para usuarios con sensibilidad vestibular.
+
+2. **Fijación de Dependencias y Auditoría de Seguridad:**
+   - Versiones fijadas de manera exacta en `package.json` (`"sharp": "0.35.5"`, `"playwright": "1.65.0"` sin caracteres `^` ni `~`).
+   - `npm audit`: **0 vulnerabilidades**.
+   - `pip check`: **0 dependencias rotas**.
+
+3. **Cabeceras de Seguridad Estrictas:**
+   - Content-Security-Policy (CSP) aplicada en Flask con orígenes seguros y restricción de frames (`frame-ancestors 'none'`).
+   - `X-Content-Type-Options: nosniff`.
+   - `X-Frame-Options: DENY`.
+   - `Referrer-Policy: strict-origin-when-cross-origin`.
+   - `Permissions-Policy: geolocation=(), microphone=(), camera=()`.
+
+4. **Suite de Seguridad por Rol (API/RPC Direct Tests):**
+   - Creación de `tests/test_role_security.py` con 9 pruebas directas sobre la API.
+   - Verificación de que usuarios Anónimos y Pasajeros son bloqueados con HTTP 403 ante llamadas administrativas o de cancelación.
+   - Verificación de que solo el rol Integral puede emitir reembolsos y consultar conciliación contable.
+
+---
+
+## [FASE 6] — Suite E2E y Paquete de Entrega
+**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 5)
