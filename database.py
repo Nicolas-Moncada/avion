@@ -16,7 +16,11 @@ from data_structures.linked_list import ListaEnlazadaManifiesto
 from data_structures.fifo_queue import ColaFIFO
 from fleet_catalog import CATALOGO_AERONAVES, calcular_desglose_cop
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DB_PATH = os.path.abspath(
     os.getenv('AEROFLOW_DB_PATH') or os.path.join(BASE_DIR, 'aerocore.db')
 )

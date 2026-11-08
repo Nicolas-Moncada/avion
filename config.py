@@ -12,8 +12,14 @@
 """
 
 import os
+import sys
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BUNDLE_DIR = sys._MEIPASS
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = BUNDLE_DIR
 
 APP_NAME = "AERO FLOW AIRLINES"
 VERSION = "2.1.0"

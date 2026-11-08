@@ -22,7 +22,11 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(config.BUNDLE_DIR, 'templates'),
+    static_folder=os.path.join(config.BUNDLE_DIR, 'static')
+)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 app.config['MAX_CONTENT_LENGTH'] = config.MAX_BODY_BYTES
@@ -277,36 +281,36 @@ def generar_reemplazo_vuelo_interno(codigo_anterior):
 # =====================================================================
 @app.route('/manifest.webmanifest')
 def serve_manifest():
-    response = send_from_directory(config.BASE_DIR, 'manifest.webmanifest')
+    response = send_from_directory(config.BUNDLE_DIR, 'manifest.webmanifest')
     response.headers['Content-Type'] = 'application/manifest+json; charset=utf-8'
     return response
 
 @app.route('/sw.js')
 def serve_sw():
-    response = send_from_directory(config.BASE_DIR, 'sw.js')
+    response = send_from_directory(config.BUNDLE_DIR, 'sw.js')
     response.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     response.headers['Service-Worker-Allowed'] = '/'
     return response
 
 @app.route('/offline.html')
 def serve_offline():
-    return send_from_directory(config.BASE_DIR, 'offline.html')
+    return send_from_directory(config.BUNDLE_DIR, 'offline.html')
 
 @app.route('/icons/<path:filename>')
 def serve_icons(filename):
-    return send_from_directory(os.path.join(config.BASE_DIR, 'icons'), filename)
+    return send_from_directory(os.path.join(config.BUNDLE_DIR, 'icons'), filename)
 
 @app.route('/vendor/<path:filename>')
 def serve_vendor(filename):
-    return send_from_directory(os.path.join(config.BASE_DIR, 'vendor'), filename)
+    return send_from_directory(os.path.join(config.BUNDLE_DIR, 'vendor'), filename)
 
 @app.route('/assets/<path:filename>')
 def serve_assets(filename):
-    return send_from_directory(os.path.join(config.BASE_DIR, 'assets'), filename)
+    return send_from_directory(os.path.join(config.BUNDLE_DIR, 'assets'), filename)
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory(os.path.join(config.BASE_DIR, 'js'), filename)
+    return send_from_directory(os.path.join(config.BUNDLE_DIR, 'js'), filename)
 
 @app.route('/')
 def index():
