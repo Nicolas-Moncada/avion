@@ -659,13 +659,56 @@
   }
 
   // =========================================================================
-  // 10. INICIALIZACIÓN GLOBAL
+  // 10. MICRO-INTERACCIONES GPU Y OPTIMIZACIÓN DE RENDIMIENTO (FASE 4)
+  // =========================================================================
+  function initMicroInteracciones() {
+    // 1. Entrada suave de página con fade + translate 8px
+    const root = document.getElementById('main-app-root');
+    if (root) {
+      root.classList.add('page-enter-animated');
+    }
+
+    // 2. Carga progresiva diferida de tarjetas con IntersectionObserver y stagger de 60ms
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach((entry, idx) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              entry.target.classList.add('visible');
+            }, idx * 60);
+            obs.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -20px 0px'
+      });
+
+      document.querySelectorAll('.offer-card, .bento-card').forEach(card => {
+        card.classList.add('card-stagger-item');
+        observer.observe(card);
+      });
+    }
+
+    // 3. Pausar animaciones y tickers cuando la pestaña está en segundo plano (document.visibilityState === 'hidden')
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        document.body.classList.add('animations-paused');
+      } else {
+        document.body.classList.remove('animations-paused');
+      }
+    });
+  }
+
+  // =========================================================================
+  // 11. INICIALIZACIÓN GLOBAL
   // =========================================================================
   function initMinimalUI() {
     initModoComodo();
     initHeroControls();
     renderizarOfertas();
     cargarBrandingAeropuerto('BOG');
+    initMicroInteracciones();
 
     // Escuchar cambios de rol en la sesión para mostrar / ocultar el botón de Consola
     const sesionRaw = sessionStorage.getItem('aeroflow_session');

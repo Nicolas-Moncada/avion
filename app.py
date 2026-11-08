@@ -7,6 +7,7 @@
 
 import os
 import time
+import gzip
 import logging
 import threading
 from datetime import datetime, timedelta
@@ -173,6 +174,28 @@ def aplicar_head_seguridad(respuesta):
         "form-action 'self'; "
         "frame-ancestors 'none'"
     )
+
+    # Cache-Control para activos estáticos (CSS, JS, Fuentes, Imágenes)
+    path = request.path
+    if (path.startswith('/static/') or path.startswith('/assets/') or
+        path.startswith('/vendor/') or path.startswith('/icons/') or
+        path.endswith('.css') or path.endswith('.js') or path.endswith('.woff2')):
+        respuesta.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+
+    # Compresión gzip para respuestas dinámicas (excluyendo passthrough de archivos estáticos)
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    if ('gzip' in accept_encoding and respuesta.status_code < 300 and
+        not getattr(respuesta, 'direct_passthrough', False) and
+        'Content-Encoding' not in respuesta.headers):
+        content_type = respuesta.headers.get('Content-Type', '')
+        if any(t in content_type for t in ['text/', 'application/javascript', 'application/json', 'image/svg+xml']):
+            data = respuesta.get_data()
+            if len(data) > 400:
+                compressed = gzip.compress(data, compresslevel=6)
+                respuesta.set_data(compressed)
+                respuesta.headers['Content-Encoding'] = 'gzip'
+                respuesta.headers['Content-Length'] = len(compressed)
+
     return respuesta
 
 # ------------------------------------------------------------------ Telemedida
