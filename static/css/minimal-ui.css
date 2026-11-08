@@ -1,0 +1,1001 @@
+/**
+ * AERO FLOW AIRLINES — Estilos Minimalistas Oficiales (v2.2)
+ * Implementación 100% fiel a visual_reference_spec y a la imagen de referencia.
+ * Regla GPU: Transiciones únicamente con transform y opacity (150-300ms).
+ */
+
+/* ==========================================================================
+   1. RESET Y BASE
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--line-height-base);
+  color: var(--text-primary);
+  background-color: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ==========================================================================
+   2. HEADER MINIMALISTA (64px)
+   ========================================================================== */
+.minimal-header {
+  height: 64px;
+  width: 100%;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.brand-logo-area {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.brand-icon-svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--text-primary);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.brand-logo-area:hover .brand-icon-svg {
+  transform: rotate(-8deg) scale(1.05);
+}
+
+.brand-name {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.minimal-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.nav-link {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+  position: relative;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-subtle);
+}
+
+.nav-link.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: var(--space-3);
+  right: var(--space-3);
+  height: 2px;
+  background-color: var(--text-primary);
+  border-radius: var(--radius-pill);
+}
+
+.header-user-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.header-user-btn:hover {
+  background-color: var(--bg-subtle);
+}
+
+.role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+}
+
+.role-dot.operador {
+  background-color: var(--color-danger);
+}
+
+.role-dot.integral {
+  background-color: var(--color-info);
+}
+
+/* ==========================================================================
+   3. CONTENEDOR PRINCIPAL Y HERO FLOTANTE
+   ========================================================================== */
+.main-content {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.hero-search-container {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-6);
+  position: relative;
+  z-index: 20;
+  transition: box-shadow var(--duration-base) var(--ease-standard);
+}
+
+.hero-search-container:hover {
+  box-shadow: var(--shadow-floating);
+}
+
+/* Selector Tipo Píldora (Ida y vuelta | Solo ida) */
+.trip-type-pill-selector {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-subtle);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  margin-bottom: var(--space-5);
+}
+
+.pill-option-btn {
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.pill-option-btn.active {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Fila Única de Inputs del Buscador */
+.search-inputs-row {
+  display: grid;
+  grid-template-columns: 2fr auto 2fr 1.5fr 1.5fr 1.5fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  position: relative;
+}
+
+.search-field-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  min-height: 52px;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+
+.search-field-box:hover {
+  border-color: var(--border-strong);
+  background-color: var(--bg-subtle);
+}
+
+.search-field-box:focus-within {
+  border-color: var(--text-primary);
+  outline: 2px solid var(--border-strong);
+}
+
+.search-field-icon {
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.search-field-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-field-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.search-field-value {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swap-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: transform var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+
+.swap-btn:hover {
+  background-color: var(--bg-subtle);
+  transform: rotate(180deg);
+}
+
+/* Botón CTA Primario "Buscar" */
+.btn-primary-cta {
+  height: 52px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--ease-standard),
+              opacity var(--duration-fast) var(--ease-standard);
+}
+
+.btn-primary-cta:hover {
+  opacity: 0.92;
+  transform: scale(1.02);
+}
+
+.btn-primary-cta:active {
+  transform: scale(0.98);
+}
+
+.btn-primary-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==========================================================================
+   4. POPOVER CALENDARIO TARIFARIO (¿Cuándo quieres volar?)
+   ========================================================================== */
+.fare-calendar-popover {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  left: 20%;
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-6);
+  width: 680px;
+  max-width: 95vw;
+  z-index: 100;
+  display: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity var(--duration-base) var(--ease-standard),
+              transform var(--duration-base) var(--ease-standard);
+}
+
+.fare-calendar-popover.open {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.calendar-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.calendar-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.calendar-price-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.legend-dot-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.low { background-color: var(--color-price-low); }
+.legend-dot.mid { background-color: var(--color-price-mid); }
+.legend-dot.high { background-color: var(--color-price-high); }
+
+.months-grid-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+}
+
+.month-view-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.month-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.month-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.month-nav-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.month-nav-arrow:hover {
+  background-color: var(--bg-subtle);
+}
+
+.calendar-weekdays-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day-btn {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+
+.calendar-day-btn:hover {
+  transform: scale(1.1);
+}
+
+.calendar-day-btn.inactive {
+  color: var(--text-muted);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.calendar-day-btn.tier-low {
+  background-color: var(--color-price-low-bg);
+  color: #14532D;
+  font-weight: 600;
+}
+
+.calendar-day-btn.tier-mid {
+  background-color: var(--color-price-mid-bg);
+  color: #713F12;
+  font-weight: 600;
+}
+
+.calendar-day-btn.tier-high {
+  background-color: var(--color-price-high-bg);
+  color: #7F1D1D;
+  font-weight: 600;
+}
+
+.calendar-day-btn.selected {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   5. SECCIÓN DE OFERTAS (3 Columnas Limpias)
+   ========================================================================== */
+.section-offers-area {
+  margin-top: var(--space-12);
+}
+
+.section-offers-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+}
+
+.offers-grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.offer-card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--duration-base) var(--ease-standard),
+              box-shadow var(--duration-base) var(--ease-standard);
+}
+
+.offer-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+.offer-image-box {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg-subtle);
+}
+
+.offer-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-standard);
+}
+
+.offer-card:hover .offer-img {
+  transform: scale(1.04);
+}
+
+/* El cuerpo de la tarjeta muestra EXACTAMENTE 3 líneas de texto (visual_reference_spec) */
+.offer-card-body {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.offer-destination-line {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.offer-meta-line {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.offer-price-line {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   6. CHECKOUT EN 3 PASOS (Pasajeros -> Asientos -> Pago)
+   ========================================================================== */
+.checkout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.checkout-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.checkout-modal-card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-popover);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-8);
+  position: relative;
+  transform: scale(0.96);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.checkout-modal-backdrop.open .checkout-modal-card {
+  transform: scale(1);
+}
+
+.checkout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.checkout-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.stepper-item.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.stepper-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.stepper-item.active .stepper-num {
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+/* Resumen Colapsable de Precios */
+.checkout-price-summary {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.price-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.price-summary-row.total {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.retention-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  background-color: rgba(245, 158, 11, 0.1);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  margin-bottom: var(--space-4);
+}
+
+/* ==========================================================================
+   7. FUSELAJE Y MAPA DE CABINA MINIMALISTA
+   ========================================================================== */
+.fuselage-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.cabin-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.seat-aisle-gap {
+  width: var(--space-6);
+}
+
+.seat-btn {
+  width: 38px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+
+.seat-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  border-color: var(--text-primary);
+}
+
+.seat-btn.vip {
+  border-color: var(--color-warning);
+  background-color: rgba(245, 158, 11, 0.08);
+}
+
+.seat-btn.selected {
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+
+.seat-btn:disabled, .seat-btn.occupied {
+  background-color: var(--bg-muted);
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==========================================================================
+   8. PANTALLA DE CONFIRMACIÓN & PASE DE ABORDAR
+   ========================================================================== */
+.confirmation-success-card {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.success-check-svg {
+  width: 64px;
+  height: 64px;
+  stroke: var(--color-success);
+  stroke-width: 2.5;
+  fill: none;
+  margin: 0 auto var(--space-4);
+}
+
+.boarding-pass-card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6);
+  margin: var(--space-6) auto;
+  max-width: 540px;
+  text-align: left;
+}
+
+.pass-flight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed var(--border-subtle);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.pass-route-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.pass-iata-code {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.pass-grid-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.pass-info-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.pass-info-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.pass-info-val {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pass-barcode-box {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.barcode-svg {
+  width: 100%;
+  max-width: 320px;
+  height: 48px;
+}
+
+/* ==========================================================================
+   9. DRAWER LATERAL PARA FORMULARIOS Y ADMIN
+   ========================================================================== */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.4);
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.drawer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.side-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 90vw;
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-popover);
+  border-left: 1px solid var(--border-subtle);
+  z-index: 95;
+  padding: var(--space-8);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.drawer-backdrop.open .side-drawer {
+  transform: translateX(0);
+}
+
+/* ==========================================================================
+   10. RESPONSIVE DESIGN (Móvil y Tablet)
+   ========================================================================== */
+@media (max-width: 992px) {
+  .offers-grid-3col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .search-inputs-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .swap-btn {
+    display: none;
+  }
+
+  .fare-calendar-popover {
+    width: 340px;
+    left: 0;
+  }
+
+  .months-grid-duo {
+    grid-template-columns: 1fr;
+  }
+
+  .month-view-card:nth-child(2) {
+    display: none; /* 1 mes en móvil según visual_reference_spec */
+  }
+}
+
+@media (max-width: 640px) {
+  .offers-grid-3col {
+    grid-template-columns: 1fr;
+  }
+
+  .search-inputs-row {
+    grid-template-columns: 1fr;
+  }
+
+  .minimal-header {
+    padding: 0 var(--space-4);
+  }
+
+  .minimal-nav .nav-link:not(.active) {
+    display: none;
+  }
+}

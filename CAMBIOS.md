@@ -120,5 +120,60 @@
 
 ---
 
-## [FASE 3] — Rediseño Minimalista Integral
-**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 2)
+## [FASE 3] — Rediseño Minimalista Integral (Referencia Visual Exacta)
+**Fecha de Completitud:** 2026-11-08  
+**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 3 Superado — 24 Capturas Playwright + 43 Tests 100% Pasando)
+
+### Funcionalidades y Componentes Implementados:
+1. **Sistema de Tokens de Diseño Centralizado (`static/css/design-tokens.css`):**
+   - Escala espacial estricta de múltiplos de 8px (`--space-1` a `--space-16`).
+   - Tokens semánticos de color para tema Claro (`#F8FAFC`, superficie `#FFFFFF`) y Oscuro (`#0B0F17`, superficie `#111827`, texto `#F1F5F9`/`#94A3B8`).
+   - Paleta de precios pastel de baja saturación para el calendario: Verde `$ #86EFAC` (`#DCFCE7`), Ámbar `$$ #FDE047` (`#FEF9C3`) y Coral `$$$ #FCA5A5` (`#FEE2E2`).
+   - Regla de rendimiento GPU: Transiciones únicamente mediante `transform` y `opacity` (150ms a 300ms).
+   - "Modo Cómodo" (`body.modo-comodo`) para mayor densidad y legibilidad con espaciado amplio y desactivación de animaciones.
+
+2. **Header Minimalista Oficial de 64px:**
+   - Barra fija de 64px con isotipo vectorial de avión minimalista y nombre ("Aero Flow").
+   - Navegación limpia de máximo 5 ítems: "Reservar", "Ofertas", "Mis reservas", "Consola" (disponible exclusivamente para Operador e Integral).
+   - Selector de moneda COP con bandera oficial de Colombia.
+   - Alternador de Modo Cómodo (`Aa`) y tema Claro/Oscuro (`🌙`/`☀️`).
+   - Badge de perfil de usuario y rol activo con botón de salida rápido.
+   - Supresión absoluta de tickers publicitarios o en movimiento en la vista de pasajero.
+
+3. **Hero Flotante y Buscador Central:**
+   - Tarjeta flotante con esquinas redondeadas (16px), sombra difusa y selector tipo píldora (`Ida y vuelta` | `Solo ida`).
+   - Fila única de inputs alineados: Origen (`Miami (MIA)`), botón de intercambio rotativo (`swap-btn`), Destino (`Bogotá (BOG)`), Salida, Regreso, Pasajero y CTA primario "Buscar".
+
+4. **Calendario Tarifario Integrado ("¿Cuándo quieres volar?"):**
+   - Popover desplegable con vista de 2 meses en paralelo en escritorio (1 en móvil).
+   - Leyenda discreta con pastillas de color pastel `$`, `$$`, `$$$`.
+   - Cuadrícula de días con círculos de precio pastel e indicador de selección circular (anillo en día 8, idéntico a la referencia).
+   - Interacción fluida: clic en fecha actualiza los inputs de salida/regreso.
+
+5. **Sección "Descubre las mejores ofertas" (3 Columnas Limpias):**
+   - Cuadrícula de 3 columnas (1 en móvil, 2 en tablet, 3 en escritorio).
+   - Tarjetas con imágenes en relación de aspecto 16:10 (`oferta-cali.jpg`, `oferta-monteria.jpg`, `oferta-medellin.jpg`) recortadas directamente de la referencia oficial.
+   - Cuerpo de tarjeta mostrando exactamente 3 líneas de texto:
+     - Línea 1: Destino en negrita con código IATA (ej. **Cali (CLO)**).
+     - Línea 2: Tipo de viaje y fecha en texto secundario (ej. `Solo ida - 01/12/26`).
+     - Línea 3: Precio destacado en COP con tipografía monoespaciada tabular (`tabular-nums`) (ej. **COP 71.810**).
+   - Cero etiquetas chillonas ("OFERTA"), insignias ruidosas o bordes pesados.
+
+6. **Flujo de Reserva en 3 Pasos (Checkout Modal):**
+   - Modal con barra de progreso mínima (3 pasos conectados por línea de 2px: 1. Pasajeros &rarr; 2. Asientos &rarr; 3. Pago).
+   - Mapa interactivo de asientos en fuselaje Airbus A320 (pasillo central, asientos A-F).
+   - Resumen colapsable con desglose exacto de tarifa en enteros COP: Tarifa Base + IVA 19% + Tasa Aeroportuaria Dinámica.
+   - Temporizador de retención de 12 minutos.
+
+7. **Consola de Operaciones y Flota en Drawer Lateral:**
+   - Panel lateral deslizable para roles Operador e Integral.
+   - Alojamiento de la cinta FIDS operativa, telemetría y accesos rápidos sin contaminar la vista comercial del pasajero.
+
+8. **Evidencia Visual y Verificación:**
+   - 24 capturas de pantalla tomadas y archivadas en `docs/auditoria/capturas-despues/` para los 3 roles en resoluciones `1440x900`, `768x1024`, `360x640` en modos Claro y Oscuro.
+   - Suite completa de 43 pruebas pasando al 100% (`npm test`).
+
+---
+
+## [FASE 4] — Animaciones Ligeras y Rendimiento (Core Web Vitals)
+**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 3)

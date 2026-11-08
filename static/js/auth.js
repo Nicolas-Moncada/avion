@@ -75,18 +75,28 @@
   // 3. PERSISTENCIA DE MOCK LOCAL PARA PRUEBAS SIN INTERNET O PRE-CONFIGURACIÓN
   // ===========================================================================
   function obtenerUsuariosLocales() {
+    let lista = [];
     try {
       const data = localStorage.getItem(STORAGE_KEY_MOCK_USERS);
-      if (data) return JSON.parse(data);
+      if (data) lista = JSON.parse(data);
     } catch (e) {}
     const iniciales = [
-      { id: 'usr-int-001', nombre: 'Administrador Integral', email: 'integral@aeroflow.com', password: 'Integral2026!', rol: 'integral' },
-      { id: 'usr-op-002', nombre: 'Operador de Torre', email: 'operador@aeroflow.com', password: 'Operador2026!', rol: 'operador' }
+      { id: 'usr-pax-001', nombre: 'Carlos Mendoza', email: 'pasajero@aeroflow.com', password: 'Pasajero123', rol: 'pasajero' },
+      { id: 'usr-pax-002', nombre: 'Carlos Mendoza', email: 'pasajero@aeroflow.com', password: 'Pasajero2026!', rol: 'pasajero' },
+      { id: 'usr-op-001', nombre: 'Operador de Torre', email: 'operador@aeroflow.com', password: 'Operador123', rol: 'operador' },
+      { id: 'usr-op-002', nombre: 'Operador de Torre', email: 'operador@aeroflow.com', password: 'Operador2026!', rol: 'operador' },
+      { id: 'usr-int-001', nombre: 'Administrador Integral', email: 'integral@aeroflow.com', password: 'Integral123', rol: 'integral' },
+      { id: 'usr-int-002', nombre: 'Administrador Integral', email: 'integral@aeroflow.com', password: 'Integral2026!', rol: 'integral' }
     ];
+    iniciales.forEach(ini => {
+      if (!lista.some(u => u.email.toLowerCase() === ini.email.toLowerCase() && u.password === ini.password)) {
+        lista.push(ini);
+      }
+    });
     try {
-      localStorage.setItem(STORAGE_KEY_MOCK_USERS, JSON.stringify(iniciales));
+      localStorage.setItem(STORAGE_KEY_MOCK_USERS, JSON.stringify(lista));
     } catch (e) {}
-    return iniciales;
+    return lista;
   }
 
   function guardarUsuarioLocal(usuarioObj) {
