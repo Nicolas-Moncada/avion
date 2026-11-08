@@ -1,0 +1,21 @@
+{
+  "codigo": "BOG",
+  "nombre": "Aeropuerto Internacional El Dorado",
+  "ciudad": "Bogotá",
+  "pais": "Colombia",
+  "moneda": "COP",
+  "timezone": "America/Bogota",
+  "tasas": {
+    "tasa_aeroportuaria_cop": 158000,
+    "tarifa_admin_cop": 45000,
+    "iva_porcentaje": 19
+  },
+  "branding": {
+    "nombre_comercial": "Aero Flow Airlines",
+    "color_acento": "#E11D48",
+    "color_acento_hover": "#BE123C",
+    "color_superficie": "#0F172A",
+    "logo_url": "/icons/icon-192.png",
+    "tiempo_retencion_minutos": 12
+  }
+}

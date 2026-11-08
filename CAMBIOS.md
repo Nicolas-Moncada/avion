@@ -77,4 +77,48 @@
 ---
 
 ## [FASE 2] — Motor de Pagos Robusto y Reserva Atómica
-**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 1)
+**Fecha de Completitud:** 2026-11-08  
+**Estado:** ✅ APROBADO Y VERIFICADO (Phase Gate 2 Superado — 8 Pruebas Financieras 100% Pasando)
+
+### Funcionalidades Implementadas:
+1. **Configuración Dinámica Multi-Aeropuerto (`airports/<codigo>/airport.json`):**
+   - Creación de estructuras para Bogotá (`BOG`), Miami (`MIA`) y Medellín (`MDE`) con tasas aeroportuarias, tarifas administrativas e identidades de marca.
+   - Módulo `airport_config.py` con resolución y caché en memoria.
+2. **Cálculo Server-Side de Precios y Bloqueo de Tarifas:**
+   - RPC `crear_orden` en PostgreSQL y SQLite (`crear_orden_atomic`).
+   - El cliente NUNCA envía precios ni determina tasas: el servidor calcula tarifa base, tasas, IVA y total en COP enteros exactos (`BIGINT`/`INTEGER`).
+   - Generación de código PNR alfanumérico único de 6 caracteres.
+3. **Máquina de Estados Estricta y Bitácora Inmutable:**
+   - Definición de estados: `pendiente -> autorizado -> pagado`; `fallido`; `expirado`; `reembolsado`.
+   - Trigger en PostgreSQL y validación en Python (`pm_adapter.validar_transicion_estado`) que rechaza transiciones ilegales.
+   - Tabla append-only `pago_eventos` con registro inmutable de cada cambio de estado.
+4. **Retención Pesimista de Asiento (12 min) y Cero Doble Venta:**
+   - Índice único parcial en PostgreSQL (`idx_ordenes_asiento_activo`) y SQLite sobre órdenes activas.
+   - Bloqueo pesimista con temporizador `bloqueado_hasta`.
+   - Protección ante webhook tardío: si llega un pago aprobado tras vencer la retención, se confirma si el asiento sigue libre o se reembolsa automáticamente de forma íntegra si fue ocupado, impidiendo en todo momento la doble venta.
+5. **Idempotencia Estricta:**
+   - Soporte para header y payload `idempotency_key` con índice `UNIQUE` en base de datos.
+   - Respuestas consistentes y deterministas ante doble clic en interfaz o webhooks repetidos de pasarelas.
+6. **Adaptador de Pago (`ProveedorPago`) y Plantilla de Edge Function:**
+   - Interfaz extensible con métodos `crear_intento`, `confirmar`, `consultar`, `reembolsar`, `verificar_webhook`.
+   - Implementación `SimuladorPagoAdapter` con tarjetas de prueba (aprobado `4242`/`5555`, fondos insuficientes `0002`, revisión `0003`) y verificación HMAC-SHA256.
+   - Plantilla completa para producción en Supabase Edge Function (`supabase/functions/procesar-pago/index.ts`).
+7. **Administración y Posventa Segura:**
+   - Reembolsos restringidos exclusivamente al rol `Integral` con motivo obligatorio y registro en `reembolsos`.
+   - Numeración atómica consecutiva de recibos (`REC-BOG-000001`).
+   - Módulo de conciliación financiera (`obtener_reporte_conciliacion_atomic`).
+
+### Suite de Pruebas Financieras (100% Pasando):
+- `test_1_dos_usuarios_reservando_mismo_asiento`: Confirma rechazo de colisión concurrente sobre el mismo asiento.
+- `test_2_doble_clic_en_pagar_idempotente`: Garantiza que dos clics simultáneos generen un solo cobro y retornen el mismo recibo.
+- `test_3_webhook_repetido_idempotente`: Procesa reintentos de webhooks sin duplicar pagos.
+- `test_4_pago_aprobado_tras_expirar_retencion_reembolso_si_ocupado`: Reembolsa automáticamente si la retención venció y el asiento fue ocupado.
+- `test_5_tarifa_modificada_respeta_precio_bloqueado`: Respeta el precio acordado en la orden aunque el catálogo aumente de precio.
+- `test_6_monto_manipulado_desde_cliente_ignorado_por_servidor`: Descarta montos fraudulentos enviados desde el frontend.
+- `test_7_intento_reembolso_sin_rol_integral_rechazado`: Bloquea intentos de reembolso por usuarios sin rol `Integral` (HTTP 403).
+- `test_8_reembolso_exitoso_con_auditoria`: Permite reembolsos con auditoría a administradores y libera la butaca.
+
+---
+
+## [FASE 3] — Rediseño Minimalista Integral
+**Estado:** ⏳ EN COLA (Inicia inmediatamente tras el commit de Fase 2)

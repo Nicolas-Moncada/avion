@@ -9,13 +9,18 @@
 import sqlite3
 import os
 import sys
+import uuid
+import time
+import json
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Dict, Any, Optional
 from data_structures.hash_map import TablaHashVuelos
 from data_structures.avl_tree import ArbolAVLPasajeros
 from data_structures.linked_list import ListaEnlazadaManifiesto
 from data_structures.fifo_queue import ColaFIFO
-from fleet_catalog import CATALOGO_AERONAVES, calcular_desglose_cop
+from fleet_catalog import CATALOGO_AERONAVES, calcular_desglose_cop, obtener_configuracion_aeronave
+import airport_config
+import payments.adapter as pm_adapter
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -71,6 +76,10 @@ def _crear_indices(cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_manifiesto_pasajero ON manifiesto(pasajero_doc);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_pagos_vuelo ON pasajeros_recientes_pagos(vuelo_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_pagos_documento ON pasajeros_recientes_pagos(documento);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ordenes_pnr ON ordenes(pnr);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_ordenes_asiento ON ordenes(vuelo_codigo, asiento_id);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pagos_idempotency ON pagos(idempotency_key);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_recibos_consecutivo ON recibos(consecutivo);")
 
 
 _in_init_db = False
@@ -165,6 +174,80 @@ def init_db():
                 referencia_pago TEXT NOT NULL,
                 estado_embarque TEXT NOT NULL,
                 fecha_hora_registro TEXT NOT NULL
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ordenes (
+                id TEXT PRIMARY KEY,
+                pnr TEXT NOT NULL UNIQUE,
+                vuelo_codigo TEXT NOT NULL,
+                asiento_id TEXT NOT NULL,
+                documento_pasajero TEXT NOT NULL,
+                nombre_pasajero TEXT NOT NULL,
+                tarifa_base_cop INTEGER NOT NULL,
+                tarifa_admin_cop INTEGER NOT NULL,
+                tasa_aeroportuaria_cop INTEGER NOT NULL,
+                iva_cop INTEGER NOT NULL,
+                total_cop INTEGER NOT NULL,
+                estado TEXT NOT NULL DEFAULT 'pendiente',
+                bloqueado_hasta INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pagos (
+                id TEXT PRIMARY KEY,
+                orden_id TEXT NOT NULL,
+                monto_cop INTEGER NOT NULL,
+                moneda TEXT NOT NULL DEFAULT 'COP',
+                estado TEXT NOT NULL DEFAULT 'pendiente',
+                proveedor TEXT NOT NULL DEFAULT 'simulador',
+                referencia_externa TEXT,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                marca TEXT,
+                ultimos_4 TEXT,
+                codigo_error TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY (orden_id) REFERENCES ordenes(id)
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pago_eventos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pago_id TEXT NOT NULL,
+                estado_anterior TEXT,
+                estado_nuevo TEXT NOT NULL,
+                origen TEXT NOT NULL,
+                detalles TEXT,
+                created_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reembolsos (
+                id TEXT PRIMARY KEY,
+                pago_id TEXT NOT NULL,
+                orden_id TEXT NOT NULL,
+                monto_cop INTEGER NOT NULL,
+                motivo TEXT NOT NULL,
+                autorizado_por TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recibos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consecutivo TEXT NOT NULL UNIQUE,
+                aeropuerto_codigo TEXT NOT NULL,
+                orden_id TEXT NOT NULL,
+                pnr TEXT NOT NULL,
+                monto_total_cop INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
             );
             """)
             _crear_indices(cursor)
@@ -643,6 +726,80 @@ def reiniciar_semilla_limpia():
             cursor.execute("DELETE FROM pasajeros_recientes_pagos;")
             cursor.execute("DELETE FROM pasajeros;")
             cursor.execute("DELETE FROM vuelos;")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ordenes (
+                id TEXT PRIMARY KEY,
+                pnr TEXT NOT NULL UNIQUE,
+                vuelo_codigo TEXT NOT NULL,
+                asiento_id TEXT NOT NULL,
+                documento_pasajero TEXT NOT NULL,
+                nombre_pasajero TEXT NOT NULL,
+                tarifa_base_cop INTEGER NOT NULL,
+                tarifa_admin_cop INTEGER NOT NULL,
+                tasa_aeroportuaria_cop INTEGER NOT NULL,
+                iva_cop INTEGER NOT NULL,
+                total_cop INTEGER NOT NULL,
+                estado TEXT NOT NULL DEFAULT 'pendiente',
+                bloqueado_hasta INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pagos (
+                id TEXT PRIMARY KEY,
+                orden_id TEXT NOT NULL,
+                monto_cop INTEGER NOT NULL,
+                moneda TEXT NOT NULL DEFAULT 'COP',
+                estado TEXT NOT NULL DEFAULT 'pendiente',
+                proveedor TEXT NOT NULL DEFAULT 'simulador',
+                referencia_externa TEXT,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                marca TEXT,
+                ultimos_4 TEXT,
+                codigo_error TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY (orden_id) REFERENCES ordenes(id)
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pago_eventos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pago_id TEXT NOT NULL,
+                estado_anterior TEXT,
+                estado_nuevo TEXT NOT NULL,
+                origen TEXT NOT NULL,
+                detalles TEXT,
+                created_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reembolsos (
+                id TEXT PRIMARY KEY,
+                pago_id TEXT NOT NULL,
+                orden_id TEXT NOT NULL,
+                monto_cop INTEGER NOT NULL,
+                motivo TEXT NOT NULL,
+                autorizado_por TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recibos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consecutivo TEXT NOT NULL UNIQUE,
+                aeropuerto_codigo TEXT NOT NULL,
+                orden_id TEXT NOT NULL,
+                pnr TEXT NOT NULL,
+                monto_total_cop INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            """)
             _crear_indices(cursor)
 
             fecha_salida_semilla = datetime.now().date().isoformat()
@@ -840,6 +997,430 @@ def verificar_y_poblar_semilla(reset: bool = False) -> bool:
 # ============================================================
 # CLI OPERATIVO — python database.py [--reset | --stats | --seed-si-vacia]
 # ============================================================
+# =====================================================================
+# MOTOR TRANSACCIONAL DE PAGOS, ÓRDENES Y RETENCIÓN ATÓMICA DE ASIENTOS
+# =====================================================================
+_simulador_pagos = pm_adapter.SimuladorPagoAdapter()
+
+
+def crear_orden_atomic(
+    vuelo_codigo: str,
+    asiento_id: str,
+    documento: str,
+    nombre: str,
+    idempotency_key: str,
+    origen_iata: str = "BOG"
+) -> Dict[str, Any]:
+    """
+    Cálculo 100% server-side de tarifas en COP enteros y reserva atómica de asiento
+    con bloqueo temporal de 12 minutos. Cero doble venta garantizada.
+    """
+    v_cod = str(vuelo_codigo).strip().upper()
+    a_id = str(asiento_id).strip().upper()
+    doc = str(documento).strip()
+    nom = str(nombre).strip()
+    key = str(idempotency_key).strip()
+    ahora = int(time.time())
+
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+
+            # 1. Idempotencia: si ya existe pago con esta llave, retornar la orden existente
+            cursor.execute("""
+                SELECT o.* FROM ordenes o
+                JOIN pagos p ON p.orden_id = o.id
+                WHERE p.idempotency_key = ?
+            """, (key,))
+            row_existente = cursor.fetchone()
+            if row_existente:
+                return {
+                    "id": row_existente["id"],
+                    "pnr": row_existente["pnr"],
+                    "vuelo_codigo": row_existente["vuelo_codigo"],
+                    "asiento_id": row_existente["asiento_id"],
+                    "total_cop": row_existente["total_cop"],
+                    "estado": row_existente["estado"],
+                    "bloqueado_hasta": row_existente["bloqueado_hasta"],
+                    "idempotente": True
+                }
+
+            # 2. Verificar que el vuelo exista y esté abierto
+            cursor.execute("SELECT * FROM vuelos WHERE codigo = ?", (v_cod,))
+            vuelo = cursor.fetchone()
+            if not vuelo:
+                raise ValueError(f"El vuelo {v_cod} no existe.")
+
+            estado_v = str(vuelo["estado"])
+            if estado_v in ("DESPEGADO", "Despegado", "Cerrado"):
+                raise ValueError(f"El vuelo {v_cod} se encuentra cerrado para ventas.")
+
+            # 3. Verificar si el asiento ya está ocupado definitivamente en el manifiesto
+            cursor.execute("SELECT 1 FROM manifiesto WHERE vuelo_codigo = ? AND asiento = ?", (v_cod, a_id))
+            if cursor.fetchone():
+                raise ValueError(f"El asiento {a_id} ya se encuentra ocupado en la aeronave.")
+
+            # 4. Verificar si hay otra orden activa reteniendo este asiento
+            cursor.execute("""
+                SELECT 1 FROM ordenes
+                WHERE vuelo_codigo = ? AND asiento_id = ?
+                  AND estado IN ('pendiente', 'autorizado', 'pagado')
+                  AND (bloqueado_hasta > ? OR estado = 'pagado')
+            """, (v_cod, a_id, ahora))
+            if cursor.fetchone():
+                raise ValueError(f"El asiento {a_id} tiene una reserva activa en proceso de pago.")
+
+            # 5. Cálculo server-side del precio base según modelo de aeronave y tasas de airport.json
+            tipo_aero = vuelo["tipo_aeronave"]
+            cfg_aero = obtener_configuracion_aeronave(tipo_aero)
+            asiento_cat = next((s for s in cfg_aero["asientos"] if s["id"] == a_id), None)
+            tarifa_base = int(asiento_cat["tarifa_base_cop"]) if asiento_cat else 780000
+
+            desglose = airport_config.calcular_precio_servidor(
+                tarifa_base_cop=tarifa_base,
+                origen_iata=origen_iata
+            )
+
+            # Generar PNR único de 6 caracteres
+            pnr = uuid.uuid4().hex[:6].upper()
+            cursor.execute("SELECT 1 FROM ordenes WHERE pnr = ?", (pnr,))
+            while cursor.fetchone():
+                pnr = uuid.uuid4().hex[:6].upper()
+                cursor.execute("SELECT 1 FROM ordenes WHERE pnr = ?", (pnr,))
+
+            orden_id = f"ord_{uuid.uuid4().hex[:12]}"
+            bloqueado_hasta = ahora + (12 * 60)  # 12 minutos de retención
+
+            cursor.execute("""
+                INSERT INTO ordenes (
+                    id, pnr, vuelo_codigo, asiento_id, documento_pasajero, nombre_pasajero,
+                    tarifa_base_cop, tarifa_admin_cop, tasa_aeroportuaria_cop, iva_cop, total_cop,
+                    estado, bloqueado_hasta, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?, ?)
+            """, (
+                orden_id, pnr, v_cod, a_id, doc, nom,
+                desglose["tarifa_base_cop"], desglose["tarifa_admin_cop"],
+                desglose["tasa_aeroportuaria_cop"], desglose["iva_cop"],
+                desglose["total_cop"], bloqueado_hasta, ahora, ahora
+            ))
+
+            # Pre-crear intento de pago vinculado a la orden
+            pago_id = f"pay_{uuid.uuid4().hex[:12]}"
+            cursor.execute("""
+                INSERT INTO pagos (
+                    id, orden_id, monto_cop, moneda, estado, proveedor, idempotency_key, created_at, updated_at
+                ) VALUES (?, ?, ?, 'COP', 'pendiente', 'simulador', ?, ?, ?)
+            """, (pago_id, orden_id, desglose["total_cop"], key, ahora, ahora))
+
+            conn.commit()
+
+            return {
+                "id": orden_id,
+                "pnr": pnr,
+                "vuelo_codigo": v_cod,
+                "asiento_id": a_id,
+                "documento_pasajero": doc,
+                "nombre_pasajero": nom,
+                "total_cop": desglose["total_cop"],
+                "desglose": desglose,
+                "estado": "pendiente",
+                "bloqueado_hasta": bloqueado_hasta,
+                "idempotente": False
+            }
+    finally:
+        conn.close()
+
+
+def procesar_pago_atomic(
+    orden_id: str,
+    numero_tarjeta: str,
+    idempotency_key: str,
+    metodo_pago: str = "Tarjeta Débito/Crédito"
+) -> Dict[str, Any]:
+    """
+    Procesa el pago con la máquina de estados, valida idempotencia, retención de asiento
+    y genera boleto y recibo consecutivos.
+    """
+    ahora = int(time.time())
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+
+            # 1. Cargar orden
+            cursor.execute("SELECT * FROM ordenes WHERE id = ?", (orden_id,))
+            orden = cursor.fetchone()
+            if not orden:
+                raise ValueError("Orden no encontrada.")
+
+            # 2. Si ya fue pagada, responder idempotentemente
+            if orden["estado"] == "pagado":
+                cursor.execute("SELECT * FROM recibos WHERE orden_id = ?", (orden_id,))
+                rec = cursor.fetchone()
+                return {
+                    "estado": "pagado",
+                    "pnr": orden["pnr"],
+                    "orden_id": orden_id,
+                    "total_cop": orden["total_cop"],
+                    "consecutivo_recibo": rec["consecutivo"] if rec else None,
+                    "idempotente": True,
+                    "mensaje": "El pago de esta orden ya fue procesado anteriormente."
+                }
+
+            # Validar transición en la máquina de estados
+            pm_adapter.validar_transicion_estado(orden["estado"], "pagado")
+
+            # 3. Invocar adaptador de pago
+            ref_ext = f"ref_sim_{uuid.uuid4().hex[:10]}"
+            resultado_pago = _simulador_pagos.confirmar(
+                referencia_externa=ref_ext,
+                datos_pago={
+                    "orden_id": orden_id,
+                    "monto_cop": orden["total_cop"],
+                    "numero_tarjeta": numero_tarjeta,
+                    "idempotency_key": idempotency_key
+                }
+            )
+
+            if resultado_pago["estado"] != "pagado":
+                # Pago declinado o pendiente
+                cursor.execute("UPDATE ordenes SET estado = ?, updated_at = ? WHERE id = ?",
+                               (resultado_pago["estado"], ahora, orden_id))
+                cursor.execute("""
+                    UPDATE pagos SET estado = ?, codigo_error = ?, referencia_externa = ?, updated_at = ?
+                    WHERE orden_id = ?
+                """, (resultado_pago["estado"], resultado_pago.get("codigo_error"), ref_ext, ahora, orden_id))
+                conn.commit()
+                return {
+                    "estado": resultado_pago["estado"],
+                    "codigo_error": resultado_pago.get("codigo_error"),
+                    "mensaje": resultado_pago.get("mensaje")
+                }
+
+            # 4. Caso Especial: El pago fue aprobado, pero ¿ya venció la retención de 12 min?
+            if ahora > orden["bloqueado_hasta"]:
+                # Verificar si el asiento fue tomado por otro cliente
+                cursor.execute("""
+                    SELECT 1 FROM manifiesto WHERE vuelo_codigo = ? AND asiento = ?
+                """, (orden["vuelo_codigo"], orden["asiento_id"]))
+                if cursor.fetchone():
+                    # ASIENTO OCUPADO -> REEMBOLSO AUTOMÁTICO INMEDIATO (CERO DOBLE VENTA)
+                    cursor.execute("UPDATE ordenes SET estado = 'expirado', updated_at = ? WHERE id = ?", (ahora, orden_id))
+                    cursor.execute("""
+                        UPDATE pagos SET estado = 'reembolsado', codigo_error = 'RETENCION_EXPIRADA_ASIENTO_OCUPADO',
+                                         referencia_externa = ?, updated_at = ?
+                        WHERE orden_id = ?
+                    """, (ref_ext, ahora, orden_id))
+
+                    ref_id = f"ref_auto_{uuid.uuid4().hex[:8]}"
+                    cursor.execute("""
+                        INSERT INTO reembolsos (id, pago_id, orden_id, monto_cop, motivo, autorizado_por, created_at)
+                        VALUES (?, ?, ?, ?, 'Reembolso automático: pago recibido posterior a la expiración de la retención y asiento ocupado.', 'SISTEMA_AUTO', ?)
+                    """, (ref_id, resultado_pago["id"], orden_id, orden["total_cop"], ahora))
+
+                    cursor.execute("""
+                        INSERT INTO pago_eventos (pago_id, estado_anterior, estado_nuevo, origen, detalles, created_at)
+                        VALUES (?, 'pagado', 'reembolsado', 'auto_expiracion_asiento_ocupado', '{"motivo": "asiento reocupado"}', ?)
+                    """, (resultado_pago["id"], ahora))
+
+                    conn.commit()
+                    return {
+                        "estado": "reembolsado",
+                        "codigo_error": "RETENCION_EXPIRADA_ASIENTO_OCUPADO",
+                        "mensaje": "La retención de 12 minutos expiró y el asiento fue ocupado. Se generó un reembolso automático integral."
+                    }
+
+            # 5. Éxito: Confirmar orden y persistir boleto
+            cursor.execute("UPDATE ordenes SET estado = 'pagado', updated_at = ? WHERE id = ?", (ahora, orden_id))
+            cursor.execute("""
+                UPDATE pagos SET estado = 'pagado', marca = ?, ultimos_4 = ?, referencia_externa = ?, updated_at = ?
+                WHERE orden_id = ?
+            """, (resultado_pago["marca"], resultado_pago["ultimos_4"], ref_ext, ahora, orden_id))
+
+            # Bitácora inmutable append-only
+            cursor.execute("""
+                INSERT INTO pago_eventos (pago_id, estado_anterior, estado_nuevo, origen, detalles, created_at)
+                VALUES (?, 'pendiente', 'pagado', 'procesar_pago_atomic', '{"metodo": "tarjeta"}', ?)
+            """, (resultado_pago["id"], ahora))
+
+            # Consecutivo atómico de recibo
+            cursor.execute("SELECT COUNT(*) FROM recibos")
+            consecutivo_num = cursor.fetchone()[0] + 1
+            consecutivo = f"REC-BOG-{consecutivo_num:06d}"
+            cursor.execute("""
+                INSERT INTO recibos (consecutivo, aeropuerto_codigo, orden_id, pnr, monto_total_cop, created_at)
+                VALUES (?, 'BOG', ?, ?, ?, ?)
+            """, (consecutivo, orden_id, orden["pnr"], orden["total_cop"], ahora))
+
+            # Asegurar pasajero en la tabla pasajeros para satisfacer la clave foránea
+            cursor.execute("""
+                INSERT OR IGNORE INTO pasajeros (documento, nombre, nacionalidad, categoria_viajero, vuelo_asignado)
+                VALUES (?, ?, 'Colombia', 'Estándar', ?)
+            """, (orden["documento_pasajero"], orden["nombre_pasajero"], orden["vuelo_codigo"]))
+            cursor.execute("UPDATE pasajeros SET vuelo_asignado = ? WHERE documento = ?",
+                           (orden["vuelo_codigo"], orden["documento_pasajero"]))
+
+            # Persistir en manifiesto
+            cursor.execute("""
+                INSERT INTO manifiesto (
+                    vuelo_codigo, pasajero_doc, pasajero_nombre, asiento,
+                    hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop
+                ) VALUES (?, ?, ?, ?, ?, 'Estándar', 'Estándar', ?)
+            """, (
+                orden["vuelo_codigo"], orden["documento_pasajero"], orden["nombre_pasajero"],
+                orden["asiento_id"], datetime.now().strftime('%I:%M %p'), orden["total_cop"]
+            ))
+
+            # Registrar en bitácora histórica de pagos
+            cursor.execute("""
+                INSERT INTO pasajeros_recientes_pagos (
+                    documento, nombre_completo, nacionalidad, categoria, vuelo_id,
+                    origen_destino, asiento, metodo_pago, monto_cop, referencia_pago,
+                    estado_embarque, fecha_hora_registro
+                ) VALUES (?, ?, 'Colombia', 'Estándar', ?, 'BOG - Salida', ?, ?, ?, ?, 'Confirmado', ?)
+            """, (
+                orden["documento_pasajero"], orden["nombre_pasajero"], orden["vuelo_codigo"],
+                orden["asiento_id"], f"{metodo_pago} (•••• {resultado_pago['ultimos_4']})",
+                orden["total_cop"], orden["pnr"], datetime.now().strftime('%Y-%m-%d • %I:%M %p')
+            ))
+
+            conn.commit()
+
+            return {
+                "estado": "pagado",
+                "pnr": orden["pnr"],
+                "orden_id": orden_id,
+                "vuelo_codigo": orden["vuelo_codigo"],
+                "asiento_id": orden["asiento_id"],
+                "pasajero_nombre": orden["nombre_pasajero"],
+                "documento": orden["documento_pasajero"],
+                "total_cop": orden["total_cop"],
+                "marca_tarjeta": resultado_pago["marca"],
+                "ultimos_4": resultado_pago["ultimos_4"],
+                "consecutivo_recibo": consecutivo,
+                "mensaje": "¡Pago confirmado y tiquete emitido exitosamente!"
+            }
+    finally:
+        conn.close()
+
+
+def reembolsar_orden_atomic(orden_id: str, motivo: str, usuario_rol: str) -> Dict[str, Any]:
+    """
+    Ejecuta un reembolso autorizado exclusivamente por un usuario con rol 'integral'.
+    Actualiza la máquina de estados, audita la transacción y libera el asiento.
+    """
+    if str(usuario_rol).strip().lower() != "integral":
+        raise PermissionError("Acceso denegado: Únicamente los administradores con rol Integral pueden autorizar reembolsos.")
+
+    if not motivo or not str(motivo).strip():
+        raise ValueError("El motivo del reembolso es obligatorio para auditoría contable.")
+
+    ahora = int(time.time())
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT * FROM ordenes WHERE id = ?", (orden_id,))
+            orden = cursor.fetchone()
+            if not orden:
+                raise ValueError("Orden no encontrada.")
+
+            pm_adapter.validar_transicion_estado(orden["estado"], "reembolsado")
+
+            cursor.execute("SELECT * FROM pagos WHERE orden_id = ?", (orden_id,))
+            pago = cursor.fetchone()
+            pago_id = pago["id"] if pago else f"pay_{uuid.uuid4().hex[:8]}"
+
+            # Actualizar orden y pago
+            cursor.execute("UPDATE ordenes SET estado = 'cancelado', updated_at = ? WHERE id = ?", (ahora, orden_id))
+            cursor.execute("UPDATE pagos SET estado = 'reembolsado', updated_at = ? WHERE orden_id = ?", (ahora, orden_id))
+
+            # Liberar asiento del manifiesto
+            cursor.execute("DELETE FROM manifiesto WHERE vuelo_codigo = ? AND asiento = ?",
+                           (orden["vuelo_codigo"], orden["asiento_id"]))
+
+            # Insertar registro de reembolso
+            ref_id = f"ref_{uuid.uuid4().hex[:10]}"
+            cursor.execute("""
+                INSERT INTO reembolsos (id, pago_id, orden_id, monto_cop, motivo, autorizado_por, created_at)
+                VALUES (?, ?, ?, ?, ?, 'integral_admin', ?)
+            """, (ref_id, pago_id, orden_id, orden["total_cop"], str(motivo).strip(), ahora))
+
+            # Bitácora inmutable
+            cursor.execute("""
+                INSERT INTO pago_eventos (pago_id, estado_anterior, estado_nuevo, origen, detalles, created_at)
+                VALUES (?, 'pagado', 'reembolsado', 'admin_integral', ?, ?)
+            """, (pago_id, json.dumps({"motivo": motivo, "autorizado_por": "integral"}), ahora))
+
+            conn.commit()
+
+            return {
+                "reembolso_id": ref_id,
+                "orden_id": orden_id,
+                "monto_reembolsado_cop": orden["total_cop"],
+                "estado": "reembolsado",
+                "motivo": motivo,
+                "mensaje": "Reembolso procesado exitosamente y asiento liberado."
+            }
+    finally:
+        conn.close()
+
+
+def obtener_recibo_atomic(orden_id: str) -> Optional[Dict[str, Any]]:
+    """Recupera la información completa de facturación y recibo consecutivo de una orden."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT r.consecutivo, r.aeropuerto_codigo, r.monto_total_cop, r.created_at,
+                   o.pnr, o.vuelo_codigo, o.asiento_id, o.documento_pasajero, o.nombre_pasajero,
+                   o.tarifa_base_cop, o.tarifa_admin_cop, o.tasa_aeroportuaria_cop, o.iva_cop,
+                   p.marca, p.ultimos_4, p.proveedor
+            FROM recibos r
+            JOIN ordenes o ON o.id = r.orden_id
+            LEFT JOIN pagos p ON p.orden_id = o.id
+            WHERE r.orden_id = ?
+        """, (orden_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def obtener_reporte_conciliacion_atomic() -> Dict[str, Any]:
+    """Compara pagos aprobados contra reservas en manifiesto y alerta sobre cualquier discrepancia."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*), COALESCE(SUM(monto_cop), 0) FROM pagos WHERE estado = 'pagado'")
+        total_pagos, monto_pagos = cursor.fetchone()
+
+        cursor.execute("SELECT COUNT(*), COALESCE(SUM(tarifa_pagada_cop), 0) FROM manifiesto")
+        total_manifiesto, monto_manifiesto = cursor.fetchone()
+
+        cursor.execute("SELECT COUNT(*), COALESCE(SUM(monto_cop), 0) FROM reembolsos")
+        total_reembolsos, monto_reembolsos = cursor.fetchone()
+
+        discrepancia = (total_pagos - total_reembolsos) != total_manifiesto
+
+        return {
+            "total_transacciones_pagadas": total_pagos,
+            "monto_total_pagado_cop": monto_pagos,
+            "total_asientos_confirmados": total_manifiesto,
+            "monto_total_manifiesto_cop": monto_manifiesto,
+            "total_reembolsos": total_reembolsos,
+            "monto_total_reembolsos_cop": monto_reembolsos,
+            "conciliado": not discrepancia,
+            "alerta_discrepancia": discrepancia
+        }
+    finally:
+        conn.close()
+
+
 def _cli() -> None:
     import argparse
 

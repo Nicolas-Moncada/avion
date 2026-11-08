@@ -1378,6 +1378,145 @@ def expirar_y_reemplazar_vuelo(codigo):
         'nuevo_vuelo': nuevo_vuelo
     })
 
+# =====================================================================
+# MÓDULO 6: MOTOR DE PAGOS ROBUSTO, RETENCIÓN Y ÓRDENES (FASE 2)
+# =====================================================================
+@app.route('/api/airports/<codigo>', methods=['GET'])
+def obtener_aeropuerto(codigo):
+    import airport_config
+    cfg = airport_config.obtener_config_aeropuerto(codigo)
+    return jsonify(cfg)
+
+
+@app.route('/api/pagos/orden', methods=['POST'])
+def api_crear_orden():
+    data = request.get_json(silent=True) or {}
+    vuelo_codigo = data.get('vuelo_codigo')
+    asiento_id = data.get('asiento_id')
+    documento = data.get('documento')
+    nombre = data.get('nombre')
+    idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotency_key') or f"idemp_{int(time.time()*1000)}"
+    origen_iata = data.get('origen_iata', 'BOG')
+
+    if not vuelo_codigo or not asiento_id or not documento or not nombre:
+        return _error_json_400("Los campos vuelo_codigo, asiento_id, documento y nombre son obligatorios.")
+
+    try:
+        orden = db.crear_orden_atomic(
+            vuelo_codigo=vuelo_codigo,
+            asiento_id=asiento_id,
+            documento=documento,
+            nombre=nombre,
+            idempotency_key=idempotency_key,
+            origen_iata=origen_iata
+        )
+        return jsonify(orden), 201
+    except ValueError as e:
+        return _error_json_400(str(e))
+    except Exception as e:
+        logging.error(f"[Pagos] Error creando orden: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pagos/procesar', methods=['POST'])
+def api_procesar_pago():
+    data = request.get_json(silent=True) or {}
+    orden_id = data.get('orden_id')
+    numero_tarjeta = data.get('numero_tarjeta', '4242 4242 4242 4242')
+    idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotency_key') or f"pay_idemp_{int(time.time()*1000)}"
+    metodo_pago = data.get('metodo_pago', 'Tarjeta Débito/Crédito')
+
+    if not orden_id:
+        return _error_json_400("El campo orden_id es obligatorio.")
+
+    try:
+        resultado = db.procesar_pago_atomic(
+            orden_id=orden_id,
+            numero_tarjeta=numero_tarjeta,
+            idempotency_key=idempotency_key,
+            metodo_pago=metodo_pago
+        )
+        if resultado.get('estado') == 'pagado':
+            bump_state()
+            return jsonify(resultado), 200
+        elif resultado.get('estado') == 'reembolsado':
+            bump_state()
+            return jsonify(resultado), 200
+        else:
+            return jsonify(resultado), 402
+    except ValueError as e:
+        return _error_json_400(str(e))
+    except Exception as e:
+        logging.error(f"[Pagos] Error procesando pago: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pagos/webhook', methods=['POST'])
+def api_webhook_pago():
+    raw_body = request.get_data()
+    signature = request.headers.get('X-Signature', '')
+    import payments.adapter as pm_adapter
+    simulador = pm_adapter.SimuladorPagoAdapter()
+
+    if signature and not simulador.verificar_webhook(raw_body, signature):
+        return jsonify({'error': 'Firma de webhook inválida'}), 401
+
+    data = request.get_json(silent=True) or {}
+    orden_id = data.get('orden_id')
+    if not orden_id:
+        return jsonify({'status': 'ignorado_sin_orden'}), 200
+
+    try:
+        res = db.procesar_pago_atomic(
+            orden_id=orden_id,
+            numero_tarjeta=data.get('numero_tarjeta', '4242 4242 4242 4242'),
+            idempotency_key=data.get('idempotency_key', f"wh_{int(time.time()*1000)}")
+        )
+        return jsonify({'status': 'ok', 'resultado': res}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pagos/reembolsar', methods=['POST'])
+def api_reembolsar():
+    data = request.get_json(silent=True) or {}
+    orden_id = data.get('orden_id')
+    motivo = data.get('motivo')
+    usuario_rol = data.get('usuario_rol', 'pasajero')
+
+    if not orden_id or not motivo:
+        return _error_json_400("Los campos orden_id y motivo son obligatorios.")
+
+    try:
+        res = db.reembolsar_orden_atomic(
+            orden_id=orden_id,
+            motivo=motivo,
+            usuario_rol=usuario_rol
+        )
+        bump_state()
+        return jsonify(res), 200
+    except PermissionError as e:
+        return jsonify({'error': str(e)}), 403
+    except ValueError as e:
+        return _error_json_400(str(e))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/pagos/recibo/<orden_id>', methods=['GET'])
+def api_obtener_recibo(orden_id):
+    recibo = db.obtener_recibo_atomic(orden_id)
+    if not recibo:
+        return jsonify({'error': 'Recibo no encontrado'}), 404
+    return jsonify(recibo)
+
+
+@app.route('/api/pagos/conciliacion', methods=['GET'])
+def api_conciliacion():
+    reporte = db.obtener_reporte_conciliacion_atomic()
+    return jsonify(reporte)
+
+
 if __name__ == '__main__':
     print(f"[OK] {config.APP_NAME} v{config.VERSION} — http://{config.HOST}:{config.PORT}")
     print(f"     Base de datos: {config.DB_PATH}")

@@ -1,0 +1,21 @@
+{
+  "codigo": "MIA",
+  "nombre": "Miami International Airport",
+  "ciudad": "Miami",
+  "pais": "Estados Unidos",
+  "moneda": "COP",
+  "timezone": "America/New_York",
+  "tasas": {
+    "tasa_aeroportuaria_cop": 210000,
+    "tarifa_admin_cop": 55000,
+    "iva_porcentaje": 19
+  },
+  "branding": {
+    "nombre_comercial": "Aero Flow Miami Hub",
+    "color_acento": "#2563EB",
+    "color_acento_hover": "#1D4ED8",
+    "color_superficie": "#0F172A",
+    "logo_url": "/icons/icon-192.png",
+    "tiempo_retencion_minutos": 12
+  }
+}

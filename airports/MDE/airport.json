@@ -1,0 +1,21 @@
+{
+  "codigo": "MDE",
+  "nombre": "Aeropuerto Internacional José María Córdova",
+  "ciudad": "Medellín",
+  "pais": "Colombia",
+  "moneda": "COP",
+  "timezone": "America/Bogota",
+  "tasas": {
+    "tasa_aeroportuaria_cop": 142000,
+    "tarifa_admin_cop": 40000,
+    "iva_porcentaje": 19
+  },
+  "branding": {
+    "nombre_comercial": "Aero Flow Medellín Hub",
+    "color_acento": "#059669",
+    "color_acento_hover": "#047857",
+    "color_superficie": "#0F172A",
+    "logo_url": "/icons/icon-192.png",
+    "tiempo_retencion_minutos": 12
+  }
+}
