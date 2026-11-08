@@ -17,4 +17,6 @@ __pycache__/
 # Local Netlify folder
 .netlify
 build/
+.pytest_cache/
+
 

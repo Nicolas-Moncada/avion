@@ -8,6 +8,7 @@
 
 import sqlite3
 import os
+import sys
 from datetime import datetime
 from typing import Tuple
 from data_structures.hash_map import TablaHashVuelos
