@@ -7,6 +7,7 @@ dist-swr/
 .DS_Store
 Thumbs.db
 aerocore.db
+*.db
 *.sqlite
 *.sqlite3
 __pycache__/
@@ -18,5 +19,10 @@ __pycache__/
 .netlify
 build/
 .pytest_cache/
+
+# Admin upload destination test files
+static/img/uploads/*
+!static/img/uploads/.gitkeep
+
 
 
