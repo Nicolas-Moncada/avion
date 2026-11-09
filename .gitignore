@@ -19,6 +19,8 @@ __pycache__/
 .netlify
 build/
 .pytest_cache/
+android/app/build/
+android/.gradle/
 
 # Admin upload destination test files
 static/img/uploads/*

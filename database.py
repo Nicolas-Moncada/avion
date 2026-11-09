@@ -22,6 +22,17 @@ from fleet_catalog import CATALOGO_AERONAVES, calcular_desglose_cop, obtener_con
 import airport_config
 import payments.adapter as pm_adapter
 
+try:
+    from werkzeug.security import generate_password_hash, check_password_hash
+except ImportError:
+    import hashlib
+    def generate_password_hash(p: str) -> str:
+        return "sha256$" + hashlib.sha256(p.encode("utf-8")).hexdigest()
+    def check_password_hash(p_hash: str, p: str) -> bool:
+        if p_hash.startswith("sha256$"):
+            return p_hash == ("sha256$" + hashlib.sha256(p.encode("utf-8")).hexdigest())
+        return p_hash == p
+
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
@@ -94,6 +105,24 @@ def _crear_indices(cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_ordenes_asiento ON ordenes(vuelo_codigo, asiento_id);")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pagos_idempotency ON pagos(idempotency_key);")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_recibos_consecutivo ON recibos(consecutivo);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);")
+
+
+def _sembrar_usuarios_demo(cursor):
+    """Siembra los usuarios maestros por defecto si no existen."""
+    usuarios_base = [
+        ("usr-adm-001", "Administrador General", "admin@aeroflow.com", "Admin123", "admin"),
+        ("usr-pax-001", "Carlos Mendoza", "pasajero@aeroflow.com", "Pasajero123", "pasajero"),
+        ("usr-int-001", "Administrador Integral", "integral@aeroflow.com", "Integral123", "admin"),
+    ]
+    for uid, nombre, email, password, rol in usuarios_base:
+        cursor.execute("SELECT id FROM usuarios WHERE email = ?", (email.lower(),))
+        if not cursor.fetchone():
+            p_hash = generate_password_hash(password)
+            cursor.execute(
+                "INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)",
+                (uid, nombre, email.lower(), p_hash, rol)
+            )
 
 
 _in_init_db = False
@@ -279,6 +308,18 @@ def init_db():
                 created_at INTEGER NOT NULL
             );
             """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                rol TEXT NOT NULL DEFAULT 'pasajero',
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            _sembrar_usuarios_demo(cursor)
             _crear_indices(cursor)
     finally:
         conn.close()
@@ -875,6 +916,18 @@ def reiniciar_semilla_limpia():
                 created_at INTEGER NOT NULL
             );
             """)
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                rol TEXT NOT NULL DEFAULT 'pasajero',
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            _sembrar_usuarios_demo(cursor)
             _crear_indices(cursor)
 
             fecha_salida_semilla = datetime.now().date().isoformat()
@@ -1603,6 +1656,93 @@ def obtener_reporte_conciliacion_atomic() -> Dict[str, Any]:
             "conciliado": not discrepancia,
             "alerta_discrepancia": discrepancia
         }
+    finally:
+        conn.close()
+
+
+# =============================================================================
+# GESTIÓN Y PERSISTENCIA DE USUARIOS Y AUTENTICACIÓN
+# =============================================================================
+
+def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "pasajero") -> Dict[str, Any]:
+    """Registra un nuevo usuario en la base de datos con validación y hashing seguro."""
+    email_clean = email.strip().lower()
+    nombre_clean = nombre.strip()
+
+    if not email_clean or not password or not nombre_clean:
+        return {"exito": False, "error": "Todos los campos (nombre, correo y contraseña) son obligatorios."}
+
+    if len(password) < 6:
+        return {"exito": False, "error": "La contraseña debe tener al menos 6 caracteres."}
+
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM usuarios WHERE email = ?", (email_clean,))
+            if cursor.fetchone():
+                return {"exito": False, "error": "El correo electrónico ya se encuentra registrado."}
+
+            user_id = f"usr-pax-{uuid.uuid4().hex[:8]}"
+            p_hash = generate_password_hash(password)
+            cursor.execute(
+                "INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)",
+                (user_id, nombre_clean, email_clean, p_hash, rol)
+            )
+            return {
+                "exito": True,
+                "usuario": {
+                    "id": user_id,
+                    "nombre": nombre_clean,
+                    "email": email_clean,
+                    "rol": rol
+                }
+            }
+    finally:
+        conn.close()
+
+
+def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None) -> Dict[str, Any]:
+    """Valida credenciales de usuario contra la base de datos SQLite/MySQL."""
+    email_clean = email.strip().lower()
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email, password_hash, rol FROM usuarios WHERE email = ?", (email_clean,))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "Credenciales inválidas. Verifica tu correo y contraseña."}
+
+        if not check_password_hash(row["password_hash"], password):
+            return {"exito": False, "error": "Contraseña incorrecta."}
+
+        rol_usuario = "admin" if row["rol"] in ("admin", "integral") else row["rol"]
+        if rol_solicitado and rol_solicitado != "pasajero":
+            rol_sol_norm = "admin" if rol_solicitado in ("admin", "integral") else rol_solicitado
+            if rol_sol_norm != rol_usuario:
+                return {"exito": False, "error": f"Acceso denegado: El usuario no tiene rol {rol_solicitado}."}
+
+        return {
+            "exito": True,
+            "usuario": {
+                "id": row["id"],
+                "nombre": row["nombre"],
+                "email": row["email"],
+                "rol": rol_usuario
+            }
+        }
+    finally:
+        conn.close()
+
+
+def listar_usuarios_registrados() -> list:
+    """Devuelve la lista de usuarios registrados para auditoría y visualización."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email, rol, creado_en FROM usuarios ORDER BY creado_en DESC")
+        return [dict(row) for row in cursor.fetchall()]
     finally:
         conn.close()
 

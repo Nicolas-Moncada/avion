@@ -188,7 +188,26 @@
       }
     }
 
-    // 2. Verificación contra Usuarios Demo Locales
+    // 2. Verificación contra API Backend
+    try {
+      const resp = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, rol: rolNormalizado }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.exito && data.sesion) {
+        guardarSesion(data.sesion);
+        return { exito: true, sesion: data.sesion };
+      }
+      if (resp.status === 401 && data.error && !USUARIOS_DEMO.some(u => u.email.toLowerCase() === email)) {
+        return { exito: false, mensaje: data.error };
+      }
+    } catch (e) {
+      console.warn("[Auth] Backend login no disponible, evaluando demo.");
+    }
+
+    // 3. Verificación contra Usuarios Demo Locales (Fallback offline)
     const usuario = USUARIOS_DEMO.find(
       (u) => u.email.toLowerCase() === email && u.password === password,
     );
@@ -362,22 +381,143 @@
   }
 
   // ===========================================================================
+  // 6.5. GESTIÓN DE MODO AUTENTICACIÓN (LOGIN VS REGISTRO)
+  // ===========================================================================
+  let modoAuthActual = "login"; // "login" | "register"
+
+  function toggleModoAuth(modo = null) {
+    if (modo) {
+      modoAuthActual = modo;
+    } else {
+      modoAuthActual = modoAuthActual === "login" ? "register" : "login";
+    }
+
+    const titleEl = document.getElementById("login-title-h2");
+    const descEl = document.getElementById("login-modal-desc");
+    const grpNombre = document.getElementById("group-register-nombre");
+    const roleTabs = document.getElementById("auth-role-tabs-wrapper");
+    const autofillRow = document.getElementById("auth-autofill-wrapper");
+    const btnSubmitText = document.getElementById("btn-submit-auth-text");
+    const switchLabel = document.getElementById("auth-switch-label");
+    const switchBtn = document.getElementById("btn-toggle-auth-mode");
+
+    ocultarErrorLogin();
+
+    if (modoAuthActual === "register") {
+      if (titleEl) titleEl.textContent = "Crear Cuenta de Pasajero";
+      if (descEl) descEl.textContent = "Regístrate para reservar vuelos y emitir tus pases de abordar oficiales";
+      if (grpNombre) grpNombre.style.display = "block";
+      if (roleTabs) roleTabs.style.display = "none";
+      if (autofillRow) autofillRow.style.display = "none";
+      if (btnSubmitText) btnSubmitText.textContent = "Registrarme e Ingresar";
+      if (switchLabel) switchLabel.textContent = "¿Ya tienes una cuenta? ";
+      if (switchBtn) switchBtn.textContent = "Inicia sesión aquí";
+    } else {
+      if (titleEl) titleEl.textContent = "Iniciar sesión";
+      if (descEl) descEl.textContent = "Ingresa para seleccionar tu silla y gestionar tu reserva";
+      if (grpNombre) grpNombre.style.display = "none";
+      if (roleTabs) roleTabs.style.display = "grid";
+      if (autofillRow) autofillRow.style.display = "flex";
+      if (btnSubmitText) btnSubmitText.textContent = "Ingresar a Aero Flow";
+      if (switchLabel) switchLabel.textContent = "¿No tienes una cuenta? ";
+      if (switchBtn) switchBtn.textContent = "Regístrate aquí";
+    }
+  }
+
+  async function registrarUsuario(nombreRaw, emailRaw, passwordRaw) {
+    const nombre = String(nombreRaw || "").trim();
+    const email = String(emailRaw || "").toLowerCase().trim();
+    const password = String(passwordRaw || "").trim();
+
+    if (!nombre || !email || !password) {
+      return {
+        exito: false,
+        mensaje: "Por favor completa todos los campos (nombre, correo y contraseña).",
+      };
+    }
+    if (password.length < 6) {
+      return {
+        exito: false,
+        mensaje: "La contraseña debe tener un mínimo de 6 caracteres.",
+      };
+    }
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, email, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.exito && data.sesion) {
+        guardarSesion(data.sesion);
+        return { exito: true, sesion: data.sesion, mensaje: data.mensaje };
+      }
+      return { exito: false, mensaje: data.error || "Error al registrar la cuenta." };
+    } catch (err) {
+      console.warn("[Auth Register] Fallback de registro en memoria:", err);
+      const nuevoId = `usr-pax-${Date.now().toString(16)}`;
+      const sesion = {
+        userId: nuevoId,
+        email: email,
+        nombre: nombre,
+        rol: "pasajero",
+        timestamp: Date.now(),
+      };
+      guardarSesion(sesion);
+      return {
+        exito: true,
+        sesion: sesion,
+        mensaje: `Bienvenido, ${nombre}. Cuenta registrada localmente.`,
+      };
+    }
+  }
+
+  // ===========================================================================
   // 7. INICIALIZACIÓN
   // ===========================================================================
   function init() {
     const sesion = obtenerSesionActual();
     actualizarHeaderUI(sesion);
 
-    // Formulario de Login
+    // Formulario de Login / Registro
     const formLogin = document.getElementById("form-login-auth");
     if (formLogin) {
       formLogin.addEventListener("submit", async (e) => {
         e.preventDefault();
         const emailInput = document.getElementById("login-email-input");
         const passInput = document.getElementById("login-password-input");
+        const nameInput = document.getElementById("register-name-input");
+
         const email = emailInput ? emailInput.value : "";
         const pass = passInput ? passInput.value : "";
+        const nombre = nameInput ? nameInput.value : "";
 
+        if (modoAuthActual === "register") {
+          const regRes = await registrarUsuario(nombre, email, pass);
+          if (regRes.exito) {
+            ocultarErrorLogin();
+            actualizarHeaderUI(regRes.sesion);
+            cerrarLoginModal();
+            mostrarNotificacion(regRes.mensaje || `Bienvenido, ${regRes.sesion.nombre}`);
+
+            if (window.pendingFlightId) {
+              const flightToOpen = window.pendingFlightId;
+              window.pendingFlightId = null;
+              if (
+                window.AeroMinimalUI &&
+                typeof window.AeroMinimalUI.abrirMapaCabina === "function"
+              ) {
+                window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
+              }
+            }
+          } else {
+            mostrarErrorLogin(regRes.mensaje);
+          }
+          return;
+        }
+
+        // Modo Login
         const res = await autenticar(rolLoginSeleccionado, email, pass);
         if (res.exito) {
           ocultarErrorLogin();
@@ -406,6 +546,8 @@
   // API Pública
   window.AeroAuth = {
     autenticar,
+    registrarUsuario,
+    toggleModoAuth,
     tienePermiso,
     obtenerSesionActual,
     guardarSesion,

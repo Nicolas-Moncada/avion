@@ -1,0 +1,10 @@
+{
+  "appId": "com.aeroflow.airlines",
+  "appName": "Aero Flow Airlines",
+  "webDir": "android/app/src/main/assets/www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

@@ -429,11 +429,11 @@
           <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
         </svg>
         <h2 class="login-modal-title" id="login-title-h2">Iniciar sesion</h2>
-        <p class="login-modal-desc">Ingresa para seleccionar tu silla y gestionar tu reserva</p>
+        <p class="login-modal-desc" id="login-modal-desc">Ingresa para seleccionar tu silla y gestionar tu reserva</p>
       </div>
 
       <!-- Pestanas de Rol (Solo 2 Roles) -->
-      <div class="login-role-tabs" role="tablist">
+      <div class="login-role-tabs" id="auth-role-tabs-wrapper" role="tablist">
         <button type="button" class="role-tab-btn active" data-role="pasajero" onclick="AeroAuth.seleccionarTabLogin('pasajero')">
           <span class="role-indicator-dot dot-pasajero"></span>
           <span>Pasajero</span>
@@ -445,7 +445,7 @@
       </div>
 
       <!-- Botones de Autofill Rapido Demo -->
-      <div class="demo-autofill-row">
+      <div class="demo-autofill-row" id="auth-autofill-wrapper">
         <button type="button" class="btn-autofill-demo" onclick="AeroAuth.autofillDemo('pasajero')">
           Pasajero Demo
         </button>
@@ -457,15 +457,20 @@
       <!-- Alerta de Error -->
       <div class="login-error-banner" id="login-error-banner"></div>
 
-      <!-- Formulario de Acceso -->
+      <!-- Formulario de Acceso / Registro -->
       <form id="form-login-auth" novalidate>
+        <div class="form-group-minimal" id="group-register-nombre" style="display:none;">
+          <label class="form-label-minimal" for="register-name-input">Nombre completo</label>
+          <input type="text" class="form-input-minimal" id="register-name-input" placeholder="Ej. Juan Pérez">
+        </div>
+
         <div class="form-group-minimal">
-          <label class="form-label-minimal" for="login-email-input">Correo electronico</label>
+          <label class="form-label-minimal" for="login-email-input" id="label-email-input">Correo electronico</label>
           <input type="email" class="form-input-minimal" id="login-email-input" placeholder="correo@aeroflow.com" required>
         </div>
 
         <div class="form-group-minimal">
-          <label class="form-label-minimal" for="login-password-input">Contrasena</label>
+          <label class="form-label-minimal" for="login-password-input" id="label-password-input">Contrasena</label>
           <div class="input-wrapper-rel">
             <input type="password" class="form-input-minimal" id="login-password-input" placeholder="••••••••" required>
             <button type="button" class="input-icon-btn" onclick="AeroAuth.togglePasswordVisibility()" title="Mostrar/ocultar clave">
@@ -477,9 +482,16 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-submit-login btn-primary-flow">
-          <span>Ingresar a Aero Flow</span>
+        <button type="submit" class="btn-submit-login btn-primary-flow" id="btn-submit-auth">
+          <span id="btn-submit-auth-text">Ingresar a Aero Flow</span>
         </button>
+
+        <div class="auth-switch-box" style="margin-top:16px;text-align:center;font-size:0.875rem;color:#64748B;">
+          <span id="auth-switch-label">¿No tienes una cuenta? </span>
+          <button type="button" class="btn-link-auth" id="btn-toggle-auth-mode" onclick="AeroAuth.toggleModoAuth()" style="background:none;border:none;color:#0F172A;font-weight:700;text-decoration:underline;cursor:pointer;padding:0;font-size:0.875rem;">
+            Regístrate aquí
+          </button>
+        </div>
       </form>
     </div>
   </div>

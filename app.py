@@ -448,6 +448,105 @@ def catalogo_flota():
 
 
 # =====================================================================
+# AUTENTICACIÓN Y REGISTRO DE USUARIOS (PASSENGER & ADMIN)
+# =====================================================================
+
+@app.route("/api/auth/register", methods=["POST"])
+def api_auth_register():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        nombre = str(data.get("nombre", "")).strip()
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not nombre or not email or not password:
+            return jsonify({
+                "exito": False,
+                "error": "Todos los campos (nombre, correo y contraseña) son obligatorios."
+            }), 400
+
+        if "@" not in email or "." not in email:
+            return jsonify({
+                "exito": False,
+                "error": "Por favor ingresa un formato de correo electrónico válido."
+            }), 400
+
+        if len(password) < 6:
+            return jsonify({
+                "exito": False,
+                "error": "La contraseña debe tener al menos 6 caracteres."
+            }), 400
+
+        res = db.registrar_nuevo_usuario(nombre=nombre, email=email, password=password, rol="pasajero")
+        if not res.get("exito"):
+            return jsonify(res), 400
+
+        usr = res["usuario"]
+        token = f"jwt-flow-{uuid.uuid4().hex}"
+        sesion = {
+            "userId": usr["id"],
+            "nombre": usr["nombre"],
+            "email": usr["email"],
+            "rol": "pasajero",
+            "token": token,
+            "timestamp": int(time.time() * 1000)
+        }
+        return jsonify({
+            "exito": True,
+            "mensaje": f"Bienvenido a Aero Flow, {usr['nombre']}. Tu cuenta de pasajero ha sido creada exitosamente.",
+            "sesion": sesion
+        }), 201
+
+    except Exception as e:
+        logging.error(f"[Auth Register] Error inesperado: {e}")
+        return jsonify({"exito": False, "error": f"Error interno en registro: {str(e)}"}), 500
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+        rol = str(data.get("rol", "pasajero")).strip().lower()
+
+        if not email or not password:
+            return jsonify({"exito": False, "error": "Por favor ingresa correo y contraseña."}), 400
+
+        res = db.autenticar_usuario_bd(email=email, password=password, rol_solicitado=rol)
+        if not res.get("exito"):
+            return jsonify(res), 401
+
+        usr = res["usuario"]
+        token = f"jwt-flow-{uuid.uuid4().hex}"
+        sesion = {
+            "userId": usr["id"],
+            "nombre": usr["nombre"],
+            "email": usr["email"],
+            "rol": usr["rol"],
+            "token": token,
+            "timestamp": int(time.time() * 1000)
+        }
+        return jsonify({
+            "exito": True,
+            "sesion": sesion
+        }), 200
+
+    except Exception as e:
+        logging.error(f"[Auth Login] Error inesperado: {e}")
+        return jsonify({"exito": False, "error": f"Error interno en login: {str(e)}"}), 500
+
+
+@app.route("/api/admin/usuarios", methods=["GET"])
+def api_admin_usuarios():
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    usuarios = db.listar_usuarios_registrados()
+    return jsonify({"exito": True, "usuarios": usuarios, "total": len(usuarios)}), 200
+
+
+# =====================================================================
 # MÓDULO 1: VUELOS Y TABLERO FIDS (Hash Map O(1))
 # =====================================================================
 DESTINOS_METADATA = {
