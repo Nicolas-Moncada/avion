@@ -40,19 +40,13 @@
       <nav class="header-nav" role="navigation" aria-label="Navegacion principal">
         <button type="button" class="nav-link-item active" id="nav-btn-reservar" onclick="AeroMinimalUI.mostrarSeccion('explorar')">Reservar</button>
         <a href="#catalog-offers-section" class="nav-link-item" onclick="AeroMinimalUI.mostrarSeccion('explorar')">Ofertas</a>
-        <button type="button" class="nav-link-item" id="nav-btn-viajes" onclick="AeroMinimalUI.mostrarSeccion('viajes')">Mis viajes</button>
+        <button type="button" class="nav-link-item" id="nav-btn-viajes" onclick="AeroMinimalUI.mostrarSeccion('viajes')">Mis reservas</button>
         <button type="button" class="nav-link-item" id="nav-btn-abordar" onclick="AeroMinimalUI.mostrarSeccion('abordar')">Abordar</button>
       </nav>
 
       <div class="header-actions" id="header-auth-actions">
         <!-- Renderizado dinamicamente por AeroAuth.actualizarHeaderUI -->
-        <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          <span>Iniciar sesion</span>
-        </button>
+        <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
       </div>
     </div>
   </header>
@@ -148,26 +142,25 @@
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                <span class="search-field-val">1 Pasajero</span>
+                <span class="search-field-val">1</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:#64748B;margin-left:auto;">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
               </div>
             </div>
 
             <!-- Boton Buscar -->
-            <button type="button" class="btn-search-primary btn-primary-flow" onclick="AeroMinimalUI.buscarVuelosHero()">
-              <span>Buscar</span>
-              <svg class="arrow-icon-flow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
+            <button type="button" class="btn-search-primary" onclick="AeroMinimalUI.buscarVuelosHero()">
+              Buscar
             </button>
           </div>
 
-          <!-- POPOVER CALENDARIO TARIFARIO (¿Cuando quieres volar?) -->
+          <!-- POPOVER CALENDARIO TARIFARIO (¿Cuándo quieres volar?) -->
           <div class="fare-calendar-popover" id="fare-calendar-popover" role="dialog" aria-label="Selector de fechas con tarifas">
             <div class="calendar-top-bar">
-              <span class="calendar-headline">¿Cuando quieres volar?</span>
+              <span class="calendar-headline">¿Cuándo quieres volar?</span>
               <div class="calendar-legend">
-                <span style="color:#64748B;">Encuentra el mejor precio:</span>
+                <span style="color:#64748B;">Encuentra el mejor precio</span>
                 <div class="legend-item">
                   <span class="legend-circle legend-low"></span>
                   <span>$</span>
@@ -193,31 +186,9 @@
 
       <!-- SECCION DE OFERTAS Y GRID EN 3 COLUMNAS -->
       <section class="offers-catalog-section" id="catalog-offers-section">
-        <div class="catalog-header-area" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
+        <div class="catalog-header-area" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
           <div>
             <h2 class="catalog-title">Descubre las mejores ofertas</h2>
-
-            <!-- Barra de Filtros Rapidos por Categoria -->
-            <div class="category-filter-bar" role="tablist">
-              <button type="button" class="category-filter-pill active" data-cat="todos" onclick="AeroMinimalUI.filtrarPorCategoria('todos')">
-                Todos los vuelos
-              </button>
-              <button type="button" class="category-filter-pill" data-cat="oferta" onclick="AeroMinimalUI.filtrarPorCategoria('oferta')">
-                En oferta
-              </button>
-              <button type="button" class="category-filter-pill" data-cat="playa" onclick="AeroMinimalUI.filtrarPorCategoria('playa')">
-                Destinos playeros
-              </button>
-              <button type="button" class="category-filter-pill" data-cat="ciudad" onclick="AeroMinimalUI.filtrarPorCategoria('ciudad')">
-                Aventuras urbanas
-              </button>
-              <button type="button" class="category-filter-pill" data-cat="nocturna" onclick="AeroMinimalUI.filtrarPorCategoria('nocturna')">
-                Vida nocturna
-              </button>
-              <button type="button" class="category-filter-pill" data-cat="naturaleza" onclick="AeroMinimalUI.filtrarPorCategoria('naturaleza')">
-                Retiros naturales
-              </button>
-            </div>
           </div>
 
           <!-- Boton Superior de Crear Vuelo (Admin) -->
@@ -389,6 +360,12 @@
               </svg>
               <span id="btn-iniciar-abordaje-text">Iniciar Abordaje Automatico</span>
             </button>
+            <button type="button" class="btn-primary-flow" id="btn-abordar-siguiente" onclick="AeroMinimalUI.abordarSiguienteManual()" style="background:#2563EB;">
+              <svg class="arrow-icon-flow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+              <span>Abordar Siguiente (1 por 1)</span>
+            </button>
             <button type="button" class="btn-secondary-glass" onclick="AeroMinimalUI.reiniciarFilaAbordaje()" style="color:#FFFFFF;border-color:#334155;background:#1E293B;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="1 4 1 10 7 10"></polyline>
@@ -507,9 +484,9 @@
     </div>
   </div>
 
-  <!-- MODAL CHECKOUT MULTIPASO COMPLETO: SILLA -> PASAJERO -> PAGOS -> TICKET -->
+  <!-- MODAL CHECKOUT MULTIPASO COMPLETO: SILLA (ESTILO LATAM 3 COLUMNAS) -> PASAJERO -> PAGOS -> TICKET -->
   <div class="modal-overlay" id="modal-cabin-map" role="dialog" aria-labelledby="cabin-modal-title">
-    <div class="modal-card modal-card-cabin" style="max-width:980px;">
+    <div class="modal-card modal-card-cabin">
       <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarMapaCabina()" aria-label="Cerrar modal">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -535,92 +512,243 @@
         </div>
       </div>
 
-      <!-- Cabecera del Vuelo y Reloj de Retención -->
-      <div class="cabin-header-flex">
-        <div>
-          <h2 class="cabin-flight-title" id="cabin-modal-title">Mapa de Cabina — Airbus A320neo</h2>
-          <p class="cabin-flight-route" id="cabin-modal-route">Bogota -> Medellin</p>
+      <!-- Barra Superior de Ruta Estilo LATAM -->
+      <div class="latam-seat-top-bar">
+        <div style="display:flex;align-items:flex-end;gap:28px;">
+          <h2 class="latam-seat-title" id="cabin-modal-title">Elige tus asientos</h2>
+          <div class="latam-route-tab">
+            <span class="latam-route-tab-cities" id="cabin-route-cities">Medellín a Cali</span>
+            <span class="latam-route-tab-date" id="cabin-route-date">1 de diciembre</span>
+          </div>
         </div>
         <div class="retention-timer-badge">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <span>Retencion Pesimista: <strong id="retention-timer-clock">12:00</strong></span>
+          <span>Retención: <strong id="retention-timer-clock">12:00</strong></span>
         </div>
       </div>
 
-      <!-- ================= PASO 1: SELECCIÓN DE SILLA VECTORIAL ================= -->
+      <!-- ================= PASO 1: SELECCIÓN DE SILLA 3 COLUMNAS ================= -->
       <div id="checkout-step-1" class="checkout-step-content">
-        <div class="cabin-layout-grid">
-          <!-- Fuselaje Interactivo Vectorial -->
-          <div class="airplane-fuselage-svg-wrap">
-            <svg class="airplane-nose-svg" viewBox="0 0 120 50" fill="none">
-              <path d="M10 50 C10 15, 40 5, 60 5 C80 5, 110 15, 110 50" stroke="#CBD5E1" stroke-width="2" fill="#FFFFFF"/>
-              <path d="M45 35 C50 25, 70 25, 75 35" stroke="#94A3B8" stroke-width="1.5" fill="#F1F5F9"/>
-            </svg>
-
-            <div style="font-size:0.6875rem;font-weight:700;color:#3B82F6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
-              Cabina Ejecutiva VIP
+        <div class="latam-3col-layout">
+          
+          <!-- Columna 1 Izquierda: Acordeones de Categorías (300px) -->
+          <aside class="seat-categories-sidebar">
+            <!-- 1. AeroFlow+ / VIP (Expandido por defecto) -->
+            <div class="category-accordion-card vip" id="acc-card-vip">
+              <button type="button" class="category-accordion-header" onclick="AeroMinimalUI.toggleAccordion('vip')">
+                <div class="category-badge-pill">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="4" width="14" height="11" rx="2"></rect>
+                    <path d="M7 15v5M17 15v5M3 10v4M21 10v4"></path>
+                  </svg>
+                  <span>AeroFlow+</span>
+                </div>
+                <div class="category-price-from">
+                  <span>Desde COP 58.075</span>
+                  <svg class="acc-chevron-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </div>
+              </button>
+              <div class="category-accordion-body" id="acc-body-vip">
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Más espacio para tus piernas</span>
+                </div>
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Embarque y desembarque prioritario</span>
+                </div>
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Lugar exclusivo para tu equipaje</span>
+                </div>
+              </div>
             </div>
 
-            <div class="cabin-rows-list" id="fuselage-rows-list">
-              <!-- Inyectado dinamicamente -->
+            <!-- 2. Más adelante (Morado) -->
+            <div class="category-accordion-card" id="acc-card-forward">
+              <button type="button" class="category-accordion-header" onclick="AeroMinimalUI.toggleAccordion('forward')">
+                <div class="category-badge-pill" style="color:#7C3AED;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2">
+                    <rect x="5" y="4" width="14" height="11" rx="2"></rect>
+                    <path d="M7 15v5M17 15v5M3 10v4M21 10v4"></path>
+                  </svg>
+                  <span>Más adelante</span>
+                </div>
+                <div class="category-price-from">
+                  <span>Desde COP 53.630</span>
+                  <svg class="acc-chevron-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+              </button>
+              <div class="category-accordion-body" id="acc-body-forward" style="display:none;">
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Filas 6 a 10 con desembarque rápido</span>
+                </div>
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Desembarque más ágil al aterrizar</span>
+                </div>
+              </div>
             </div>
 
-            <div class="airplane-wings-emergency-exit">
-              <span>Salida Emergencia</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.5">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            <!-- 3. Salida de emergencia (Verde Oliva) -->
+            <div class="category-accordion-card" id="acc-card-emergency">
+              <button type="button" class="category-accordion-header" onclick="AeroMinimalUI.toggleAccordion('emergency')">
+                <div class="category-badge-pill" style="color:#65A30D;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#65A30D" stroke-width="2">
+                    <rect x="5" y="4" width="14" height="11" rx="2"></rect>
+                    <path d="M7 15v5M17 15v5M3 10v4M21 10v4"></path>
+                  </svg>
+                  <span>Salida de emergencia</span>
+                </div>
+                <div class="category-price-from">
+                  <span>Desde COP 54.587</span>
+                  <svg class="acc-chevron-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+              </button>
+              <div class="category-accordion-body" id="acc-body-emergency" style="display:none;">
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Mayor espacio para tus piernas (Fila 12 XL)</span>
+                </div>
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Disposición para colaborar en evacuación</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Estándar (Azul Índigo) -->
+            <div class="category-accordion-card" id="acc-card-standard">
+              <button type="button" class="category-accordion-header" onclick="AeroMinimalUI.toggleAccordion('standard')">
+                <div class="category-badge-pill" style="color:#4F46E5;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2">
+                    <rect x="5" y="4" width="14" height="11" rx="2"></rect>
+                    <path d="M7 15v5M17 15v5M3 10v4M21 10v4"></path>
+                  </svg>
+                  <span>Estándar</span>
+                </div>
+                <div class="category-price-from">
+                  <span>Desde COP 31.277</span>
+                  <svg class="acc-chevron-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+              </button>
+              <div class="category-accordion-body" id="acc-body-standard" style="display:none;">
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Asientos cómodos con ergonomía clásica</span>
+                </div>
+                <div class="benefit-check-item">
+                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Filas 13 a 30 con puerto de carga USB</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Asiento no disponible (Gris) -->
+            <div class="category-accordion-card" style="opacity:0.85;">
+              <div class="category-accordion-header" style="cursor:default;">
+                <div class="category-badge-pill" style="color:#94A3B8;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                  </svg>
+                  <span>Asiento no disponible</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Columna 2 Centro: Fuselaje Airbus A320 con Alas y Turbinas -->
+          <section class="fuselage-column-wrap">
+            <div class="aircraft-wings-backdrop">
+              <svg class="wings-turbines-svg" viewBox="0 0 600 450" fill="none" preserveAspectRatio="none">
+                <!-- Ala Izquierda -->
+                <polygon points="210,120 10,290 10,340 210,300" fill="#E8EDF2" stroke="#CBD5E1" stroke-width="1.5"/>
+                <!-- Turbina Izquierda -->
+                <rect x="70" y="210" width="36" height="74" rx="18" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.8"/>
+                <ellipse cx="88" cy="210" rx="16" ry="6" fill="#CBD5E1"/>
+                <line x1="88" y1="210" x2="88" y2="284" stroke="#E2E8F0" stroke-width="1.5"/>
+
+                <!-- Ala Derecha -->
+                <polygon points="390,120 590,290 590,340 390,300" fill="#E8EDF2" stroke="#CBD5E1" stroke-width="1.5"/>
+                <!-- Turbina Derecha -->
+                <rect x="494" y="210" width="36" height="74" rx="18" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.8"/>
+                <ellipse cx="512" cy="210" rx="16" ry="6" fill="#CBD5E1"/>
+                <line x1="512" y1="210" x2="512" y2="284" stroke="#E2E8F0" stroke-width="1.5"/>
               </svg>
-              <span>Salida Emergencia</span>
-            </div>
-          </div>
-
-          <!-- Beneficios de Cabina y Resumen Inicial -->
-          <div class="checkout-summary-panel">
-            <div class="summary-card-inner">
-              <h3 class="summary-title">Detalles de la Silla</h3>
-              <div id="seat-benefits-preview-box" style="margin-bottom:14px;padding:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;">
-                <span style="font-size:0.75rem;font-weight:700;color:#64748B;text-transform:uppercase;">Asiento Seleccionado</span>
-                <p style="font-size:1.125rem;font-weight:800;color:#0F172A;margin:4px 0;" id="preview-seat-label">Ninguna silla seleccionada</p>
-                <ul style="font-size:0.8125rem;color:#475569;margin:8px 0 0 16px;line-height:1.5;" id="preview-seat-features">
-                  <li>Haz clic en una butaca para ver sus beneficios.</li>
-                  <li>Filas 1 a 4: Suites VIP con espacio ampliado para piernas.</li>
-                  <li>Filas 5+: Asientos Economy con reclinación estándar.</li>
-                </ul>
-              </div>
-
-              <div class="breakdown-row">
-                <span id="label-tarifa-base">Tarifa Base</span>
-                <span class="tabular-nums" id="summary-base-cop">COP 71.810</span>
-              </div>
-              <div class="breakdown-row">
-                <span>Tarifa Administrativa</span>
-                <span class="tabular-nums" id="summary-admin-cop">COP 45.000</span>
-              </div>
-              <div class="breakdown-row">
-                <span>Tasa Aeroportuaria</span>
-                <span class="tabular-nums" id="summary-tasa-cop">COP 158.000</span>
-              </div>
-              <div class="breakdown-row">
-                <span>IVA (19%)</span>
-                <span class="tabular-nums" id="summary-iva-cop">COP 13.644</span>
-              </div>
-              <div class="breakdown-total">
-                <span>Total Estimado</span>
-                <span class="tabular-nums" id="summary-total-cop">COP 288.454</span>
-              </div>
             </div>
 
-            <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.avanzarPasoCheckout(2)" style="width:100%;margin-top:14px;">
-              <span>Continuar a Datos del Pasajero</span>
-              <svg class="arrow-icon-flow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </button>
-          </div>
+            <!-- Tubo Blanco del Fuselaje -->
+            <div class="fuselage-tube-white">
+              <div class="fuselage-nose-top">
+                <span class="fuselage-model-title" id="cabin-aircraft-label">Airbus 320</span>
+                <div class="fuselage-divider-line"></div>
+              </div>
+
+              <!-- Cabecera de Columnas: A B C | D E F -->
+              <div class="fuselage-columns-header">
+                <span>A</span><span>B</span><span>C</span>
+                <span></span>
+                <span>D</span><span>E</span><span>F</span>
+              </div>
+
+              <!-- Lista de Filas con Scroll -->
+              <div class="fuselage-rows-scroll" id="fuselage-rows-list">
+                <!-- Inyectado dinámicamente -->
+              </div>
+            </div>
+          </section>
+
+          <!-- Columna 3 Derecha: Panel Pasajeros y Precio Final (310px) -->
+          <aside class="seat-passenger-sidebar">
+            <div class="passenger-panel-header">
+              <h3 class="passenger-panel-title">Pasajeros</h3>
+              <div class="passenger-selecting-pill">
+                <span>Estás seleccionando asiento para:</span>
+              </div>
+
+              <!-- Tarjeta de Selección Actual -->
+              <div class="selected-seat-card" id="latam-selected-seat-card">
+                <div class="seat-badge-box" id="latam-seat-badge-box" style="background:#E11D48;">
+                  <span id="latam-seat-number-badge">5B</span>
+                </div>
+                <div class="seat-info-middle">
+                  <span class="pax-name-label" id="latam-pax-name">Adulto 1</span>
+                  <span class="pax-seat-category" id="latam-pax-category" style="color:#E11D48;">AeroFlow+ | Medio</span>
+                </div>
+                <div class="seat-price-box">
+                  <span class="seat-price-text tabular-nums" id="latam-seat-price">COP 58.075</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Barra Inferior Fija de Precio Final -->
+            <div class="passenger-panel-bottom-fixed">
+              <div class="final-price-toggle-row">
+                <button type="button" class="btn-toggle-final-price" onclick="AeroMinimalUI.alternarDetallePrecioFinal()">
+                  <span>Precio final</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <span class="final-price-total tabular-nums" id="latam-final-price-display">COP 78.810</span>
+              </div>
+
+              <button type="button" class="btn-latam-primary" id="btn-latam-continue" onclick="AeroMinimalUI.avanzarPasoCheckout(2)">
+                Agregar y continuar
+              </button>
+
+              <button type="button" class="btn-latam-secondary" onclick="AeroMinimalUI.elegirAsientoDespues()">
+                Quiero elegir asientos después
+              </button>
+            </div>
+          </aside>
+
         </div>
       </div>
 
@@ -696,7 +824,7 @@
           <button type="button" class="btn-secondary-glass" onclick="AeroMinimalUI.avanzarPasoCheckout(1)">
             Volver a Selección de Silla
           </button>
-          <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.avanzarPasoCheckout(3)">
+          <button type="button" class="btn-primary-flow" id="btn-step2-next" onclick="AeroMinimalUI.avanzarPasoCheckout(3)">
             <span>Continuar a Pasarela de Pagos</span>
             <svg class="arrow-icon-flow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -710,45 +838,58 @@
       <div id="checkout-step-3" class="checkout-step-content" style="display:none;">
         <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:24px;">
           
-          <!-- Panel Izquierdo: Auditoría y Desglose Financiero -->
+          <!-- Panel Izquierdo: Resumen Visual Elegante y Desglose Financiero -->
           <div>
-            <div class="pessimistic-lock-timer-box">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              <span>Asiento bloqueado por <strong id="checkout-pessimistic-timer">12:00 min</strong></span>
+            <!-- Tarjeta Superior de Vuelo y Silla Elegida -->
+            <div class="payment-flight-summary-card">
+              <div class="pfs-header">
+                <span class="pfs-route" id="pfs-route">BOG ➔ CTG</span>
+                <span class="pfs-plane" id="pfs-plane">Airbus A320neo</span>
+              </div>
+              <div class="pfs-body">
+                <div class="pfs-pax-info">
+                  <span class="pfs-pax-label">Pasajero:</span>
+                  <strong id="pfs-pax-name">Carlos Alberto Mendoza</strong>
+                </div>
+                <div class="pfs-seat-badge" id="pfs-seat-badge">
+                  <span id="pfs-seat-text">5B • AeroFlow+ XL</span>
+                </div>
+              </div>
             </div>
 
-            <div class="summary-card-inner">
-              <h3 class="summary-title">Desglose Contable Oficial ($ COP)</h3>
-              <div class="breakdown-row">
-                <span>Tarifa Base</span>
-                <span class="tabular-nums" id="pay-breakdown-base">COP 71.810</span>
+            <!-- Tabla Limpia de 3 Renglones -->
+            <div class="payment-clean-breakdown-card">
+              <div class="clean-breakdown-row">
+                <span class="cbr-label">Tarifa de vuelo + Asiento</span>
+                <span class="cbr-val tabular-nums" id="pay-clean-flight-seat">COP 129.885</span>
               </div>
-              <div class="breakdown-row">
-                <span>Suplemento Silla / Clase</span>
-                <span class="tabular-nums" id="pay-breakdown-seat-surcharge">COP 0</span>
+              <div class="clean-breakdown-row">
+                <span class="cbr-label">Equipaje y servicios adicionales</span>
+                <span class="cbr-val tabular-nums" id="pay-clean-luggage">COP 0</span>
               </div>
-              <div class="breakdown-row">
-                <span>Equipaje de Bodega (23kg)</span>
-                <span class="tabular-nums" id="pay-breakdown-luggage">COP 0</span>
+              <div class="clean-breakdown-row">
+                <div class="cbr-label-with-toggle">
+                  <span>Tasas aeroportuarias e impuestos (IVA 19%)</span>
+                  <button type="button" class="btn-toggle-tax-details" onclick="AeroMinimalUI.alternarDetalleImpuestos()" title="Ver desglose detallado">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
+                </div>
+                <span class="cbr-val tabular-nums" id="pay-clean-taxes">COP 216.644</span>
               </div>
-              <div class="breakdown-row">
-                <span>Tarifa Administrativa</span>
-                <span class="tabular-nums">COP 45.000</span>
+
+              <!-- Desglose Legal Desplegable -->
+              <div class="tax-details-dropdown" id="tax-details-dropdown" style="display:none;">
+                <div class="tax-subrow"><span>Tarifa Administrativa:</span> <span id="pay-tax-admin">COP 45.000</span></div>
+                <div class="tax-subrow"><span>Tasa Aeroportuaria Oficial:</span> <span id="pay-tax-airport">COP 158.000</span></div>
+                <div class="tax-subrow"><span>IVA Legal (19%):</span> <span id="pay-tax-iva">COP 13.644</span></div>
               </div>
-              <div class="breakdown-row">
-                <span>Tasa Aeroportuaria Oficial</span>
-                <span class="tabular-nums">COP 158.000</span>
-              </div>
-              <div class="breakdown-row">
-                <span>IVA (19% Legal)</span>
-                <span class="tabular-nums" id="pay-breakdown-iva">COP 13.644</span>
-              </div>
-              <div class="breakdown-total">
-                <span>Total Definitivo a Pagar</span>
-                <span class="tabular-nums" id="pay-breakdown-total">COP 288.454</span>
+
+              <!-- Caja Destacada de Total Definitivo -->
+              <div class="clean-breakdown-total-box">
+                <span class="cbt-label">Total a Pagar</span>
+                <span class="cbt-amount tabular-nums" id="pay-clean-total">COP 346.529</span>
               </div>
             </div>
 
@@ -756,6 +897,9 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               </svg>
+              <span>Transaccion Idempotente Blindada • PCI-DSS SAQ-A Criptografica</span>
+            </div>
+          </div>
               <span>Transaccion Idempotente Blindada • PCI-DSS SAQ-A Criptografica</span>
             </div>
           </div>

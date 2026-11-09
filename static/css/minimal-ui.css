@@ -130,22 +130,21 @@ body {
 
 .btn-header-login {
   background: transparent;
-  border: 1px solid var(--border-strong, #CBD5E1);
+  border: none;
   color: var(--text-primary, #0F172A);
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 8px 18px;
-  border-radius: 9999px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  padding: 6px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  text-decoration: none;
 }
 
 .btn-header-login:hover {
-  background-color: var(--bg-subtle, #F1F5F9);
-  border-color: var(--text-primary, #0F172A);
+  color: #3B82F6;
 }
 
 /* User Pill Badge */
@@ -367,20 +366,21 @@ body {
    ========================================================================== */
 .fare-calendar-popover {
   position: absolute;
-  top: calc(100% + 12px);
-  left: 20%;
-  z-index: 200;
+  top: calc(100% + 14px);
+  right: 28px;
+  z-index: 500;
   background: var(--bg-surface, #FFFFFF);
-  border-radius: 18px;
+  border-radius: 22px;
   border: 1px solid var(--border-subtle, #E2E8F0);
-  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12);
-  padding: 24px;
-  width: 680px;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.12), 0 0 1px 1px rgba(15, 23, 42, 0.04);
+  padding: 24px 28px 28px 28px;
+  width: 740px;
   max-width: calc(100vw - 48px);
   display: none;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  box-sizing: border-box;
 }
 
 .fare-calendar-popover.open {
@@ -394,21 +394,20 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
 }
 
 .calendar-headline {
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
+  letter-spacing: -0.01em;
 }
 
 .calendar-legend {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 0.75rem;
+  gap: 12px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary, #475569);
 }
@@ -416,12 +415,12 @@ body {
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .legend-circle {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -433,106 +432,135 @@ body {
 .calendar-months-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 28px;
+  gap: 36px;
 }
 
-.month-view-card {
+.calendar-month-card {
   display: flex;
   flex-direction: column;
 }
 
-.month-nav-header {
+.calendar-month-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 36px;
   margin-bottom: 14px;
 }
 
-.month-title {
+.calendar-month-title {
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
+  text-align: center;
+  flex: 1;
 }
 
-.month-nav-arrow {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary, #475569);
-  padding: 4px 8px;
-  border-radius: 6px;
+.calendar-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  background: var(--bg-surface, #FFFFFF);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary, #475569);
+  transition: all 0.15s ease;
+  padding: 0;
 }
 
-.month-nav-arrow:hover {
+.calendar-nav-btn:hover {
   background-color: var(--bg-subtle, #F1F5F9);
+  border-color: #CBD5E1;
+  color: var(--text-primary, #0F172A);
+}
+
+.calendar-nav-placeholder {
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .calendar-weekdays-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted, #94A3B8);
   margin-bottom: 8px;
+}
+
+.calendar-weekdays-row span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748B);
 }
 
 .calendar-days-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  gap: 6px 4px;
+  justify-items: center;
 }
 
 .calendar-day-btn {
-  aspect-ratio: 1;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary, #0F172A);
+  font-weight: 500;
+  color: #1E293B;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s;
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1);
   background-color: transparent;
+  padding: 0;
+  user-select: none;
 }
 
-.calendar-day-btn:hover:not(:disabled) {
-  transform: scale(1.12);
+.calendar-day-btn:hover:not(:disabled):not(.disabled) {
+  transform: scale(1.15);
   z-index: 2;
 }
 
+.calendar-day-btn.disabled,
+.calendar-day-btn:disabled,
+.calendar-day-btn.past {
+  color: #94A3B8;
+  background-color: transparent;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.calendar-day-btn.today {
+  border-color: #0F172A;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  font-weight: 700;
+}
+
 .calendar-day-btn.tier-low {
-  background-color: #DCFCE7;
-  color: #166534;
+  background-color: #A7F3D0;
+  color: #064E3B;
 }
 
 .calendar-day-btn.tier-mid {
-  background-color: #FEF9C3;
-  color: #854D0E;
+  background-color: #FED7AA;
+  color: #7C2D12;
 }
 
 .calendar-day-btn.tier-high {
-  background-color: #FEE2E2;
-  color: #991B1B;
+  background-color: #FECACA;
+  color: #7F1D1D;
 }
 
 .calendar-day-btn.selected {
-  outline: 2px solid #0F172A;
-  outline-offset: 2px;
-  font-weight: 800;
-}
-
-.calendar-day-btn:disabled,
-.calendar-day-btn.inactive {
-  color: var(--border-strong, #CBD5E1);
-  background-color: transparent;
-  cursor: not-allowed;
-  opacity: 0.5;
+  box-shadow: 0 0 0 2px #0F172A;
+  font-weight: 700;
 }
 
 /* ==========================================================================
@@ -765,51 +793,45 @@ body {
 }
 
 .offer-card-body {
-  padding: 20px;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
-  flex: 1;
 }
 
 .offer-destination-title {
   font-size: 1.125rem;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
 }
 
 .offer-flight-meta {
   font-size: 0.8125rem;
   color: var(--text-secondary, #475569);
-  margin-bottom: 14px;
+  margin-bottom: 8px;
+  font-weight: 400;
 }
 
 .offer-price-block {
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle, #E2E8F0);
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
 }
 
 .offer-price-val {
-  font-size: 1.1875rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
+  letter-spacing: -0.01em;
 }
 
 .offer-price-note {
-  font-size: 0.6875rem;
-  color: var(--text-muted, #94A3B8);
+  display: none;
 }
 
 .btn-choose-seat {
-  margin-top: 14px;
-  background: #0F172A;
-  color: #FFFFFF;
-  border: none;
-  border-radius: 10px;
+  display: none;
+}
   height: 42px;
   font-size: 0.875rem;
   font-weight: 600;
@@ -941,197 +963,431 @@ body {
    7. MODAL MAPA VECTORIAL DEL AVIÓN (FUSELAJE + SILLAS VIP Y ECONOMY)
    ========================================================================== */
 .modal-card-cabin {
-  width: 920px;
-  max-width: 100%;
-  padding: 28px;
-}
-
-.cabin-header-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-}
-
-.cabin-flight-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-}
-
-.cabin-flight-route {
-  font-size: 0.875rem;
-  color: var(--text-secondary, #475569);
-}
-
-.retention-timer-badge {
-  background-color: #FEF3C7;
-  border: 1px solid #FDE68A;
-  color: #92400E;
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cabin-layout-grid {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 28px;
-}
-
-/* Fuselaje Vectorial Completo */
-.airplane-fuselage-svg-wrap {
-  background-color: #F8FAFC;
-  border: 1px solid var(--border-subtle, #E2E8F0);
+  width: 1260px;
+  max-width: 96vw;
+  background-color: #F1F3F6;
   border-radius: 24px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
+  padding: 24px 32px 32px;
 }
 
-.airplane-nose-svg {
-  width: 120px;
-  height: 50px;
-  margin-bottom: 10px;
-}
-
-.airplane-wings-emergency-exit {
-  width: 100%;
+.latam-seat-top-bar {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  padding: 6px 16px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #DC2626;
-  text-transform: uppercase;
-  border-top: 1px dashed #CBD5E1;
-  border-bottom: 1px dashed #CBD5E1;
-  margin: 12px 0;
+  border-bottom: 1px solid #E2E8F0;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
 }
 
-.cabin-rows-list {
+.latam-seat-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1E1B4B;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.latam-route-tab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 16px 8px;
+  border-bottom: 3px solid #E11D48;
+  margin-bottom: -9px;
+}
+
+.latam-route-tab-cities {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.latam-route-tab-date {
+  font-size: 0.75rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* Distribución en 3 Columnas */
+.latam-3col-layout {
+  display: grid;
+  grid-template-columns: 290px 1fr 310px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Columna 1: Acordeones de Categorías */
+.seat-categories-sidebar {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 100%;
-  max-width: 380px;
 }
 
-.cabin-row {
+.category-accordion-card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: all 0.18s ease;
+}
+
+.category-accordion-header {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.row-num-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text-muted, #94A3B8);
-  width: 24px;
-  text-align: center;
-}
-
-.seat-group {
-  display: flex;
-  gap: 8px;
-}
-
-.seat-aisle-space {
-  width: 28px;
-  text-align: center;
-  font-size: 0.625rem;
-  color: #CBD5E1;
-  user-select: none;
-}
-
-/* Poltrona VIP Vectorial */
-.seat-vip-btn {
-  width: 44px;
-  height: 46px;
-  border-radius: 8px;
-  border: 2px solid #3B82F6;
-  background: #EFF6FF;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #1E40AF;
+  padding: 12px 14px;
+  background: #FFFFFF;
+  border: none;
   cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.category-accordion-card.vip .category-accordion-header {
+  background: #E11D48;
+  color: #FFFFFF;
+}
+
+.category-badge-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.category-price-from {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.category-accordion-card.vip .category-price-from {
+  color: #FFE4E6;
+}
+
+.category-accordion-body {
+  padding: 12px 14px 14px;
+  background: #FFFFFF;
+  border-top: 1px solid #F1F5F9;
+}
+
+.benefit-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: #334155;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.benefit-check-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Columna 2: Fuselaje Central con Alas y Turbinas */
+.fuselage-column-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 580px;
+}
+
+.aircraft-wings-backdrop {
+  position: absolute;
+  top: 120px;
+  width: 100%;
+  max-width: 580px;
+  height: 400px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wings-turbines-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.fuselage-tube-white {
+  position: relative;
+  z-index: 2;
+  width: 340px;
+  background: #FFFFFF;
+  border-radius: 60px 60px 80px 80px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  padding: 24px 16px 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.fuselage-nose-top {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.fuselage-model-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.04em;
+}
+
+.fuselage-divider-line {
+  height: 1px;
+  background: #E2E8F0;
+  width: 85%;
+  margin: 8px auto 10px;
+}
+
+.fuselage-columns-header {
+  display: grid;
+  grid-template-columns: repeat(3, 34px) 24px repeat(3, 34px);
+  gap: 4px;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 8px;
+}
+
+.fuselage-rows-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 4px 0 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.fuselage-rows-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.fuselage-rows-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+.cabin-latam-row {
+  display: grid;
+  grid-template-columns: repeat(3, 34px) 24px repeat(3, 34px);
+  gap: 4px;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
-  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
-  position: relative;
 }
 
-.seat-vip-btn::after {
-  content: 'VIP';
-  font-size: 0.5625rem;
-  color: #3B82F6;
-  font-weight: 800;
-}
-
-.seat-vip-btn:hover:not(:disabled) {
-  transform: scale(1.08);
-  border-color: #1D4ED8;
-}
-
-.seat-vip-btn.selected {
-  background-color: #1E3A8A;
-  color: #FFFFFF;
-  border-color: #1E3A8A;
-}
-
-.seat-vip-btn.selected::after {
-  color: #93C5FD;
-}
-
-/* Silla Turista Vectorial */
-.seat-eco-btn {
-  width: 36px;
-  height: 38px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong, #CBD5E1);
-  background: var(--bg-surface, #FFFFFF);
+.latam-aisle-num {
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-primary, #0F172A);
-  cursor: pointer;
+  font-weight: 700;
+  color: #64748B;
+  text-align: center;
+  user-select: none;
+}
+
+.emergency-exit-banner-row {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s;
+  gap: 4px;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  color: #DC2626;
+  letter-spacing: 0.08em;
+  padding: 4px 0;
+  border-top: 1px dashed #FCA5A5;
+  border-bottom: 1px dashed #FCA5A5;
+  margin: 4px 0;
+  user-select: none;
 }
 
-.seat-eco-btn:hover:not(:disabled) {
-  border-color: #0F172A;
-  background-color: #F8FAFC;
-  transform: scale(1.06);
+/* Butaca Vectorial SVG LATAM */
+.latam-seat-btn {
+  width: 34px;
+  height: 38px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.seat-eco-btn.selected {
-  background-color: #0F172A;
+.latam-seat-btn:hover:not(:disabled) {
+  transform: scale(1.15);
+  z-index: 5;
+}
+
+.latam-seat-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Columna 3: Panel de Pasajeros y Precio Final */
+.seat-passenger-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 520px;
+}
+
+.passenger-panel-title {
+  font-size: 1.1875rem;
+  font-weight: 700;
+  color: #1E1B4B;
+  margin-bottom: 8px;
+}
+
+.passenger-selecting-pill {
+  background: #0F172A;
   color: #FFFFFF;
-  border-color: #0F172A;
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 14px;
 }
 
-.seat-eco-btn:disabled,
-.seat-vip-btn:disabled,
-.seat-occupied {
-  background-color: #E2E8F0 !important;
-  border-color: #CBD5E1 !important;
-  color: #94A3B8 !important;
-  cursor: not-allowed;
-  transform: none !important;
+.selected-seat-card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  border: 1px solid #E2E8F0;
+  margin-bottom: 16px;
+}
+
+.seat-badge-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9375rem;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.seat-info-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  margin: 0 10px;
+}
+
+.pax-name-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.pax-seat-category {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.seat-price-text {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.passenger-panel-bottom-fixed {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.final-price-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.btn-toggle-final-price {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1E1B4B;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.final-price-total {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.btn-latam-primary {
+  background: #E11D48;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 13px 18px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.15s, transform 0.1s;
+  text-align: center;
+}
+
+.btn-latam-primary:hover {
+  opacity: 0.92;
+}
+
+.btn-latam-primary:active {
+  transform: scale(0.99);
+}
+
+.btn-latam-secondary {
+  background: #FFFFFF;
+  color: #E11D48;
+  border: 1.5px solid #E11D48;
+  border-radius: 8px;
+  padding: 11px 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.15s;
+  text-align: center;
+}
+
+.btn-latam-secondary:hover {
+  background-color: #FFF1F2;
 }
 
 /* ==========================================================================
@@ -2156,20 +2412,20 @@ body {
 
 .fifo-tickets-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(580px, 1fr));
+  gap: 24px;
 }
 
 /* Sello Animado "ABORDADO" */
 .stamp-abordado {
   position: absolute;
-  top: 40%;
-  left: 30%;
+  top: 38%;
+  left: 28%;
   border: 3px solid #DC2626;
   color: #DC2626;
-  background: rgba(254, 226, 226, 0.9);
-  padding: 6px 18px;
-  font-size: 1.25rem;
+  background: rgba(254, 226, 226, 0.94);
+  padding: 6px 20px;
+  font-size: 1.375rem;
   font-weight: 900;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -2177,7 +2433,7 @@ body {
   transform: rotate(-10deg);
   pointer-events: none;
   animation: stampImpact 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  z-index: 5;
+  z-index: 10;
 }
 
 @keyframes stampImpact {
@@ -2203,6 +2459,7 @@ body {
   margin-bottom: 24px;
   position: relative;
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 100%;
 }
 
 .printable-ticket-card.active-scanning {
@@ -2210,13 +2467,34 @@ body {
   transform: translateY(-4px);
 }
 
-.ticket-header-strip {
-  background: #0F172A;
-  color: #FFFFFF;
-  padding: 14px 22px;
+/* Banner Fotográfico de Destino en el Ticket */
+.ticket-photo-banner {
+  width: 100%;
+  height: 68px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 20px;
+  color: #FFFFFF;
+}
+
+.ticket-photo-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.55) 50%, rgba(15, 23, 42, 0.92) 100%);
+  z-index: 1;
+}
+
+.ticket-photo-banner-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .ticket-brand-logo-text {
@@ -2227,12 +2505,12 @@ body {
 
 .ticket-body-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 195px;
   align-items: stretch;
 }
 
 .ticket-left-main {
-  padding: 22px;
+  padding: 20px 22px;
   border-right: 2px dashed #CBD5E1;
   position: relative;
 }
@@ -2253,13 +2531,52 @@ body {
 .ticket-left-main::after { bottom: -10px; }
 
 .ticket-right-stub {
-  padding: 22px;
+  padding: 16px 14px;
   background: #F8FAFC;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
   text-align: center;
+}
+
+.ticket-pax-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-ticket-board-manual {
+  background: #2563EB;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  width: 100%;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.btn-ticket-board-manual:hover {
+  opacity: 0.9;
+}
+
+.btn-ticket-board-manual.boarded {
+  background: #059669;
+  cursor: default;
 }
 
 .ticket-route-large {
@@ -2384,6 +2701,148 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+/* Resumen Contable Elegante en Pasarela de Pago */
+.payment-flight-summary-card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.pfs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pfs-route {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.pfs-plane {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748B;
+  background: #F1F5F9;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.pfs-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pfs-pax-info {
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.pfs-pax-label {
+  color: #64748B;
+  margin-right: 4px;
+}
+
+.pfs-seat-badge {
+  background: #FFE4E6;
+  border: 1px solid #FECDD3;
+  color: #BE123C;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.payment-clean-breakdown-card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.clean-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.cbr-label-with-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-toggle-tax-details {
+  background: #F1F5F9;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748B;
+  transition: all 0.15s;
+}
+
+.btn-toggle-tax-details:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.tax-details-dropdown {
+  background: #F8FAFC;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 6px 0 10px;
+  border: 1px solid #E2E8F0;
+  font-size: 0.75rem;
+  color: #64748B;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tax-subrow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.clean-breakdown-total-box {
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cbt-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.cbt-amount {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
 }
 
 .security-badge-pci {

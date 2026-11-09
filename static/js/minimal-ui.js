@@ -60,12 +60,26 @@
   }
 
   function calcularTarifaDia(year, month, day) {
+    // Noviembre 2026 (month === 10)
+    if (year === 2026 && month === 10) {
+      if (day < 8) return { past: true, tier: 'past', label: '', precio: 0 };
+      if (day === 8) return { today: true, tier: 'today', label: '$', precio: 71810 };
+      if (day >= 9 && day <= 15) return { tier: 'low', label: '$', precio: 71810 };
+      if (day >= 16 && day <= 22) return { tier: 'mid', label: '$$', precio: 145000 };
+      if (day >= 23 && day <= 30) return { tier: 'low', label: '$', precio: 71810 };
+    }
+    // Diciembre 2026 (month === 11)
+    if (year === 2026 && month === 11) {
+      if (day === 9 || day === 26 || day === 27) return { tier: 'high', label: '$$$', precio: 320000 };
+      if ((day >= 16 && day <= 25) || day >= 28) return { tier: 'mid', label: '$$', precio: 165000 };
+      return { tier: 'low', label: '$', precio: 75970 };
+    }
     const d = new Date(year, month, day);
     const dayOfWeek = d.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6 || dayOfWeek === 5) {
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return { tier: 'mid', label: '$$', precio: 165000 };
+    } else if (day % 11 === 0) {
       return { tier: 'high', label: '$$$', precio: 320000 };
-    } else if (dayOfWeek === 1 || dayOfWeek === 4) {
-      return { tier: 'mid', label: '$$', precio: 185000 };
     } else {
       return { tier: 'low', label: '$', precio: 71810 };
     }
@@ -309,19 +323,19 @@
 
     const btnPrev = tienePrev
       ? `<button type="button" class="calendar-nav-btn" onclick="AeroMinimalUI.navegarMesCalendario(-1)" aria-label="Mes anterior">
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-             <path d="M15 18l-6-6 6-6"></path>
+           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+             <polyline points="15 18 9 12 15 6"></polyline>
            </svg>
          </button>`
-      : '<span style="width:28px;"></span>';
+      : '<span class="calendar-nav-placeholder"></span>';
 
     const btnNext = tieneNext
       ? `<button type="button" class="calendar-nav-btn" onclick="AeroMinimalUI.navegarMesCalendario(1)" aria-label="Mes siguiente">
-           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-             <path d="M9 18l6-6-6-6"></path>
+           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+             <polyline points="9 18 15 12 9 6"></polyline>
            </svg>
          </button>`
-      : '<span style="width:28px;"></span>';
+      : '<span class="calendar-nav-placeholder"></span>';
 
     header.innerHTML = `
       ${btnPrev}
@@ -333,7 +347,7 @@
     const weekdays = document.createElement('div');
     weekdays.className = 'calendar-weekdays-row';
     weekdays.innerHTML = `
-      <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span><span>Do</span>
+      <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
     `;
     card.appendChild(weekdays);
 
@@ -355,20 +369,28 @@
       btn.className = 'calendar-day-btn';
       btn.textContent = day;
 
-      const esPasado = (year === 2026 && month === 10 && day < 8);
-      if (esPasado) {
-        btn.classList.add('disabled');
+      const tarifa = calcularTarifaDia(year, month, day);
+
+      if (tarifa.past) {
+        btn.classList.add('disabled', 'past');
         btn.disabled = true;
       } else {
-        const tarifa = calcularTarifaDia(year, month, day);
-        if (tarifa.tier === 'low') btn.classList.add('tier-low');
-        else if (tarifa.tier === 'mid') btn.classList.add('tier-mid');
-        else btn.classList.add('tier-high');
-
-        btn.title = `Día ${day}: ${formatoCOP(tarifa.precio)}`;
+        if (tarifa.today) {
+          btn.classList.add('today');
+          btn.title = `Hoy (${day} de ${nombreMes}): ${formatoCOP(tarifa.precio)}`;
+        } else if (tarifa.tier === 'low') {
+          btn.classList.add('tier-low');
+          btn.title = `Día ${day}: ${formatoCOP(tarifa.precio)}`;
+        } else if (tarifa.tier === 'mid') {
+          btn.classList.add('tier-mid');
+          btn.title = `Día ${day}: ${formatoCOP(tarifa.precio)}`;
+        } else if (tarifa.tier === 'high') {
+          btn.classList.add('tier-high');
+          btn.title = `Día ${day}: ${formatoCOP(tarifa.precio)}`;
+        }
 
         const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        if (uiState.departureDate === isoDate || (!uiState.departureDate && month === 10 && day === 8)) {
+        if (uiState.departureDate === isoDate) {
           btn.classList.add('selected');
         } else if (uiState.returnDate === isoDate) {
           btn.classList.add('selected');
@@ -800,7 +822,7 @@
 
     iniciarTemporizadorRetencion();
     renderizarFuselajeAeronave(vuelo);
-    actualizarDesglosePrecios(vuelo.precio_base_cop || 71810, false);
+    actualizarDesgloseFinancieroPaso3();
     avanzarPasoCheckout(1);
     alternarMetodoPago('card');
 
@@ -876,191 +898,321 @@
     if (elPay) elPay.textContent = timeStr;
   }
 
+  const CATEGORIAS_ASIENTO = {
+    vip: {
+      id: 'vip',
+      nombre: 'AeroFlow+',
+      color: '#E11D48',
+      fill: '#FFE4E6',
+      precio: 58075,
+      esXL: true
+    },
+    forward: {
+      id: 'forward',
+      nombre: 'Más adelante',
+      color: '#7C3AED',
+      fill: '#F3E8FF',
+      precio: 53630,
+      esXL: false
+    },
+    emergency: {
+      id: 'emergency',
+      nombre: 'Salida de emergencia',
+      color: '#65A30D',
+      fill: '#ECFCCB',
+      precio: 54587,
+      esXL: true
+    },
+    standard: {
+      id: 'standard',
+      nombre: 'Estándar',
+      color: '#4F46E5',
+      fill: '#E0E7FF',
+      precio: 31277,
+      esXL: false
+    }
+  };
+
+  const ASIENTOS_OCUPADOS_DEMO = new Set([
+    '1A', '1C', '2D', '3B', '4A', '4B', '4C', '4D', '5A',
+    '6B', '7C', '8B', '8C', '8D', '8E', '10A',
+    '11A', '11B',
+    '12F',
+    '14B', '15E', '18C', '20A', '22D', '25B', '27F', '29C'
+  ]);
+
   function renderizarFuselajeAeronave(vuelo) {
     const container = document.getElementById('fuselage-rows-list');
     if (!container) return;
     container.innerHTML = '';
 
-    const modelo = vuelo.tipo_aeronave || 'Airbus A320neo';
-    let filasVip = 4;
-    let filasEco = 7;
+    const destinoRaw = vuelo.destino || 'CLO - Cali';
+    const origenRaw = vuelo.origen || 'MDE - Medellín';
+    const destCiudad = destinoRaw.split('-')[1]?.trim().split(' ')[0] || destinoRaw;
+    const origCiudad = origenRaw.split('-')[1]?.trim().split(' ')[0] || origenRaw;
 
-    if (modelo.includes('A350')) {
-      filasVip = 6;
-      filasEco = 14;
-    } else if (modelo.includes('787')) {
-      filasVip = 5;
-      filasEco = 11;
-    } else if (modelo.includes('Praetor')) {
-      filasVip = 2;
-      filasEco = 2;
-    }
+    const elRouteCities = document.getElementById('cabin-route-cities');
+    const elRouteDate = document.getElementById('cabin-route-date');
+    const elAircraft = document.getElementById('cabin-aircraft-label');
 
-    const ocupados = new Set(['1B', '2A', '4C', '5B', '6D', '7A']);
+    if (elRouteCities) elRouteCities.textContent = `${origCiudad} a ${destCiudad}`;
+    if (elRouteDate) elRouteDate.textContent = '1 de diciembre';
+    if (elAircraft) elAircraft.textContent = vuelo.tipo_aeronave ? vuelo.tipo_aeronave.replace('neo', '').trim() : 'Airbus 320';
 
-    // Filas VIP
-    for (let f = 1; f <= filasVip; f++) {
+    for (let f = 1; f <= 30; f++) {
+      if (f === 11 || f === 12) {
+        const exitBanner = document.createElement('div');
+        exitBanner.className = 'emergency-exit-banner-row';
+        exitBanner.innerHTML = '<span>&lt;-------- SALIDA DE EMERGENCIA --------&gt;</span>';
+        container.appendChild(exitBanner);
+      }
+
+      let cat = CATEGORIAS_ASIENTO.standard;
+      if (f <= 5) cat = CATEGORIAS_ASIENTO.vip;
+      else if (f <= 10) cat = CATEGORIAS_ASIENTO.forward;
+      else if (f === 12) cat = CATEGORIAS_ASIENTO.emergency;
+
       const rowDiv = document.createElement('div');
-      rowDiv.className = 'cabin-row';
+      rowDiv.className = 'cabin-latam-row';
 
-      const label = document.createElement('span');
-      label.className = 'row-num-label';
-      label.textContent = f;
-      rowDiv.appendChild(label);
-
-      const leftGroup = document.createElement('div');
-      leftGroup.className = 'seat-group';
-      ['A', 'B'].forEach(col => {
-        leftGroup.appendChild(crearBotonSilla(f, col, 'VIP', ocupados.has(`${f}${col}`)));
+      // Grupo Izquierdo: A, B, C
+      ['A', 'B', 'C'].forEach(col => {
+        const seatId = `${f}${col}`;
+        const isOccupied = ASIENTOS_OCUPADOS_DEMO.has(seatId);
+        rowDiv.appendChild(crearBotonSillaLATAM(f, col, cat, isOccupied));
       });
-      rowDiv.appendChild(leftGroup);
 
-      const aisle = document.createElement('div');
-      aisle.className = 'seat-aisle-space';
-      aisle.textContent = '||';
-      rowDiv.appendChild(aisle);
+      // Pasillo Central con Número de Fila
+      const aisleLabel = document.createElement('span');
+      aisleLabel.className = 'latam-aisle-num';
+      aisleLabel.textContent = f;
+      rowDiv.appendChild(aisleLabel);
 
-      const rightGroup = document.createElement('div');
-      rightGroup.className = 'seat-group';
-      ['C', 'D'].forEach(col => {
-        rightGroup.appendChild(crearBotonSilla(f, col, 'VIP', ocupados.has(`${f}${col}`)));
+      // Grupo Derecho: D, E, F
+      ['D', 'E', 'F'].forEach(col => {
+        const seatId = `${f}${col}`;
+        const isOccupied = ASIENTOS_OCUPADOS_DEMO.has(seatId);
+        rowDiv.appendChild(crearBotonSillaLATAM(f, col, cat, isOccupied));
       });
-      rowDiv.appendChild(rightGroup);
 
       container.appendChild(rowDiv);
     }
 
-    // Separador
-    const cabinaDivider = document.createElement('div');
-    cabinaDivider.style.cssText = 'text-align:center;font-size:0.6875rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;padding:8px 0;';
-    cabinaDivider.textContent = 'Cabina Economy Estándar';
-    container.appendChild(cabinaDivider);
-
-    // Filas Economy
-    const inicioEco = filasVip + 1;
-    for (let f = inicioEco; f < inicioEco + filasEco; f++) {
-      const rowDiv = document.createElement('div');
-      rowDiv.className = 'cabin-row';
-
-      const label = document.createElement('span');
-      label.className = 'row-num-label';
-      label.textContent = f;
-      rowDiv.appendChild(label);
-
-      const leftGroup = document.createElement('div');
-      leftGroup.className = 'seat-group';
-      ['A', 'B'].forEach(col => {
-        leftGroup.appendChild(crearBotonSilla(f, col, 'Economy', ocupados.has(`${f}${col}`)));
-      });
-      rowDiv.appendChild(leftGroup);
-
-      const aisle = document.createElement('div');
-      aisle.className = 'seat-aisle-space';
-      aisle.textContent = '||';
-      rowDiv.appendChild(aisle);
-
-      const rightGroup = document.createElement('div');
-      rightGroup.className = 'seat-group';
-      ['C', 'D'].forEach(col => {
-        rightGroup.appendChild(crearBotonSilla(f, col, 'Economy', ocupados.has(`${f}${col}`)));
-      });
-      rowDiv.appendChild(rightGroup);
-
-      container.appendChild(rowDiv);
-    }
+    // Pre-seleccionar 5B por defecto
+    seleccionarSillaLATAM('5B', CATEGORIAS_ASIENTO.vip, 'Medio');
   }
 
-  function crearBotonSilla(fila, col, clase, estaOcupada) {
+  function crearBotonSillaLATAM(fila, col, categoria, ocupada) {
     const seatId = `${fila}${col}`;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = (clase === 'VIP') ? 'seat-vip-btn' : 'seat-eco-btn';
-    btn.textContent = col;
+    btn.className = `latam-seat-btn tier-${categoria.id}`;
     btn.setAttribute('data-seat', seatId);
-    btn.setAttribute('data-class', clase);
+    btn.setAttribute('data-category', categoria.id);
 
-    if (estaOcupada) {
-      btn.classList.add('seat-occupied');
+    const esXL = categoria.esXL;
+    const isSelected = uiState.selectedSeat?.id === seatId;
+
+    let posicion = 'Medio';
+    if (col === 'A' || col === 'F') posicion = 'Ventana';
+    else if (col === 'C' || col === 'D') posicion = 'Pasillo';
+
+    btn.setAttribute('data-position', posicion);
+
+    if (ocupada) {
+      btn.classList.add('occupied');
       btn.disabled = true;
-      btn.title = `Silla ${seatId} (${clase}) - Ocupada`;
+      btn.title = `Asiento ${seatId} (${categoria.nombre}) - No disponible`;
+      btn.innerHTML = `
+        <svg class="latam-seat-svg" viewBox="0 0 32 36" fill="none">
+          ${esXL ? '<rect x="8" y="2" width="16" height="6" rx="2" stroke="#CBD5E1" stroke-dasharray="2,2" stroke-width="1.2"/><text x="16" y="7" font-size="5" font-weight="bold" fill="#94A3B8" text-anchor="middle">XL</text>' : ''}
+          <rect x="5" y="8" width="22" height="17" rx="3" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+          <path d="M2 13v9a2 2 0 0 0 2 2h1M30 13v9a2 2 0 0 1-2 2h-1" stroke="#CBD5E1" stroke-width="1.5"/>
+          <line x1="11" y1="12" x2="21" y2="21" stroke="#94A3B8" stroke-width="1.5"/>
+          <line x1="21" y1="12" x2="11" y2="21" stroke="#94A3B8" stroke-width="1.5"/>
+          <rect x="6" y="24" width="20" height="9" rx="2" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+        </svg>
+      `;
     } else {
-      btn.title = `Silla ${seatId} (${clase}) - Disponible`;
-      btn.onclick = () => seleccionarSilla(seatId, clase);
+      btn.title = `Asiento ${seatId} (${categoria.nombre}) • COP ${categoria.precio.toLocaleString('es-CO')} • ${posicion}`;
+      if (isSelected) btn.classList.add('selected');
+
+      const strokeColor = categoria.color;
+      const fillColor = isSelected ? strokeColor : categoria.fill;
+      const checkOrContent = isSelected
+        ? `<path d="M10 17l4 4 8-8" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
+        : '';
+
+      btn.innerHTML = `
+        <svg class="latam-seat-svg" viewBox="0 0 32 36" fill="none">
+          ${esXL ? `<rect x="8" y="2" width="16" height="6" rx="2" stroke="${isSelected ? '#FFFFFF' : strokeColor}" stroke-dasharray="2,2" stroke-width="1.2"/><text x="16" y="7" font-size="5" font-weight="bold" fill="${isSelected ? '#FFFFFF' : strokeColor}" text-anchor="middle">XL</text>` : ''}
+          <rect x="5" y="8" width="22" height="17" rx="3" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
+          <path d="M2 13v9a2 2 0 0 0 2 2h1M30 13v9a2 2 0 0 1-2 2h-1" stroke="${strokeColor}" stroke-width="1.5"/>
+          ${checkOrContent}
+          <rect x="6" y="24" width="20" height="9" rx="2" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
+        </svg>
+      `;
+
+      btn.onclick = () => seleccionarSillaLATAM(seatId, categoria, posicion);
     }
+
     return btn;
   }
 
-  function seleccionarSilla(seatId, clase) {
-    uiState.selectedSeat = { id: seatId, clase };
+  function seleccionarSillaLATAM(seatId, categoria, posicion) {
+    uiState.selectedSeat = {
+      id: seatId,
+      categoria: categoria.nombre,
+      catId: categoria.id,
+      color: categoria.color,
+      fill: categoria.fill,
+      precio: categoria.precio,
+      posicion: posicion,
+      esXL: categoria.esXL
+    };
 
-    document.querySelectorAll('.seat-vip-btn, .seat-eco-btn').forEach(b => {
-      const match = b.getAttribute('data-seat') === seatId;
-      b.classList.toggle('selected', match);
+    document.querySelectorAll('.latam-seat-btn').forEach(btn => {
+      const sId = btn.getAttribute('data-seat');
+      if (btn.classList.contains('occupied')) return;
+
+      const btnCatId = btn.getAttribute('data-category');
+      const cat = CATEGORIAS_ASIENTO[btnCatId] || CATEGORIAS_ASIENTO.standard;
+      const isSelected = (sId === seatId);
+      btn.classList.toggle('selected', isSelected);
+
+      const strokeColor = cat.color;
+      const fillColor = isSelected ? strokeColor : cat.fill;
+      const checkOrContent = isSelected
+        ? `<path d="M10 17l4 4 8-8" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
+        : '';
+
+      btn.innerHTML = `
+        <svg class="latam-seat-svg" viewBox="0 0 32 36" fill="none">
+          ${cat.esXL ? `<rect x="8" y="2" width="16" height="6" rx="2" stroke="${isSelected ? '#FFFFFF' : strokeColor}" stroke-dasharray="2,2" stroke-width="1.2"/><text x="16" y="7" font-size="5" font-weight="bold" fill="${isSelected ? '#FFFFFF' : strokeColor}" text-anchor="middle">XL</text>` : ''}
+          <rect x="5" y="8" width="22" height="17" rx="3" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
+          <path d="M2 13v9a2 2 0 0 0 2 2h1M30 13v9a2 2 0 0 1-2 2h-1" stroke="${strokeColor}" stroke-width="1.5"/>
+          ${checkOrContent}
+          <rect x="6" y="24" width="20" height="9" rx="2" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>
+        </svg>
+      `;
     });
 
-    const isVip = clase === 'VIP';
-    const basePrice = uiState.selectedFlight?.precio_base_cop || 71810;
-    const factorClase = isVip ? 1.6 : 1.0;
-    const tarifaFinal = Math.round(basePrice * factorClase);
+    const badgeBox = document.getElementById('latam-seat-badge-box');
+    const badgeNum = document.getElementById('latam-seat-number-badge');
+    const paxCat = document.getElementById('latam-pax-category');
+    const seatPrice = document.getElementById('latam-seat-price');
+    const finalPrice = document.getElementById('latam-final-price-display');
 
-    // Actualizar caja de beneficios de la silla
-    const labelBox = document.getElementById('preview-seat-label');
-    const featuresBox = document.getElementById('preview-seat-features');
-    if (labelBox) labelBox.textContent = `Silla ${seatId} (${isVip ? 'Suite VIP Executive' : 'Cabina Economy'})`;
-    if (featuresBox) {
-      featuresBox.innerHTML = isVip
-        ? `<li>Espacio extra para piernas de 38 pulgadas y poltrona de cuero reclinable.</li>
-           <li>Prioridad de abordaje Zona VIP (Secuencia #1 en rampa).</li>
-           <li>Servicio de catering ejecutivo y 2 maletas de mano en compartimiento exclusivo.</li>`
-        : `<li>Espacio estándar de 30 pulgadas con puerto de carga USB individual.</li>
-           <li>Asignación en fila de abordaje Economy según orden de compra.</li>
-           <li>Equipaje de mano de 10 kg incluido sin recargos.</li>`;
+    if (badgeBox) badgeBox.style.background = categoria.color;
+    if (badgeNum) badgeNum.textContent = seatId;
+    if (paxCat) {
+      paxCat.style.color = categoria.color;
+      paxCat.textContent = `${categoria.nombre} | ${posicion}`;
     }
+    if (seatPrice) seatPrice.textContent = `COP ${categoria.precio.toLocaleString('es-CO')}`;
 
-    actualizarDesglosePrecios(tarifaFinal, isVip);
+    const baseVuelo = uiState.selectedFlight?.precio_base_cop || 71810;
+    const total = baseVuelo + categoria.precio;
+    if (finalPrice) finalPrice.textContent = `COP ${total.toLocaleString('es-CO')}`;
+
+    actualizarDesgloseFinancieroPaso3();
+  }
+
+  function toggleAccordion(catKey) {
+    const body = document.getElementById(`acc-body-${catKey}`);
+    const card = document.getElementById(`acc-card-${catKey}`);
+    if (!body || !card) return;
+
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    card.classList.toggle('active', isHidden);
+
+    const chevron = card.querySelector('.acc-chevron-svg');
+    if (chevron) {
+      chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+  }
+
+  function elegirAsientoDespues() {
+    uiState.selectedSeat = {
+      id: '16C',
+      categoria: 'Estándar',
+      catId: 'standard',
+      color: '#4F46E5',
+      fill: '#E0E7FF',
+      precio: 0,
+      posicion: 'Pasillo',
+      esXL: false
+    };
+    showToast('Asiento estándar 16C asignado automáticamente sin costo.');
+    actualizarDesgloseFinancieroPaso3();
+    avanzarPasoCheckout(2);
+  }
+
+  function alternarDetalleImpuestos() {
+    const drop = document.getElementById('tax-details-dropdown');
+    if (drop) {
+      drop.style.display = (drop.style.display === 'none') ? 'flex' : 'none';
+    }
+  }
+
+  function alternarDetallePrecioFinal() {
+    showToast('Incluye tarifa de vuelo base y cargo por asiento asignado.');
   }
 
   function alCambiarEquipajeBodega(tieneEquipaje) {
     uiState.passengerData.hasLuggageHold = tieneEquipaje;
-    const basePrice = uiState.selectedFlight?.precio_base_cop || 71810;
-    const isVip = uiState.selectedSeat?.clase === 'VIP';
-    const tarifaFinal = Math.round(basePrice * (isVip ? 1.6 : 1.0));
-    actualizarDesglosePrecios(tarifaFinal, isVip);
+    actualizarDesgloseFinancieroPaso3();
   }
 
-  function actualizarDesglosePrecios(tarifaBase, esVip = false) {
+  function actualizarDesgloseFinancieroPaso3() {
+    const vuelo = uiState.selectedFlight || { codigo: 'AF2025', origen: 'BOG', destino: 'CTG', precio_base_cop: 71810, tipo_aeronave: 'Airbus A320neo' };
+    const seat = uiState.selectedSeat || { id: '5B', categoria: 'AeroFlow+', precio: 58075, esXL: true };
+
+    const origenIATA = (vuelo.origen || 'BOG').split('-')[0].trim();
+    const destinoIATA = (vuelo.destino || 'CTG').split('-')[0].trim();
+    const nombrePax = document.getElementById('passenger-name-input')?.value.trim() || 'Carlos Alberto Mendoza';
+
+    const elRoute = document.getElementById('pfs-route');
+    const elPlane = document.getElementById('pfs-plane');
+    const elPax = document.getElementById('pfs-pax-name');
+    const elSeatText = document.getElementById('pfs-seat-text');
+
+    if (elRoute) elRoute.textContent = `${origenIATA} ➔ ${destinoIATA}`;
+    if (elPlane) elPlane.textContent = vuelo.tipo_aeronave || 'Airbus A320neo';
+    if (elPax) elPax.textContent = nombrePax;
+    if (elSeatText) elSeatText.textContent = `${seat.id} • ${seat.categoria}${seat.esXL ? ' XL' : ''}`;
+
+    const baseVuelo = vuelo.precio_base_cop || 71810;
+    const precioSilla = seat.precio || 0;
+    const vueloMasSilla = baseVuelo + precioSilla;
+
+    const equipaje = uiState.passengerData?.hasLuggageHold ? 65000 : 0;
     const admin = 45000;
-    const tasa = 158000;
-    const equipaje = uiState.passengerData.hasLuggageHold ? 65000 : 0;
-    const iva = Math.round(tarifaBase * 0.19);
-    const total = tarifaBase + admin + tasa + equipaje + iva;
+    const tasaAeropuerto = 158000;
+    const iva = Math.round(vueloMasSilla * 0.19);
+    const totalImpuestos = admin + tasaAeropuerto + iva;
+    const totalPagar = vueloMasSilla + equipaje + totalImpuestos;
 
-    // Resumen en Paso 1
-    const elBase = document.getElementById('summary-base-cop');
-    const elAdmin = document.getElementById('summary-admin-cop');
-    const elTasa = document.getElementById('summary-tasa-cop');
-    const elIva = document.getElementById('summary-iva-cop');
-    const elTotal = document.getElementById('summary-total-cop');
-    if (elBase) elBase.textContent = formatoCOP(tarifaBase);
-    if (elAdmin) elAdmin.textContent = formatoCOP(admin);
-    if (elTasa) elTasa.textContent = formatoCOP(tasa);
-    if (elIva) elIva.textContent = formatoCOP(iva);
-    if (elTotal) elTotal.textContent = formatoCOP(total);
-
-    // Desglose en Paso 3 (AeroFlow Pay)
-    const pBase = document.getElementById('pay-breakdown-base');
-    const pSeatSurcharge = document.getElementById('pay-breakdown-seat-surcharge');
-    const pLuggage = document.getElementById('pay-breakdown-luggage');
-    const pIva = document.getElementById('pay-breakdown-iva');
-    const pTotal = document.getElementById('pay-breakdown-total');
+    const elFlightSeat = document.getElementById('pay-clean-flight-seat');
+    const elLuggage = document.getElementById('pay-clean-luggage');
+    const elTaxes = document.getElementById('pay-clean-taxes');
+    const elTotal = document.getElementById('pay-clean-total');
     const btnPay = document.getElementById('btn-confirmar-pago-text');
 
-    if (pBase) pBase.textContent = formatoCOP(uiState.selectedFlight?.precio_base_cop || 71810);
-    if (pSeatSurcharge) pSeatSurcharge.textContent = esVip ? formatoCOP(Math.round((uiState.selectedFlight?.precio_base_cop || 71810) * 0.6)) : 'COP 0';
-    if (pLuggage) pLuggage.textContent = formatoCOP(equipaje);
-    if (pIva) pIva.textContent = formatoCOP(iva);
-    if (pTotal) pTotal.textContent = formatoCOP(total);
-    if (btnPay) btnPay.textContent = `Pagar ${formatoCOP(total)} y Emitir Tiquete Oficial`;
+    if (elFlightSeat) elFlightSeat.textContent = `COP ${vueloMasSilla.toLocaleString('es-CO')}`;
+    if (elLuggage) elLuggage.textContent = `COP ${equipaje.toLocaleString('es-CO')}`;
+    if (elTaxes) elTaxes.textContent = `COP ${totalImpuestos.toLocaleString('es-CO')}`;
+    if (elTotal) elTotal.textContent = `COP ${totalPagar.toLocaleString('es-CO')}`;
+
+    const elTaxAdmin = document.getElementById('pay-tax-admin');
+    const elTaxAirport = document.getElementById('pay-tax-airport');
+    const elTaxIva = document.getElementById('pay-tax-iva');
+    if (elTaxAdmin) elTaxAdmin.textContent = `COP ${admin.toLocaleString('es-CO')}`;
+    if (elTaxAirport) elTaxAirport.textContent = `COP ${tasaAeropuerto.toLocaleString('es-CO')}`;
+    if (elTaxIva) elTaxIva.textContent = `COP ${iva.toLocaleString('es-CO')}`;
+
+    if (btnPay) btnPay.textContent = `Pagar COP ${totalPagar.toLocaleString('es-CO')} y Emitir Tiquete Oficial`;
   }
 
   // =========================================================================
@@ -1175,31 +1327,48 @@
   }
 
   // =========================================================================
-  // 12. GENERADOR DEL PASE DE ABORDAR DE DOBLE TALÓN TROQUELADO
+  // 12. GENERADOR DEL PASE DE ABORDAR DE DOBLE TALÓN TROQUELADO (FOTOGRAFÍA + AVATAR)
   // =========================================================================
+  function obtenerFotoDestino(reserva) {
+    if (reserva.imagen_url) return reserva.imagen_url;
+    const d = ((reserva.destino || '') + ' ' + (reserva.origen || '')).toUpperCase();
+    if (d.includes('MDE') || d.includes('MEDELL')) return '/static/img/oferta-medellin.jpg';
+    if (d.includes('CLO') || d.includes('CALI')) return '/static/img/oferta-cali.jpg';
+    if (d.includes('MTR') || d.includes('MONTER')) return '/static/img/oferta-monteria.jpg';
+    if (d.includes('CTG') || d.includes('CARTAGENA')) return '/static/img/oferta-cartagena.jpg';
+    if (d.includes('SMR') || d.includes('SANTA MARTA')) return '/static/img/oferta-santamarta.jpg';
+    if (d.includes('BAQ') || d.includes('BARRANQUILLA')) return '/static/img/oferta-barranquilla.jpg';
+    if (d.includes('MIA') || d.includes('MIAMI')) return '/static/img/oferta-miami.jpg';
+    return '/static/img/oferta-cartagena.jpg';
+  }
+
   function generarHTMLPaseDobleTalon(reserva, idx, puedeEscanearEnRampa = true) {
     const isVip = reserva.clase.includes('VIP');
     const badgeClass = isVip ? 'style="background:#3B82F6;color:#FFFFFF;"' : 'style="background:#0F172A;color:#FFFFFF;"';
     const iataOrigen = (reserva.origen || 'BOG').split('-')[0].trim();
     const iataDestino = (reserva.destino || 'CTG').split('-')[0].trim();
     const esAbordado = reserva.estado === 'Abordado';
+    const fotoDestino = obtenerFotoDestino(reserva);
 
     return `
       <div class="printable-ticket-card stagger-item-${(idx % 3) + 1}" id="ticket-card-${idx}">
         
         ${esAbordado ? '<div class="stamp-abordado">ABORDADO</div>' : ''}
 
-        <!-- Tira Superior de Identidad -->
-        <div class="ticket-header-strip">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M22 2L11 13"></path>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
-            </svg>
-            <span class="ticket-brand-logo-text">AERO FLOW AIRLINES</span>
-          </div>
-          <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
-            PASE DE ABORDAR OFICIAL • ${reserva.recibo || 'REC-BOG-2026'}
+        <!-- Tira Superior con Fotografía Real de Destino y Degradado Oscuro -->
+        <div class="ticket-photo-banner" style="background-image: url('${fotoDestino}');">
+          <div class="ticket-photo-banner-overlay"></div>
+          <div class="ticket-photo-banner-content">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2">
+                <path d="M22 2L11 13"></path>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+              </svg>
+              <span class="ticket-brand-logo-text" style="color:#FFFFFF;font-weight:800;letter-spacing:0.04em;">AERO FLOW AIRLINES</span>
+            </div>
+            <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#E2E8F0;">
+              PASE DE ABORDAR OFICIAL • ${reserva.recibo || 'REC-BOG-2026'}
+            </div>
           </div>
         </div>
 
@@ -1230,11 +1399,19 @@
               </span>
             </div>
 
-            <!-- Grilla Técnica del Vuelo -->
+            <!-- Grilla Técnica del Vuelo con Avatar Fotográfico de Pasajero -->
             <div class="ticket-grid-meta">
               <div>
                 <span class="ticket-meta-label">Pasajero</span>
-                <p class="ticket-meta-val">${reserva.pasajeroNombre}</p>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                  <div class="ticket-pax-avatar">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  </div>
+                  <p class="ticket-meta-val" style="margin:0;">${reserva.pasajeroNombre}</p>
+                </div>
               </div>
               <div>
                 <span class="ticket-meta-label">Documento</span>
@@ -1264,7 +1441,7 @@
             </div>
           </div>
 
-          <!-- Lado Derecho: Talón Desprendible de Rampa -->
+          <!-- Lado Derecho: Talón Desprendible de Rampa (Ancho 195px Sin Recortes) -->
           <div class="ticket-right-stub">
             <div>
               <span style="font-size:0.6875rem;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;">BOARDING PASS</span>
@@ -1277,7 +1454,7 @@
               <span style="font-size:0.6875rem;font-weight:700;color:#64748B;">${isVip ? 'ZONA VIP FIFO' : 'ZONA GENERAL'}</span>
             </div>
 
-            <!-- Código QR Nítido -->
+            <!-- Código QR Nítido Completo -->
             <svg width="68" height="68" viewBox="0 0 100 100" style="background:#FFFFFF;padding:4px;border:1px solid #CBD5E1;border-radius:6px;">
               <rect x="0" y="0" width="30" height="30" fill="#0F172A"/>
               <rect x="5" y="5" width="20" height="20" fill="#FFFFFF"/>
@@ -1294,7 +1471,7 @@
               <rect x="65" y="80" width="25" height="15" fill="#0F172A"/>
             </svg>
 
-            <!-- Código de Barras Lineal -->
+            <!-- Código de Barras Lineal Completo -->
             <svg width="100%" height="20" viewBox="0 0 160 20" style="fill:#334155;margin-top:6px;">
               <rect x="0" y="0" width="3" height="20"/>
               <rect x="6" y="0" width="2" height="20"/>
@@ -1324,14 +1501,30 @@
             </svg>
             <span style="font-size:0.625rem;font-family:monospace;letter-spacing:0.18em;color:#64748B;">${reserva.pnr}</span>
 
-            ${puedeEscanearEnRampa ? `
-              <button type="button" class="btn-board-flight ${esAbordado ? 'boarded' : ''}" id="btn-board-stub-${idx}" onclick="AeroMinimalUI.abordarVueloPasajero(${idx})" style="width:100%;margin-top:10px;">
+            ${!puedeEscanearEnRampa ? `
+              <!-- Botón de Abordaje Manual Uno a Uno en Cola FIFO -->
+              <button type="button" class="btn-ticket-board-manual ${esAbordado ? 'boarded' : ''}" 
+                      id="btn-board-ticket-queue-${idx}" 
+                      onclick="AeroMinimalUI.abordarTicketEnFila(${idx})" 
+                      style="width:100%;margin-top:10px;" 
+                      ${esAbordado ? 'disabled' : ''}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>${esAbordado ? 'Abordado' : 'Abordar este pasajero'}</span>
+              </button>
+            ` : `
+              <!-- Botón de Abordaje Individual en Portal Pasajero -->
+              <button type="button" class="btn-board-flight ${esAbordado ? 'boarded' : ''}" 
+                      id="btn-board-stub-${idx}" 
+                      onclick="AeroMinimalUI.abordarVueloPasajero(${idx})" 
+                      style="width:100%;margin-top:10px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 <span>${esAbordado ? 'Abordado' : 'Abordar'}</span>
               </button>
-            ` : ''}
+            `}
           </div>
         </div>
       </div>
@@ -1644,6 +1837,15 @@
           stamp.textContent = 'ABORDADO';
           ticketCard.appendChild(stamp);
         }
+
+        // Actualizar botón individual de abordaje manual si existe
+        const btnManual = ticketCard.querySelector('.btn-ticket-board-manual');
+        if (btnManual) {
+          btnManual.classList.add('boarded');
+          btnManual.disabled = true;
+          const span = btnManual.querySelector('span');
+          if (span) span.textContent = 'Abordado';
+        }
       }
 
       const badgeStatus = document.getElementById(`badge-status-${idx}`);
@@ -1657,6 +1859,35 @@
 
       actualizarProgresoPuerta();
     }, 400);
+  }
+
+  // Abordaje manual 1 por 1 desde el botón superior de la consola
+  function abordarSiguienteManual() {
+    if (uiState.isAutomaticBoardingRunning) {
+      detenerAbordajeAutomatico();
+    }
+    const nextIdx = uiState.flightQueueTickets.findIndex(t => t.estado !== 'Abordado');
+    if (nextIdx === -1) {
+      showToast('Todos los pasajeros de este vuelo ya han sido abordados.');
+      return;
+    }
+    const ticket = uiState.flightQueueTickets[nextIdx];
+    showToast(`Abordando pasajero #${nextIdx + 1}: ${ticket.pasajeroNombre} (Silla ${ticket.asiento})`);
+    escanearYAbordarTicket(nextIdx, ticket);
+  }
+
+  // Abordaje manual individual desde la tarjeta del tiquete en la fila
+  function abordarTicketEnFila(idx) {
+    if (uiState.isAutomaticBoardingRunning) {
+      detenerAbordajeAutomatico();
+    }
+    const ticket = uiState.flightQueueTickets[idx];
+    if (!ticket || ticket.estado === 'Abordado') {
+      showToast('Este pasajero ya ha completado su abordaje.');
+      return;
+    }
+    showToast(`Abordando a: ${ticket.pasajeroNombre} (Silla ${ticket.asiento})`);
+    escanearYAbordarTicket(idx, ticket);
   }
 
   // Abordaje manual individual desde un tiquete
@@ -1911,6 +2142,10 @@
     eliminarVueloAdmin,
     abrirMapaCabina,
     cerrarMapaCabina,
+    toggleAccordion,
+    seleccionarSillaLATAM,
+    elegirAsientoDespues,
+    alternarDetalleImpuestos,
     avanzarPasoCheckout,
     alCambiarEquipajeBodega,
     alternarMetodoPago,
@@ -1925,6 +2160,8 @@
     iniciarAbordajeAutomatico,
     detenerAbordajeAutomatico,
     reiniciarFilaAbordaje,
+    abordarSiguienteManual,
+    abordarTicketEnFila,
     abordarVueloPasajero,
     abrirPanelAdmin,
     cerrarPanelAdmin,
