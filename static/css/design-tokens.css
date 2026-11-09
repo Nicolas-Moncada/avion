@@ -43,9 +43,11 @@
 
   /* Duración y Easing de Transición GPU (150ms a 300ms) */
   --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 150ms;
   --duration-base: 220ms;
   --duration-slow: 300ms;
+  --btn-sheen-gradient: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.25) 50%, transparent 80%);
 
   /* Precios Pastel Calendario (visual_reference_spec) */
   --color-price-low: #86EFAC;     /* Pastel verde $ */

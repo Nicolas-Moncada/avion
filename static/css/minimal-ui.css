@@ -1664,3 +1664,758 @@ body {
     padding-top: 20px;
   }
 }
+
+
+/* ==========================================================================
+   12. SISTEMA AVANZADO DE BOTONES, ANIMACIONES Y MICRO-INTERACCIONES
+   ========================================================================== */
+
+/* Botón Primario de Alta Precisión con Sheen Effect */
+.btn-primary-flow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease, border-color 0.16s ease;
+  user-select: none;
+}
+
+.btn-primary-flow::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.25) 50%, transparent 80%);
+  transform: rotate(25deg);
+  pointer-events: none;
+  transition: none;
+}
+
+.btn-primary-flow:hover::after {
+  left: 135%;
+  transition: left 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-primary-flow:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-primary-flow:hover svg.arrow-icon-flow {
+  transform: translateX(4px);
+}
+
+.btn-primary-flow:active {
+  transform: scale(0.98);
+}
+
+.btn-primary-flow svg.arrow-icon-flow {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Botón Secundario Glassmorphism */
+.btn-secondary-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(241, 245, 249, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-primary, #0F172A);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-secondary-glass:hover {
+  background: #FFFFFF;
+  border-color: #0F172A;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.btn-secondary-glass:active {
+  transform: scale(0.98);
+}
+
+/* Transiciones entre vistas principales */
+.view-section-fade {
+  animation: viewFadeIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger Fade Up para listas y tarjetas */
+.stagger-item-1 { animation: viewFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) 0.04s forwards; }
+.stagger-item-2 { animation: viewFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards; }
+.stagger-item-3 { animation: viewFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards; }
+
+/* ==========================================================================
+   13. BARRA DE PASOS DEL CHECKOUT (STEPPER PROGRESS BAR)
+   ========================================================================== */
+.checkout-stepper-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+  position: relative;
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted, #94A3B8);
+  transition: color 0.2s ease;
+}
+
+.stepper-step.active {
+  color: var(--text-primary, #0F172A);
+}
+
+.stepper-step.completed {
+  color: #10B981;
+}
+
+.stepper-num-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-subtle, #F1F5F9);
+  border: 1px solid var(--border-strong, #CBD5E1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.stepper-step.active .stepper-num-circle {
+  background: #0F172A;
+  color: #FFFFFF;
+  border-color: #0F172A;
+}
+
+.stepper-step.completed .stepper-num-circle {
+  background: #10B981;
+  color: #FFFFFF;
+  border-color: #10B981;
+}
+
+.stepper-divider-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border-subtle, #E2E8F0);
+  margin: 0 14px;
+}
+
+/* ==========================================================================
+   14. PORTAL COMPLETO DEL VIAJERO ("MIS VIAJES")
+   ========================================================================== */
+.passenger-portal-section {
+  max-width: 1200px;
+  margin: 40px auto 80px;
+  padding: 0 24px;
+}
+
+.portal-top-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.portal-title-h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary, #0F172A);
+  letter-spacing: -0.02em;
+}
+
+.portal-subtitle-p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #475569);
+  margin-top: 4px;
+}
+
+/* Estadísticas del Pasajero (Bento 4 métricas) */
+.stats-grid-passenger {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+.stat-pax-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.stat-pax-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted, #94A3B8);
+  letter-spacing: 0.05em;
+}
+
+.stat-pax-value {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: var(--text-primary, #0F172A);
+  margin: 8px 0 4px;
+}
+
+.stat-pax-sub {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #475569);
+}
+
+/* Línea de Tiempo del Vuelo (Interactive Timeline) */
+.timeline-card-box {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.timeline-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.timeline-flight-route {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+}
+
+.timeline-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  padding: 10px 0;
+}
+
+.timeline-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 2;
+  position: relative;
+  width: 140px;
+}
+
+.timeline-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-surface, #FFFFFF);
+  border: 2px solid var(--border-strong, #CBD5E1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.timeline-node.passed .timeline-dot {
+  background: #10B981;
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+
+.timeline-node.current .timeline-dot {
+  background: #0F172A;
+  border-color: #0F172A;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.15);
+}
+
+.timeline-label-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+}
+
+.timeline-label-time {
+  font-size: 0.6875rem;
+  color: var(--text-muted, #94A3B8);
+  margin-top: 2px;
+}
+
+.timeline-track-bar {
+  position: absolute;
+  top: 24px;
+  left: 70px;
+  right: 70px;
+  height: 3px;
+  background: var(--border-subtle, #E2E8F0);
+  z-index: 1;
+}
+
+.timeline-track-fill {
+  height: 100%;
+  background: #10B981;
+  transition: width 0.4s ease;
+}
+
+/* ==========================================================================
+   15. CONSOLA DE EMBARQUE EN PUERTA ("ABORDAR" MASIVO EN VIVO)
+   ========================================================================== */
+.gate-console-section {
+  max-width: 1200px;
+  margin: 40px auto 80px;
+  padding: 0 24px;
+}
+
+.gate-control-card {
+  background: #0F172A;
+  color: #FFFFFF;
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+}
+
+.gate-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.gate-flight-selector-select {
+  background: #1E293B;
+  color: #FFFFFF;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.gate-badges-flex {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gate-badge-pill {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.gate-badge-live {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+/* Barra de progreso de ocupación */
+.gate-progress-container {
+  margin: 20px 0;
+}
+
+.gate-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.gate-progress-track {
+  height: 10px;
+  background: #1E293B;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.gate-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3B82F6, #10B981);
+  border-radius: 9999px;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Lector Láser Óptico HUD */
+.ticket-scanner-hud {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: #090D16;
+  border: 1px solid #1E293B;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.scanner-laser-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #10B981, #34D399, transparent);
+  box-shadow: 0 0 14px #10B981;
+  animation: laserSweepAnim 1.4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes laserSweepAnim {
+  0% { top: 6%; opacity: 0.7; }
+  100% { top: 92%; opacity: 1; }
+}
+
+.scanner-hud-text {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: #34D399;
+  letter-spacing: 0.08em;
+}
+
+.scanner-hud-subtext {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  color: #64748B;
+}
+
+/* Cola FIFO Visual de Tiquetes en Fila */
+.fifo-queue-container {
+  margin-top: 36px;
+}
+
+.fifo-queue-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary, #0F172A);
+  margin-bottom: 8px;
+}
+
+.fifo-queue-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #475569);
+  margin-bottom: 20px;
+}
+
+.fifo-tickets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+/* Sello Animado "ABORDADO" */
+.stamp-abordado {
+  position: absolute;
+  top: 40%;
+  left: 30%;
+  border: 3px solid #DC2626;
+  color: #DC2626;
+  background: rgba(254, 226, 226, 0.9);
+  padding: 6px 18px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  transform: rotate(-10deg);
+  pointer-events: none;
+  animation: stampImpact 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  z-index: 5;
+}
+
+@keyframes stampImpact {
+  0% {
+    transform: scale(2.6) rotate(-22deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(-10deg);
+    opacity: 0.95;
+  }
+}
+
+/* ==========================================================================
+   16. PASE DE ABORDAR DE DOBLE TALÓN TROQUELADO (RESTAURADO COMPLETO)
+   ========================================================================== */
+.printable-ticket-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  margin-bottom: 24px;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.printable-ticket-card.active-scanning {
+  box-shadow: 0 0 0 3px #10B981, 0 12px 30px rgba(16, 185, 129, 0.2);
+  transform: translateY(-4px);
+}
+
+.ticket-header-strip {
+  background: #0F172A;
+  color: #FFFFFF;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ticket-brand-logo-text {
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.ticket-body-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  align-items: stretch;
+}
+
+.ticket-left-main {
+  padding: 22px;
+  border-right: 2px dashed #CBD5E1;
+  position: relative;
+}
+
+.ticket-left-main::before,
+.ticket-left-main::after {
+  content: '';
+  position: absolute;
+  right: -11px;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-app, #F8FAFC);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.ticket-left-main::before { top: -10px; }
+.ticket-left-main::after { bottom: -10px; }
+
+.ticket-right-stub {
+  padding: 22px;
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+}
+
+.ticket-route-large {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 18px;
+}
+
+.iata-large-text {
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: var(--text-primary, #0F172A);
+  letter-spacing: -0.02em;
+}
+
+.plane-route-arrow-svg {
+  width: 24px;
+  height: 24px;
+  color: #E11D48;
+}
+
+.ticket-grid-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  font-size: 0.8125rem;
+}
+
+.ticket-meta-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted, #94A3B8);
+}
+
+.ticket-meta-val {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+  margin-top: 2px;
+}
+
+.ticket-seat-stub-box {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 12px;
+  padding: 10px 18px;
+  margin: 12px 0;
+  width: 100%;
+}
+
+.stub-seat-number {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #0F172A;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.1;
+}
+
+/* ==========================================================================
+   17. RESTAURACIÓN DEL SIMULADOR DE PAGOS (ORIGINAL COMPLETO)
+   ========================================================================== */
+.virtual-card-wrapper {
+  perspective: 1000px;
+  margin-bottom: 20px;
+}
+
+.virtual-card {
+  width: 100%;
+  aspect-ratio: 1.58 / 1;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border-radius: 16px;
+  padding: 22px;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-emv-chip {
+  width: 38px;
+  height: 28px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  border-radius: 6px;
+  position: relative;
+}
+
+.card-emv-chip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.pse-bank-banner {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+.pessimistic-lock-timer-box {
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.security-badge-pci {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #64748B;
+  margin-top: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .stats-grid-passenger {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ticket-body-grid {
+    grid-template-columns: 1fr;
+  }
+  .ticket-left-main {
+    border-right: none;
+    border-bottom: 2px dashed #CBD5E1;
+  }
+  .ticket-left-main::before,
+  .ticket-left-main::after {
+    display: none;
+  }
+  .timeline-stepper {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .timeline-track-bar {
+    display: none;
+  }
+}
