@@ -783,8 +783,18 @@
     }
   }
 
+  const confirmacionesEliminar = new Set();
+
   async function eliminarVueloAdmin(codigo) {
-    if (!confirm(`¿Eliminar definitivamente el vuelo ${codigo} de la base de datos?`)) return;
+    if (!codigo) return;
+
+    if (!confirmacionesEliminar.has(codigo)) {
+      confirmacionesEliminar.add(codigo);
+      showToast(`Haz clic de nuevo en la papelera para confirmar la eliminación de ${codigo}.`, true);
+      setTimeout(() => confirmacionesEliminar.delete(codigo), 4500);
+      return;
+    }
+    confirmacionesEliminar.delete(codigo);
 
     try {
       const res = await fetch(`/api/admin/vuelos/${encodeURIComponent(codigo)}`, {

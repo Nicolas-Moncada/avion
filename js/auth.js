@@ -666,7 +666,11 @@
     const urlInput = document.getElementById('cfg-sb-url')?.value?.trim();
     const keyInput = document.getElementById('cfg-sb-key')?.value?.trim();
     if (!urlInput || !keyInput) {
-      alert('Ingresa tanto la URL como la Anon Key.');
+      if (window.AeroMinimalUI && typeof window.AeroMinimalUI.showToast === 'function') {
+        window.AeroMinimalUI.showToast('Ingresa tanto la URL como la Anon Key.', true);
+      } else {
+        console.warn('[AeroFlow] Ingresa tanto la URL como la Anon Key.');
+      }
       return;
     }
     window.AEROFLOW_CONFIG.guardarCredenciales(urlInput, keyInput);
