@@ -7,8 +7,8 @@
 """
 
 import re
-from datetime import datetime, date, timedelta
-from typing import Any, Dict, Optional
+from datetime import datetime, date
+from typing import Any, Dict
 
 # --------------------------------------------------------------------- Excepción
 class ValidationError(Exception):

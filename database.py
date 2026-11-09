@@ -18,7 +18,7 @@ from data_structures.hash_map import TablaHashVuelos
 from data_structures.avl_tree import ArbolAVLPasajeros
 from data_structures.linked_list import ListaEnlazadaManifiesto
 from data_structures.fifo_queue import ColaFIFO
-from fleet_catalog import CATALOGO_AERONAVES, calcular_desglose_cop, obtener_configuracion_aeronave
+from fleet_catalog import obtener_configuracion_aeronave
 import airport_config
 import payments.adapter as pm_adapter
 

@@ -240,6 +240,10 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
+    if (nombreSeccion !== 'abordar') {
+      detenerAbordajeAutomatico();
+    }
+
     if (nombreSeccion === 'viajes') {
       actualizarPortalPasajero();
     } else if (nombreSeccion === 'abordar') {
@@ -765,6 +769,11 @@
 
     const endpoint = isNew ? '/api/admin/vuelos' : `/api/admin/vuelos/${encodeURIComponent(codigo)}`;
     const method = isNew ? 'POST' : 'PUT';
+    const saveBtn = document.getElementById('btn-save-flight-admin');
+    if (saveBtn) {
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+    }
 
     try {
       const res = await fetch(endpoint, {
@@ -780,6 +789,8 @@
       await cargarVuelosCatalogo();
     } catch (e) {
       showToast('Error al conectar con la base de datos: ' + e.message, true);
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
@@ -1421,51 +1432,61 @@
       return;
     }
 
-    const docType = document.getElementById('pax-doc-type')?.value || 'CC';
-    const docNumber = document.getElementById('passenger-doc-input')?.value.trim() || '101829384';
-    const fullName = document.getElementById('passenger-name-input')?.value.trim() || 'Carlos Alberto Mendoza';
-    const email = document.getElementById('passenger-email-input')?.value.trim() || 'carlos.mendoza@aeroflow.com';
-    const phone = document.getElementById('passenger-phone-input')?.value.trim() || '+57 310 987 6543';
+    const payBtn = document.getElementById('btn-finalizar-pago-pax');
+    if (payBtn) {
+      if (payBtn.disabled) return;
+      payBtn.disabled = true;
+    }
 
-    const vuelo = uiState.selectedFlight;
-    const pnr = 'AF' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const recibo = `REC-BOG-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const docType = document.getElementById('pax-doc-type')?.value || 'CC';
+      const docNumber = document.getElementById('passenger-doc-input')?.value.trim() || '101829384';
+      const fullName = document.getElementById('passenger-name-input')?.value.trim() || 'Carlos Alberto Mendoza';
+      const email = document.getElementById('passenger-email-input')?.value.trim() || 'carlos.mendoza@aeroflow.com';
+      const phone = document.getElementById('passenger-phone-input')?.value.trim() || '+57 310 987 6543';
 
-    const isVip = uiState.selectedSeat.clase === 'VIP';
-    const basePrice = vuelo.precio_base_cop || 71810;
-    const tarifaBase = Math.round(basePrice * (isVip ? 1.6 : 1.0));
-    const admin = 45000;
-    const tasa = 158000;
-    const equipaje = uiState.passengerData.hasLuggageHold ? 65000 : 0;
-    const iva = Math.round(tarifaBase * 0.19);
-    const totalPagar = tarifaBase + admin + tasa + equipaje + iva;
+      const vuelo = uiState.selectedFlight;
+      const pnr = 'AF' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const recibo = `REC-BOG-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const nuevaReserva = {
-      pnr,
-      recibo,
-      vueloCodigo: vuelo.codigo,
-      origen: vuelo.origen,
-      destino: vuelo.destino,
-      fecha: vuelo.fecha_salida,
-      hora: vuelo.hora_salida_12h || '08:30 AM',
-      puerta: vuelo.puerta || 'B-03',
-      tipoAeronave: vuelo.tipo_aeronave || 'Airbus A320neo',
-      asiento: uiState.selectedSeat.id,
-      clase: isVip ? 'VIP Executive' : 'Economy',
-      pasajeroDoc: `${docType}-${docNumber}`,
-      pasajeroNombre: fullName,
-      pasajeroEmail: email,
-      pasajeroPhone: phone,
-      metodoPago: uiState.activePaymentMethod,
-      tarifaTotalCOP: totalPagar,
-      estado: 'Confirmado'
-    };
+      const isVip = uiState.selectedSeat.clase === 'VIP';
+      const basePrice = vuelo.precio_base_cop || 71810;
+      const tarifaBase = Math.round(basePrice * (isVip ? 1.6 : 1.0));
+      const admin = 45000;
+      const tasa = 158000;
+      const equipaje = uiState.passengerData.hasLuggageHold ? 65000 : 0;
+      const iva = Math.round(tarifaBase * 0.19);
+      const totalPagar = tarifaBase + admin + tasa + equipaje + iva;
 
-    uiState.misReservas.unshift(nuevaReserva);
+      const nuevaReserva = {
+        pnr,
+        recibo,
+        vueloCodigo: vuelo.codigo,
+        origen: vuelo.origen,
+        destino: vuelo.destino,
+        fecha: vuelo.fecha_salida,
+        hora: vuelo.hora_salida_12h || '08:30 AM',
+        puerta: vuelo.puerta || 'B-03',
+        tipoAeronave: vuelo.tipo_aeronave || 'Airbus A320neo',
+        asiento: uiState.selectedSeat.id,
+        clase: isVip ? 'VIP Executive' : 'Economy',
+        pasajeroDoc: `${docType}-${docNumber}`,
+        pasajeroNombre: fullName,
+        pasajeroEmail: email,
+        pasajeroPhone: phone,
+        metodoPago: uiState.activePaymentMethod,
+        tarifaTotalCOP: totalPagar,
+        estado: 'Confirmado'
+      };
 
-    cerrarMapaCabina();
-    showToast(`¡Pago exitoso! Tiquete ${pnr} emitido. Recibo ${recibo}.`);
-    mostrarSeccion('viajes');
+      uiState.misReservas.unshift(nuevaReserva);
+
+      cerrarMapaCabina();
+      showToast(`¡Pago exitoso! Tiquete ${pnr} emitido. Recibo ${recibo}.`);
+      mostrarSeccion('viajes');
+    } finally {
+      if (payBtn) payBtn.disabled = false;
+    }
   }
 
   // =========================================================================
@@ -2289,6 +2310,7 @@
     seleccionarSillaLATAM,
     elegirAsientoDespues,
     alternarDetalleImpuestos,
+    alternarDetallePrecioFinal,
     avanzarPasoCheckout,
     alCambiarEquipajeBodega,
     alternarMetodoPago,

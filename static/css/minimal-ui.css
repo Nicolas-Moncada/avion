@@ -3152,3 +3152,76 @@ body {
     padding: 6px 8px;
   }
 }
+
+/* ========================================================================== */
+/* GPU-ACCELERATED MICRO-INTERACTIONS (60 FPS) & TACTILE FEEDBACK             */
+/* ========================================================================== */
+
+.btn-primary-flow,
+.btn-secondary-glass,
+.btn-download-apk-header,
+.btn-download-apk-main,
+.btn-header-login,
+.nav-link-item,
+.swap-route-btn,
+.category-accordion-header,
+.seat-vector-btn,
+.stepper-step {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.btn-primary-flow:active,
+.btn-secondary-glass:active,
+.btn-download-apk-header:active,
+.btn-download-apk-main:active,
+.btn-admin-action:active,
+.swap-route-btn:active {
+  transform: scale(0.98) !important;
+}
+
+.seat-vector-btn {
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s ease;
+  transform-origin: center center;
+}
+
+.seat-vector-btn:hover:not(.occupied):not(.disabled) {
+  transform: scale(1.1);
+  filter: brightness(1.08);
+}
+
+.seat-vector-btn:active:not(.occupied):not(.disabled) {
+  transform: scale(0.95);
+}
+
+.printable-ticket-card,
+.stat-pax-card,
+.category-accordion-card {
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.printable-ticket-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -12px rgba(15, 23, 42, 0.14);
+}
+
+.stat-pax-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.08);
+}
+
+/* Accessibility: Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

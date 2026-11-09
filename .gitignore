@@ -1,4 +1,7 @@
 .env
+.venv/
+env/
+venv/
 node_modules/
 dist/
 scratch/
@@ -12,15 +15,20 @@ aerocore.db
 *.sqlite3
 __pycache__/
 *.pyc
-.env.local
-.env.*.local
-
-# Local Netlify folder
-.netlify
+*.pyo
+*.pyd
+.Python
+*.bak
+*.old
+*.tmp
+tmp/
+scratch/
 build/
 .pytest_cache/
+.netlify/
 android/app/build/
 android/.gradle/
+localpycs/
 
 # Admin upload destination test files
 static/img/uploads/*

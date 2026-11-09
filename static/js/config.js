@@ -61,9 +61,5 @@
       } catch (e) {}
     }
   };
-
-  console.log(
-    `[AeroFlow] Configuración Supabase cargada. Estado: ${isConfigured ? '✅ Conectado a la nube' : '⚠️ Requiere credenciales reales en js/config.js'}`
-  );
 })();
 

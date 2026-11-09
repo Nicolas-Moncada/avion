@@ -11,7 +11,6 @@
   // 1. ESTADO GLOBAL Y CLAVES DE ALMACENAMIENTO
   // ===========================================================================
   const STORAGE_KEY_SESION = "aeroflow_session";
-  const STORAGE_KEY_MOCK_USERS = "aeroflow_local_users";
   let rolLoginSeleccionado = "pasajero"; // 'pasajero' | 'admin'
   let sbClient = null;
 
@@ -492,15 +491,47 @@
         const email = emailInput ? emailInput.value : "";
         const pass = passInput ? passInput.value : "";
         const nombre = nameInput ? nameInput.value : "";
+        const submitBtn = document.getElementById("login-submit-btn");
 
-        if (modoAuthActual === "register") {
-          const regRes = await registrarUsuario(nombre, email, pass);
-          if (regRes.exito) {
+        if (submitBtn) {
+          if (submitBtn.disabled) return;
+          submitBtn.disabled = true;
+        }
+
+        try {
+          if (modoAuthActual === "register") {
+            const regRes = await registrarUsuario(nombre, email, pass);
+            if (regRes.exito) {
+              ocultarErrorLogin();
+              actualizarHeaderUI(regRes.sesion);
+              cerrarLoginModal();
+              mostrarNotificacion(regRes.mensaje || `Bienvenido, ${regRes.sesion.nombre}`);
+
+              if (window.pendingFlightId) {
+                const flightToOpen = window.pendingFlightId;
+                window.pendingFlightId = null;
+                if (
+                  window.AeroMinimalUI &&
+                  typeof window.AeroMinimalUI.abrirMapaCabina === "function"
+                ) {
+                  window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
+                }
+              }
+            } else {
+              mostrarErrorLogin(regRes.mensaje);
+            }
+            return;
+          }
+
+          // Modo Login
+          const res = await autenticar(rolLoginSeleccionado, email, pass);
+          if (res.exito) {
             ocultarErrorLogin();
-            actualizarHeaderUI(regRes.sesion);
+            actualizarHeaderUI(res.sesion);
             cerrarLoginModal();
-            mostrarNotificacion(regRes.mensaje || `Bienvenido, ${regRes.sesion.nombre}`);
+            mostrarNotificacion(`Bienvenido, ${res.sesion.nombre}`);
 
+            // Si había una intención pendiente de elegir silla, reanudarla automáticamente
             if (window.pendingFlightId) {
               const flightToOpen = window.pendingFlightId;
               window.pendingFlightId = null;
@@ -512,32 +543,10 @@
               }
             }
           } else {
-            mostrarErrorLogin(regRes.mensaje);
+            mostrarErrorLogin(res.mensaje);
           }
-          return;
-        }
-
-        // Modo Login
-        const res = await autenticar(rolLoginSeleccionado, email, pass);
-        if (res.exito) {
-          ocultarErrorLogin();
-          actualizarHeaderUI(res.sesion);
-          cerrarLoginModal();
-          mostrarNotificacion(`Bienvenido, ${res.sesion.nombre}`);
-
-          // Si había una intención pendiente de elegir silla, reanudarla automáticamente
-          if (window.pendingFlightId) {
-            const flightToOpen = window.pendingFlightId;
-            window.pendingFlightId = null;
-            if (
-              window.AeroMinimalUI &&
-              typeof window.AeroMinimalUI.abrirMapaCabina === "function"
-            ) {
-              window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
-            }
-          }
-        } else {
-          mostrarErrorLogin(res.mensaje);
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
         }
       });
     }

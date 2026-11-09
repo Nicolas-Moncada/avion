@@ -8,7 +8,7 @@
 import os
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AIRPORTS_DIR = os.path.join(BASE_DIR, "airports")
