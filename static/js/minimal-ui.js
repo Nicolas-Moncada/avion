@@ -1,8 +1,9 @@
 /**
- * AERO FLOW AIRLINES — Minimal UI Interactive Engine (v3.0)
- * Referencia visual exacta: Hero flotante, calendario tarifario de 2 meses con precios pastel,
- * grid de ofertas en 3 columnas, compuerta condicional inteligente, mapa de cabina A320,
- * pase de abordar con abordaje FIFO interactivo y consola de administración completa.
+ * AERO FLOW AIRLINES — Minimal UI Interactive Engine (v3.1)
+ * MODO ADMINISTRADOR EN VIVO (Lápiz SVG flotante, Creador y Eliminador con persistencia en DB)
+ * MAPA VECTORIAL DE CABINA (Airbus A320neo / A350 con poltronas VIP vs Economy)
+ * SIMULADOR DE PAGOS (Tarjeta con preview interactivo 3D, PSE, Nequi con push)
+ * PASE DE ABORDAR CON SONIDO REAL (Web Audio API: Ding-Dong F5->C5 y Beep 1850Hz)
  * CERO EMOJIS — 100% SVG minimalista de trazo fino.
  */
 
@@ -25,6 +26,7 @@
     vuelosCargados: [],
     selectedFlight: null,
     selectedSeat: null,
+    activePaymentMethod: 'card', // 'card' | 'pse' | 'nequi'
     retentionSeconds: 720, // 12 minutos
     retentionInterval: null,
     misReservas: []
@@ -56,7 +58,84 @@
   }
 
   // =========================================================================
-  // 3. TOASTS Y NOTIFICACIONES (CERO EMOJIS)
+  // 3. SINTETIZADOR DE AUDIO WEB AUDIO API (CERO ARCHIVOS EXTERNOS)
+  // =========================================================================
+  let audioCtx = null;
+
+  function obtenerAudioContext() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playAirportChime() {
+    try {
+      const ctx = obtenerAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Nota 1: F5 (~698.46 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(698.46, now);
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.25, now + 0.04);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.65);
+
+      // Nota 2: C5 (~523.25 Hz) sonando 280ms después (clásico ding-dong de aeropuerto)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(523.25, now + 0.28);
+      gain2.gain.setValueAtTime(0, now + 0.28);
+      gain2.gain.linearRampToValueAtTime(0.3, now + 0.32);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.28);
+      osc2.stop(now + 1.1);
+    } catch (e) {
+      console.warn('[Audio] Web Audio Chime:', e);
+    }
+  }
+
+  function playScannerBeep() {
+    try {
+      const ctx = obtenerAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // Beep de escáner óptico (1850 Hz, 80ms)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1850, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.32, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (e) {
+      console.warn('[Audio] Web Audio Beep:', e);
+    }
+  }
+
+  // =========================================================================
+  // 4. TOASTS Y NOTIFICACIONES (CERO EMOJIS)
   // =========================================================================
   function showToast(mensaje, esError = false) {
     let container = document.getElementById('toast-notification-container');
@@ -100,7 +179,7 @@
   window.showToast = showToast;
 
   // =========================================================================
-  // 4. CONTROL DEL HERO Y CALENDARIO TARIFARIO
+  // 5. CONTROL DEL HERO Y CALENDARIO TARIFARIO
   // =========================================================================
   function alternarTipoViaje(tipo) {
     uiState.tripType = tipo;
@@ -118,20 +197,23 @@
   }
 
   function intercambiarRutas() {
-    const temp = uiState.origin;
-    uiState.origin = uiState.destination;
-    uiState.destination = temp;
-
-    const elOrig = document.getElementById('search-input-origen');
-    const elDest = document.getElementById('search-input-destino');
-    if (elOrig) elOrig.value = uiState.origin;
-    if (elDest) elDest.value = uiState.destination;
+    const inputOrigen = document.getElementById('search-input-origen');
+    const inputDestino = document.getElementById('search-input-destino');
+    if (inputOrigen && inputDestino) {
+      const temp = inputOrigen.value;
+      inputOrigen.value = inputDestino.value;
+      inputDestino.value = temp;
+      uiState.origin = inputOrigen.value;
+      uiState.destination = inputDestino.value;
+      showToast('Rutas intercambiadas');
+    }
   }
 
-  function abrirCalendarioTarifas(campo = 'departure') {
+  function abrirCalendarioTarifas(campo) {
     uiState.activeSelectingField = campo;
     const popover = document.getElementById('fare-calendar-popover');
     if (!popover) return;
+
     renderizarMesesCalendario();
     popover.classList.add('open');
   }
@@ -141,10 +223,9 @@
     if (popover) popover.classList.remove('open');
   }
 
-  function navegarMesCalendario(delta) {
-    const d = new Date(uiState.calendarCurrentMonth);
-    d.setMonth(d.getMonth() + delta);
-    uiState.calendarCurrentMonth = d;
+  function navegarMesCalendario(offset) {
+    const cur = uiState.calendarCurrentMonth;
+    uiState.calendarCurrentMonth = new Date(cur.getFullYear(), cur.getMonth() + offset, 1);
     renderizarMesesCalendario();
   }
 
@@ -154,102 +235,83 @@
     container.innerHTML = '';
 
     const mes1 = new Date(uiState.calendarCurrentMonth);
-    const mes2 = new Date(uiState.calendarCurrentMonth);
-    mes2.setMonth(mes2.getMonth() + 1);
+    const mes2 = new Date(mes1.getFullYear(), mes1.getMonth() + 1, 1);
 
     container.appendChild(crearCardMes(mes1, true, false));
     container.appendChild(crearCardMes(mes2, false, true));
   }
 
-  function crearCardMes(dateObj, showPrevArrow, showNextArrow) {
-    const year = dateObj.getFullYear();
-    const month = dateObj.getMonth();
-
+  function crearCardMes(fechaMes, tienePrev = false, tieneNext = false) {
     const card = document.createElement('div');
-    card.className = 'month-view-card';
+    card.className = 'calendar-month-card';
 
-    // Cabecera del mes
+    const year = fechaMes.getFullYear();
+    const month = fechaMes.getMonth();
+    const nombreMes = NOMBRES_MESES[month];
+
     const header = document.createElement('div');
-    header.className = 'month-nav-header';
+    header.className = 'calendar-month-header';
 
-    const prevBtn = document.createElement('button');
-    prevBtn.type = 'button';
-    prevBtn.className = 'month-nav-arrow';
-    prevBtn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <polyline points="15 18 9 12 15 6"></polyline>
-      </svg>
+    const btnPrev = tienePrev
+      ? `<button type="button" class="calendar-nav-btn" onclick="AeroMinimalUI.navegarMesCalendario(-1)" aria-label="Mes anterior">
+           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+             <path d="M15 18l-6-6 6-6"></path>
+           </svg>
+         </button>`
+      : '<span style="width:28px;"></span>';
+
+    const btnNext = tieneNext
+      ? `<button type="button" class="calendar-nav-btn" onclick="AeroMinimalUI.navegarMesCalendario(1)" aria-label="Mes siguiente">
+           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+             <path d="M9 18l6-6-6-6"></path>
+           </svg>
+         </button>`
+      : '<span style="width:28px;"></span>';
+
+    header.innerHTML = `
+      ${btnPrev}
+      <span class="calendar-month-title">${nombreMes} ${year}</span>
+      ${btnNext}
     `;
-    prevBtn.style.visibility = showPrevArrow ? 'visible' : 'hidden';
-    prevBtn.title = 'Mes anterior';
-    prevBtn.onclick = (e) => { e.stopPropagation(); navegarMesCalendario(-1); };
-
-    const title = document.createElement('span');
-    title.className = 'month-title';
-    title.textContent = `${NOMBRES_MESES[month]} ${year}`;
-
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'month-nav-arrow';
-    nextBtn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <polyline points="9 18 15 12 9 6"></polyline>
-      </svg>
-    `;
-    nextBtn.style.visibility = showNextArrow ? 'visible' : 'hidden';
-    nextBtn.title = 'Mes siguiente';
-    nextBtn.onclick = (e) => { e.stopPropagation(); navegarMesCalendario(1); };
-
-    header.appendChild(prevBtn);
-    header.appendChild(title);
-    header.appendChild(nextBtn);
     card.appendChild(header);
 
-    // Días de la semana
     const weekdays = document.createElement('div');
     weekdays.className = 'calendar-weekdays-row';
-    ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].forEach(d => {
-      const sp = document.createElement('span');
-      sp.textContent = d;
-      weekdays.appendChild(sp);
-    });
+    weekdays.innerHTML = `
+      <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sa</span><span>Do</span>
+    `;
     card.appendChild(weekdays);
 
-    // Cuadrícula de días
     const grid = document.createElement('div');
     grid.className = 'calendar-days-grid';
 
     const primerDia = new Date(year, month, 1).getDay();
-    const offset = primerDia === 0 ? 6 : primerDia - 1;
+    const offsetInicio = (primerDia === 0) ? 6 : primerDia - 1;
+    const diasEnMes = new Date(year, month + 1, 0).getDate();
 
-    for (let i = 0; i < offset; i++) {
-      const empty = document.createElement('div');
+    for (let i = 0; i < offsetInicio; i++) {
+      const empty = document.createElement('span');
       grid.appendChild(empty);
     }
 
-    const totalDias = new Date(year, month + 1, 0).getDate();
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    for (let day = 1; day <= totalDias; day++) {
-      const fechaActual = new Date(year, month, day);
-      const isPast = fechaActual < hoy;
-
+    for (let day = 1; day <= diasEnMes; day++) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'calendar-day-btn';
       btn.textContent = day;
 
-      const tarifa = calcularTarifaDia(year, month, day);
-
-      if (isPast) {
-        btn.classList.add('inactive');
+      const esPasado = (year === 2026 && month === 10 && day < 8);
+      if (esPasado) {
+        btn.classList.add('disabled');
         btn.disabled = true;
       } else {
-        btn.classList.add(`tier-${tarifa.tier}`);
+        const tarifa = calcularTarifaDia(year, month, day);
+        if (tarifa.tier === 'low') btn.classList.add('tier-low');
+        else if (tarifa.tier === 'mid') btn.classList.add('tier-mid');
+        else btn.classList.add('tier-high');
+
         btn.title = `Día ${day}: ${formatoCOP(tarifa.precio)}`;
 
-        // Día 8 seleccionado por defecto como en la referencia visual
         const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (uiState.departureDate === isoDate || (!uiState.departureDate && month === 10 && day === 8)) {
           btn.classList.add('selected');
@@ -293,7 +355,7 @@
   }
 
   // =========================================================================
-  // 5. CATÁLOGO VISUAL DE OFERTAS Y FILTRADO POR CATEGORÍA
+  // 6. CATÁLOGO VISUAL DE OFERTAS Y MODO ADMINISTRADOR EN VIVO
   // =========================================================================
   async function cargarVuelosCatalogo() {
     try {
@@ -318,12 +380,49 @@
     renderizarCatalogoOfertas();
   }
 
+  function esUsuarioAdmin() {
+    if (!window.AeroAuth || typeof window.AeroAuth.obtenerSesionActual !== 'function') return false;
+    const sesion = window.AeroAuth.obtenerSesionActual();
+    return Boolean(sesion && (sesion.rol === 'admin' || sesion.rol === 'integral'));
+  }
+
+  function sincronizarModoAdmin(forzarEstado) {
+    const esAdmin = (typeof forzarEstado === 'boolean') ? forzarEstado : esUsuarioAdmin();
+    
+    // Botón superior de "+ Nuevo vuelo"
+    const btnTop = document.getElementById('btn-admin-top-create');
+    if (btnTop) {
+      btnTop.style.display = esAdmin ? 'inline-flex' : 'none';
+    }
+
+    // Re-renderizar ofertas para mostrar/ocultar botones flotantes y tarjeta de creación
+    renderizarCatalogoOfertas();
+  }
+
   function renderizarCatalogoOfertas() {
     const container = document.getElementById('offers-cards-grid');
     if (!container) return;
 
     container.innerHTML = '';
+    const esAdmin = esUsuarioAdmin();
     const vuelos = uiState.vuelosCargados;
+
+    // Si es Administrador, insertar tarjeta "+ Crear nuevo vuelo" al inicio
+    if (esAdmin) {
+      const createCard = document.createElement('div');
+      createCard.className = 'card-create-flight-admin visible';
+      createCard.onclick = () => abrirEditorVuelo(null);
+      createCard.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+        <h3 style="font-size:1.125rem;font-weight:700;color:#1E3A8A;margin:0;">Crear nuevo vuelo</h3>
+        <p style="font-size:0.8125rem;color:#475569;margin:0;">Agrega una nueva ruta o destino al catálogo oficial en la base de datos.</p>
+      `;
+      container.appendChild(createCard);
+    }
 
     let filtrados = vuelos.filter(v => {
       if (uiState.currentCategoryFilter === 'todos') return true;
@@ -338,6 +437,7 @@
     filtrados.forEach(v => {
       const card = document.createElement('article');
       card.className = 'offer-flight-card';
+      card.id = `card-vuelo-${v.codigo}`;
       card.onclick = () => interceptarAccionVuelo(v.codigo);
 
       // Extraer ciudad e IATA
@@ -346,18 +446,34 @@
       const ciudadNombre = destinoParts[1] ? destinoParts[1].trim().split(' ')[0] : v.destino;
       const fechaCorta = (v.fecha_salida || '2026-12-01').split('-').reverse().join('/');
       const precioExacto = formatoCOP(v.precio_base_cop || 71810);
-      const tagText = v.tag_destacado || 'Recomendado';
+      const tagText = v.tag_destacado || 'Recomendado para ti';
       const imgSrc = v.imagen_url || '/static/img/oferta-cali.jpg';
 
       card.innerHTML = `
         <div class="offer-card-media">
           <img src="${imgSrc}" alt="${ciudadNombre}" class="offer-card-img" loading="lazy">
           <span class="offer-badge-floating">${tagText}</span>
-          <span class="offer-badge-direct">Vuelo directo</span>
+          <span class="offer-badge-direct">${v.tipo_aeronave || 'Airbus A320neo'}</span>
+
+          <!-- Botones Flotantes de Edición Admin -->
+          <div class="card-admin-floating-btns ${esAdmin ? 'visible' : ''}">
+            <button type="button" class="btn-admin-pencil" onclick="event.stopPropagation(); AeroMinimalUI.abrirEditorVuelo('${v.codigo}')" title="Editar este vuelo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button type="button" class="btn-admin-trash" onclick="event.stopPropagation(); AeroMinimalUI.eliminarVueloAdmin('${v.codigo}')" title="Eliminar vuelo de la base de datos">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="offer-card-body">
           <h3 class="offer-destination-title">${ciudadNombre} (${iata})</h3>
-          <p class="offer-flight-meta">Solo ida - ${fechaCorta} • ${v.tipo_aeronave || 'Airbus A320'}</p>
+          <p class="offer-flight-meta">Solo ida - ${fechaCorta} • ${v.duracion_estimada || '01h 30m'}</p>
           <div class="offer-price-block">
             <span class="offer-price-val tabular-nums">${precioExacto}</span>
             <span class="offer-price-note">Tasas incluidas</span>
@@ -397,13 +513,234 @@
   }
 
   // =========================================================================
-  // 6. COMPUERTA CONDICIONAL INTELIGENTE (AUTH GATE)
+  // 7. GESTOR Y EDITOR DE VUELOS EN VIVO (ADMINISTRADOR)
+  // =========================================================================
+  function abrirEditorVuelo(codigo) {
+    const modal = document.getElementById('modal-admin-editor-vuelo');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('editor-flight-modal-title');
+    const badgeEl = document.getElementById('editor-mode-badge');
+    const isNewInput = document.getElementById('editor-is-new-flight');
+    const codeInput = document.getElementById('editor-flight-code');
+    const origenInput = document.getElementById('editor-flight-origen');
+    const destinoInput = document.getElementById('editor-flight-destino');
+    const aeronaveInput = document.getElementById('editor-flight-aeronave');
+    const priceInput = document.getElementById('editor-flight-price');
+    const catInput = document.getElementById('editor-flight-categoria');
+    const dateInput = document.getElementById('editor-flight-date');
+    const timeInput = document.getElementById('editor-flight-time');
+    const gateInput = document.getElementById('editor-flight-gate');
+    const statusInput = document.getElementById('editor-flight-status');
+    const urlInput = document.getElementById('editor-flight-image-url');
+    const tagInput = document.getElementById('editor-flight-tag');
+    const submitBtnText = document.getElementById('editor-submit-btn-text');
+
+    if (!codigo) {
+      // Modo: Crear Nuevo Vuelo
+      isNewInput.value = '1';
+      titleEl.textContent = 'Crear Nuevo Vuelo y Oferta';
+      badgeEl.textContent = 'Nuevo Vuelo';
+      badgeEl.style.background = '#10B981';
+
+      const nuevoCod = 'AF' + Math.floor(1000 + Math.random() * 9000);
+      codeInput.value = nuevoCod;
+      codeInput.readOnly = false;
+      origenInput.value = 'BOG - Bogotá El Dorado';
+      destinoInput.value = 'CTG - Cartagena';
+      aeronaveInput.value = 'Airbus A320neo';
+      priceInput.value = 75900;
+      catInput.value = 'playa';
+      dateInput.value = '2026-12-05';
+      timeInput.value = '10:00 AM';
+      gateInput.value = 'B-04';
+      statusInput.value = 'Programado';
+      urlInput.value = '/static/img/oferta-cartagena.jpg';
+      tagInput.value = 'Recomendado para ti';
+      submitBtnText.textContent = 'Crear Vuelo en Base de Datos';
+    } else {
+      // Modo: Editar Vuelo Existente
+      const vuelo = uiState.vuelosCargados.find(v => v.codigo === codigo);
+      if (!vuelo) {
+        showToast('Vuelo no encontrado', true);
+        return;
+      }
+      isNewInput.value = '0';
+      titleEl.textContent = `Editar Vuelo ${codigo}`;
+      badgeEl.textContent = 'Modo Edición';
+      badgeEl.style.background = '#0F172A';
+
+      codeInput.value = vuelo.codigo;
+      codeInput.readOnly = true;
+      origenInput.value = vuelo.origen || 'BOG - Bogotá El Dorado';
+      destinoInput.value = vuelo.destino || '';
+      aeronaveInput.value = vuelo.tipo_aeronave || 'Airbus A320neo';
+      priceInput.value = vuelo.precio_base_cop || 71810;
+      catInput.value = vuelo.categoria || 'ciudad';
+      dateInput.value = vuelo.fecha_salida || '2026-12-01';
+      timeInput.value = vuelo.hora_salida_12h || '08:30 AM';
+      gateInput.value = vuelo.puerta || 'B-03';
+      statusInput.value = vuelo.estado || 'Programado';
+      urlInput.value = vuelo.imagen_url || '/static/img/oferta-cali.jpg';
+      tagInput.value = vuelo.tag_destacado || 'Recomendado para ti';
+      submitBtnText.textContent = 'Guardar Cambios en Base de Datos';
+    }
+
+    actualizarPreviewFoto(urlInput.value);
+    actualizarCalculoTarifaEditor();
+    modal.classList.add('active');
+  }
+
+  function cerrarEditorVuelo() {
+    const modal = document.getElementById('modal-admin-editor-vuelo');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function actualizarPreviewFoto(url) {
+    const imgEl = document.getElementById('editor-flight-image-preview');
+    if (imgEl && url) {
+      imgEl.src = url;
+    }
+  }
+
+  function cargarFotoArchivo(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const dataUrl = e.target.result;
+      const urlInput = document.getElementById('editor-flight-image-url');
+      if (urlInput) urlInput.value = dataUrl;
+      actualizarPreviewFoto(dataUrl);
+      showToast('Fotografía cargada correctamente');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function actualizarCalculoTarifaEditor() {
+    const priceInput = document.getElementById('editor-flight-price');
+    const breakdownBox = document.getElementById('editor-price-breakdown');
+    if (!priceInput || !breakdownBox) return;
+
+    const base = Number(priceInput.value) || 0;
+    const admin = 45000;
+    const tasa = 158000;
+    const iva = Math.round(base * 0.19);
+    const total = base + admin + tasa + iva;
+
+    breakdownBox.innerHTML = `
+      Base: ${formatoCOP(base)} + Admin: ${formatoCOP(admin)} + Tasa: ${formatoCOP(tasa)} + IVA (19%): ${formatoCOP(iva)} = <strong>Total: ${formatoCOP(total)}</strong>
+    `;
+  }
+
+  function alCambiarAeronaveEditor() {
+    // Si la aeronave cambia, actualizar valores sugeridos
+    actualizarCalculoTarifaEditor();
+  }
+
+  async function guardarVueloAdmin() {
+    const isNew = document.getElementById('editor-is-new-flight')?.value === '1';
+    const codigo = document.getElementById('editor-flight-code')?.value?.trim()?.toUpperCase();
+    const origen = document.getElementById('editor-flight-origen')?.value?.trim();
+    const destino = document.getElementById('editor-flight-destino')?.value?.trim();
+    const aeronave = document.getElementById('editor-flight-aeronave')?.value?.trim();
+    const precioBase = Number(document.getElementById('editor-flight-price')?.value) || 71810;
+    const categoria = document.getElementById('editor-flight-categoria')?.value;
+    const fecha = document.getElementById('editor-flight-date')?.value;
+    const hora = document.getElementById('editor-flight-time')?.value?.trim();
+    const puerta = document.getElementById('editor-flight-gate')?.value?.trim();
+    const estado = document.getElementById('editor-flight-status')?.value;
+    const imagenUrl = document.getElementById('editor-flight-image-url')?.value?.trim() || '/static/img/oferta-cali.jpg';
+    const tag = document.getElementById('editor-flight-tag')?.value?.trim() || 'Recomendado para ti';
+
+    if (!codigo || !destino) {
+      showToast('El código y destino son obligatorios', true);
+      return;
+    }
+
+    const payload = {
+      codigo,
+      origen,
+      destino,
+      tipo_aeronave: aeronave,
+      precio_base_cop: precioBase,
+      categoria,
+      fecha_salida: fecha,
+      hora_salida_12h: hora,
+      puerta,
+      estado,
+      imagen_url: imagenUrl,
+      tag_destacado: tag
+    };
+
+    const endpoint = isNew ? '/api/admin/vuelos' : `/api/admin/vuelos/${encodeURIComponent(codigo)}`;
+    const method = isNew ? 'POST' : 'PUT';
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': 'admin'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar');
+
+      showToast(isNew ? `Vuelo ${codigo} creado en la base de datos.` : `Vuelo ${codigo} actualizado.`);
+      cerrarEditorVuelo();
+      await cargarVuelosCatalogo();
+    } catch (e) {
+      showToast('Error al conectar con la base de datos: ' + e.message, true);
+    }
+  }
+
+  async function eliminarVueloAdmin(codigo) {
+    if (!confirm(`¿Eliminar definitivamente el vuelo ${codigo} de la base de datos?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/vuelos/${encodeURIComponent(codigo)}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Role': 'admin'
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al eliminar');
+
+      showToast(`Vuelo ${codigo} eliminado exitosamente.`);
+      
+      // Animación suave de salida en el DOM
+      const card = document.getElementById(`card-vuelo-${codigo}`);
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          card.remove();
+          cargarVuelosCatalogo();
+        }, 200);
+      } else {
+        cargarVuelosCatalogo();
+      }
+    } catch (e) {
+      showToast('Error al eliminar: ' + e.message, true);
+    }
+  }
+
+  // =========================================================================
+  // 8. COMPUERTA CONDICIONAL INTELIGENTE (AUTH GATE)
   // =========================================================================
   function interceptarAccionVuelo(codigoVuelo) {
     const sesion = window.AeroAuth ? window.AeroAuth.obtenerSesionActual() : null;
 
     if (!sesion) {
-      // Usuario no autenticado: guardar intención y abrir modal de login suave
+      // Guardar intención y abrir modal de login
       window.pendingFlightId = codigoVuelo;
       if (window.AeroAuth && typeof window.AeroAuth.abrirLoginModal === 'function') {
         window.AeroAuth.abrirLoginModal(codigoVuelo);
@@ -411,12 +748,12 @@
       return;
     }
 
-    // Usuario autenticado: abrir directamente mapa de cabina del vuelo elegido
+    // Usuario autenticado: abrir directamente el mapa de cabina del vuelo elegido
     abrirMapaCabina(codigoVuelo);
   }
 
   // =========================================================================
-  // 7. MAPA DE CABINA AIRBUS A320 (BLOQUEO ATÓMICO 12 MIN)
+  // 9. MAPA DE CABINA VECTORIAL (VIP Y ECONOMY) Y CHECKOUT MULTIMÉTODO
   // =========================================================================
   async function abrirMapaCabina(codigoVuelo) {
     const vuelo = uiState.vuelosCargados.find(v => v.codigo === codigoVuelo);
@@ -433,17 +770,20 @@
     // Actualizar cabecera del modal
     const titleEl = document.getElementById('cabin-modal-title');
     const routeEl = document.getElementById('cabin-modal-route');
-    if (titleEl) titleEl.textContent = `Vuelo ${vuelo.codigo} — Mapa de Cabina`;
-    if (routeEl) routeEl.textContent = `${vuelo.origen} -> ${vuelo.destino} (${vuelo.tipo_aeronave || 'Airbus A320'})`;
+    if (titleEl) titleEl.textContent = `Mapa de Cabina — ${vuelo.tipo_aeronave || 'Airbus A320neo'}`;
+    if (routeEl) routeEl.textContent = `${vuelo.origen} -> ${vuelo.destino} (Vuelo ${vuelo.codigo})`;
 
-    // Iniciar temporizador de 12 minutos
+    // Iniciar temporizador de retención de 12 minutos
     iniciarTemporizadorRetencion();
 
-    // Renderizar fuselaje y filas A320
-    renderizarFuselajeA320(vuelo);
+    // Renderizar fuselaje y filas vectoriales según la aeronave
+    renderizarFuselajeAeronave(vuelo);
 
     // Calcular desglose inicial
-    actualizarDesglosePrecios(vuelo.precio_base_cop || 71810);
+    actualizarDesglosePrecios(vuelo.precio_base_cop || 71810, false);
+
+    // Seleccionar pestaña de pago 'card' por defecto
+    alternarMetodoPago('card');
 
     modal.classList.add('active');
   }
@@ -463,7 +803,7 @@
       uiState.retentionSeconds--;
       if (uiState.retentionSeconds <= 0) {
         detenerTemporizadorRetencion();
-        showToast('El tiempo de retencion de 12 minutos ha expirado.', true);
+        showToast('El tiempo de retención de 12 minutos ha expirado.', true);
         cerrarMapaCabina();
       } else {
         actualizarBadgeTimer();
@@ -486,16 +826,30 @@
     el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
-  function renderizarFuselajeA320(vuelo) {
+  function renderizarFuselajeAeronave(vuelo) {
     const container = document.getElementById('fuselage-rows-list');
     if (!container) return;
     container.innerHTML = '';
 
-    // Asientos ocupados simulados para realismo
+    const modelo = vuelo.tipo_aeronave || 'Airbus A320neo';
+    let filasVip = 4;
+    let filasEco = 7;
+
+    if (modelo.includes('A350')) {
+      filasVip = 6;
+      filasEco = 14;
+    } else if (modelo.includes('787')) {
+      filasVip = 5;
+      filasEco = 11;
+    } else if (modelo.includes('Praetor')) {
+      filasVip = 2;
+      filasEco = 2;
+    }
+
     const ocupados = new Set(['1B', '2A', '4C', '5B', '6D', '7A']);
 
-    // Filas 1 a 3 VIP (2x2: A, B y C, D)
-    for (let f = 1; f <= 3; f++) {
+    // Filas VIP (2x2: A, B y C, D)
+    for (let f = 1; f <= filasVip; f++) {
       const rowDiv = document.createElement('div');
       rowDiv.className = 'cabin-row';
 
@@ -515,6 +869,7 @@
       // Pasillo central
       const aisle = document.createElement('div');
       aisle.className = 'seat-aisle-space';
+      aisle.textContent = '||';
       rowDiv.appendChild(aisle);
 
       // Derecha (C, D)
@@ -528,8 +883,15 @@
       container.appendChild(rowDiv);
     }
 
-    // Filas 4 a 8 Economy (2x2)
-    for (let f = 4; f <= 8; f++) {
+    // Separador visual de cabina
+    const cabinaDivider = document.createElement('div');
+    cabinaDivider.style.cssText = 'text-align:center;font-size:0.6875rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;padding:8px 0;';
+    cabinaDivider.textContent = 'Cabina Economy Estándar';
+    container.appendChild(cabinaDivider);
+
+    // Filas Economy
+    const inicioEco = filasVip + 1;
+    for (let f = inicioEco; f < inicioEco + filasEco; f++) {
       const rowDiv = document.createElement('div');
       rowDiv.className = 'cabin-row';
 
@@ -547,6 +909,7 @@
 
       const aisle = document.createElement('div');
       aisle.className = 'seat-aisle-space';
+      aisle.textContent = '||';
       rowDiv.appendChild(aisle);
 
       const rightGroup = document.createElement('div');
@@ -564,13 +927,13 @@
     const seatId = `${fila}${col}`;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'seat-btn';
+    btn.className = (clase === 'VIP') ? 'seat-vip-btn' : 'seat-eco-btn';
     btn.textContent = col;
     btn.setAttribute('data-seat', seatId);
     btn.setAttribute('data-class', clase);
 
     if (estaOcupada) {
-      btn.classList.add('occupied');
+      btn.classList.add('seat-occupied');
       btn.disabled = true;
       btn.title = `Silla ${seatId} (${clase}) - Ocupada`;
     } else {
@@ -584,17 +947,24 @@
   function seleccionarSilla(seatId, clase) {
     uiState.selectedSeat = { id: seatId, clase };
 
-    document.querySelectorAll('.seat-btn').forEach(b => {
+    document.querySelectorAll('.seat-vip-btn, .seat-eco-btn').forEach(b => {
       const match = b.getAttribute('data-seat') === seatId;
       b.classList.toggle('selected', match);
     });
 
     const basePrice = uiState.selectedFlight?.precio_base_cop || 71810;
-    const factorClase = (clase === 'VIP') ? 1.5 : 1.0;
-    actualizarDesglosePrecios(Math.round(basePrice * factorClase));
+    const factorClase = (clase === 'VIP') ? 1.6 : 1.0;
+    const tarifaFinal = Math.round(basePrice * factorClase);
+
+    const lbl = document.getElementById('label-tarifa-base');
+    if (lbl) {
+      lbl.textContent = `Tarifa Base (Silla ${seatId} ${clase})`;
+    }
+
+    actualizarDesglosePrecios(tarifaFinal, clase === 'VIP');
   }
 
-  function actualizarDesglosePrecios(tarifaBase) {
+  function actualizarDesglosePrecios(tarifaBase, esVip = false) {
     const admin = 45000;
     const tasa = 158000;
     const iva = Math.round(tarifaBase * 0.19);
@@ -615,21 +985,73 @@
     if (btnPay) btnPay.textContent = `Pagar ${formatoCOP(total)} y Confirmar`;
   }
 
+  // =========================================================================
+  // 10. SIMULADOR PASARELA DE PAGOS (TARJETA, PSE, NEQUI)
+  // =========================================================================
+  function alternarMetodoPago(metodo) {
+    uiState.activePaymentMethod = metodo;
+
+    const btns = document.querySelectorAll('.pay-tab-btn');
+    btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-pay') === metodo));
+
+    const panels = {
+      card: document.getElementById('pay-panel-card'),
+      pse: document.getElementById('pay-panel-pse'),
+      nequi: document.getElementById('pay-panel-nequi')
+    };
+
+    Object.keys(panels).forEach(key => {
+      if (panels[key]) {
+        panels[key].style.display = (key === metodo) ? 'block' : 'none';
+      }
+    });
+  }
+
+  function alCambiarTarjetaCredito() {
+    const numInput = document.getElementById('card-number-input');
+    const expInput = document.getElementById('card-exp-input');
+    const nameInput = document.getElementById('passenger-name-input');
+
+    const numPrev = document.getElementById('cc-preview-number');
+    const expPrev = document.getElementById('cc-preview-exp');
+    const namePrev = document.getElementById('cc-preview-name');
+
+    if (numPrev && numInput) {
+      const val = numInput.value.trim();
+      numPrev.textContent = val ? val : '•••• •••• •••• ••••';
+    }
+    if (expPrev && expInput) {
+      const val = expInput.value.trim();
+      expPrev.textContent = val ? val : '12/28';
+    }
+    if (namePrev && nameInput) {
+      const val = nameInput.value.trim();
+      namePrev.textContent = val ? val.toUpperCase() : 'CARLOS MENDOZA';
+    }
+  }
+
+  function alCambiarCelularNequi() {
+    const phoneInput = document.getElementById('nequi-phone-number');
+    const banner = document.getElementById('nequi-push-banner');
+    if (phoneInput && banner) {
+      banner.textContent = `Notificación simulada enviada a ${phoneInput.value}: Al presionar pagar, confirma la transacción en tu teléfono.`;
+    }
+  }
+
   async function procesarPagoReserva() {
     if (!uiState.selectedSeat) {
-      showToast('Por favor selecciona una silla en el mapa de cabina.', true);
+      showToast('Por favor selecciona una silla en el mapa interactivo del avión.', true);
       return;
     }
 
     const docInput = document.getElementById('passenger-doc-input');
     const nameInput = document.getElementById('passenger-name-input');
-    const doc = docInput?.value?.trim() || 'CC-102938475';
-    const nombre = nameInput?.value?.trim() || 'Carlos Mendoza';
+    const doc = docInput?.value?.trim() || 'CC-101829384';
+    const nombre = nameInput?.value?.trim() || 'Carlos Alberto Mendoza';
 
     const vuelo = uiState.selectedFlight;
-    const pnr = 'AF-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const pnr = 'AF' + Math.random().toString(36).substring(2, 7).toUpperCase();
 
-    // Crear objeto reserva
     const nuevaReserva = {
       pnr,
       vueloCodigo: vuelo.codigo,
@@ -642,18 +1064,19 @@
       clase: uiState.selectedSeat.clase,
       pasajeroDoc: doc,
       pasajeroNombre: nombre,
+      metodoPago: uiState.activePaymentMethod,
       estado: 'Confirmado'
     };
 
     uiState.misReservas.unshift(nuevaReserva);
 
     cerrarMapaCabina();
-    showToast(`Pago procesado con exito. Tiquete PNR ${pnr} emitido.`);
+    showToast(`Pago simulado con éxito (${uiState.activePaymentMethod.toUpperCase()}). Tiquete PNR ${pnr} emitido.`);
     abrirModalMisReservas();
   }
 
   // =========================================================================
-  // 8. MIS RESERVAS Y PASE DE ABORDAR (CON ABORDAJE FIFO EN VIVO)
+  // 11. MIS RESERVAS, PASE DE ABORDAR Y ABORDAJE SONORO EN VIVO
   // =========================================================================
   function abrirModalMisReservas() {
     const modal = document.getElementById('modal-mis-reservas');
@@ -667,14 +1090,72 @@
     if (modal) modal.classList.remove('active');
   }
 
+  function generarBarcodeSVG(pnr) {
+    return `
+      <div class="pass-cut-line"></div>
+      <div class="barcode-svg-container">
+        <svg class="barcode-svg" viewBox="0 0 280 38" preserveAspectRatio="none">
+          <rect x="0" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="5" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="8" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="15" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="20" y="0" width="5" height="38" fill="#0F172A"/>
+          <rect x="28" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="32" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="38" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="43" y="0" width="6" height="38" fill="#0F172A"/>
+          <rect x="52" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="56" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="63" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="67" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="73" y="0" width="5" height="38" fill="#0F172A"/>
+          <rect x="81" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="86" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="90" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="97" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="103" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="107" y="0" width="5" height="38" fill="#0F172A"/>
+          <rect x="115" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="120" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="127" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="131" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="137" y="0" width="6" height="38" fill="#0F172A"/>
+          <rect x="146" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="151" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="155" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="162" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="168" y="0" width="5" height="38" fill="#0F172A"/>
+          <rect x="176" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="180" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="186" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="191" y="0" width="6" height="38" fill="#0F172A"/>
+          <rect x="200" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="205" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="212" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="216" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="222" y="0" width="5" height="38" fill="#0F172A"/>
+          <rect x="230" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="235" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="239" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="246" y="0" width="3" height="38" fill="#0F172A"/>
+          <rect x="252" y="0" width="6" height="38" fill="#0F172A"/>
+          <rect x="261" y="0" width="2" height="38" fill="#0F172A"/>
+          <rect x="266" y="0" width="4" height="38" fill="#0F172A"/>
+          <rect x="273" y="0" width="1" height="38" fill="#0F172A"/>
+          <rect x="277" y="0" width="3" height="38" fill="#0F172A"/>
+        </svg>
+        <span style="font-size:0.6875rem;font-family:monospace;letter-spacing:0.25em;color:#64748B;margin-top:4px;">${pnr} // AERO FLOW IATA BCBP</span>
+      </div>
+    `;
+  }
+
   function renderizarPasesAbordar() {
     const container = document.getElementById('boarding-passes-container');
     if (!container) return;
 
     if (uiState.misReservas.length === 0) {
-      // Si no hay reservas creadas aún, proveer una demo por defecto
       uiState.misReservas.push({
-        pnr: 'AF-7K9B2',
+        pnr: 'AF7K9B',
         vueloCodigo: 'AF2025',
         origen: 'BOG - Bogotá El Dorado',
         destino: 'MDE - Medellín',
@@ -737,6 +1218,9 @@
             <span style="font-size:0.6875rem;color:#94A3B8;margin-top:4px;">Escanear en rampa</span>
           </div>
         </div>
+
+        ${generarBarcodeSVG(reserva.pnr)}
+
         <div class="pass-actions-footer">
           <span style="font-size:0.8125rem;color:#64748B;">Salida: ${reserva.fecha} • ${reserva.hora}</span>
           <button type="button" class="btn-board-flight ${esAbordado ? 'boarded' : ''}" id="btn-board-${idx}" onclick="AeroMinimalUI.abordarVueloPasajero(${idx})">
@@ -755,8 +1239,11 @@
     const reserva = uiState.misReservas[idx];
     if (!reserva || reserva.estado === 'Abordado') return;
 
+    // 1. Tocar campana de anuncio de rampa (F5 -> C5)
+    playAirportChime();
+
     try {
-      const res = await fetch(`/api/embarque/${encodeURIComponent(reserva.vueloCodigo)}/abordar-pasajero`, {
+      await fetch(`/api/embarque/${encodeURIComponent(reserva.vueloCodigo)}/abordar-pasajero`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -765,7 +1252,11 @@
           asiento: reserva.asiento
         })
       });
+    } catch (e) {}
 
+    // 2. Tocar beep de escáner tras 400ms
+    setTimeout(() => {
+      playScannerBeep();
       reserva.estado = 'Abordado';
 
       const statusEl = document.getElementById(`pass-status-${idx}`);
@@ -781,15 +1272,11 @@
       }
 
       showToast(`Pasajero ${reserva.pasajeroNombre} ha abordado exitosamente.`);
-    } catch (e) {
-      reserva.estado = 'Abordado';
-      renderizarPasesAbordar();
-      showToast('Abordaje registrado.');
-    }
+    }, 450);
   }
 
   // =========================================================================
-  // 9. PANEL DE ADMINISTRACIÓN (EXCLUSIVO ADMINISTRADOR)
+  // 12. CONSOLA DE ADMINISTRACIÓN GENERAL (MODAL TABLAS Y FINANZAS)
   // =========================================================================
   function abrirPanelAdmin() {
     const sesion = window.AeroAuth ? window.AeroAuth.obtenerSesionActual() : null;
@@ -862,8 +1349,8 @@
 
     try {
       const sesion = window.AeroAuth ? window.AeroAuth.obtenerSesionActual() : null;
-      const res = await fetch('/api/admin/vuelos/editar', {
-        method: 'POST',
+      const res = await fetch(`/api/admin/vuelos/${encodeURIComponent(codigo)}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Role': sesion?.rol || 'admin'
@@ -907,13 +1394,14 @@
   }
 
   // =========================================================================
-  // 10. CIERRE GLOBAL DE MODALES AL HACER CLICK EN EL BACKDROP
+  // 13. CIERRE GLOBAL DE MODALES
   // =========================================================================
   function cerrarModales() {
     cerrarCalendarioTarifas();
     cerrarMapaCabina();
     cerrarModalMisReservas();
     cerrarPanelAdmin();
+    cerrarEditorVuelo();
     if (window.AeroAuth && typeof window.AeroAuth.cerrarLoginModal === 'function') {
       window.AeroAuth.cerrarLoginModal();
     }
@@ -921,7 +1409,7 @@
   window.cerrarModales = cerrarModales;
 
   // =========================================================================
-  // 11. INICIALIZACIÓN
+  // 14. INICIALIZACIÓN
   // =========================================================================
   function init() {
     cargarVuelosCatalogo();
@@ -942,7 +1430,7 @@
       }
     });
 
-    // Delegación para cerrar modales al hacer clic en el overlay difuminado
+    // Delegación para cerrar modales al hacer clic en el backdrop
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
@@ -951,6 +1439,11 @@
         }
       });
     });
+
+    // Sincronizar estado inicial de admin si ya hay sesión
+    setTimeout(() => {
+      sincronizarModoAdmin();
+    }, 100);
   }
 
   // API Pública
@@ -963,8 +1456,20 @@
     filtrarPorCategoria,
     buscarVuelosHero,
     interceptarAccionVuelo,
+    sincronizarModoAdmin,
+    abrirEditorVuelo,
+    cerrarEditorVuelo,
+    actualizarPreviewFoto,
+    cargarFotoArchivo,
+    actualizarCalculoTarifaEditor,
+    alCambiarAeronaveEditor,
+    guardarVueloAdmin,
+    eliminarVueloAdmin,
     abrirMapaCabina,
     cerrarMapaCabina,
+    alternarMetodoPago,
+    alCambiarTarjetaCredito,
+    alCambiarCelularNequi,
     procesarPagoReserva,
     abrirModalMisReservas,
     cerrarModalMisReservas,
@@ -972,7 +1477,9 @@
     abrirPanelAdmin,
     cerrarPanelAdmin,
     alternarTabAdmin,
-    guardarCambiosVueloAdmin
+    guardarCambiosVueloAdmin,
+    playAirportChime,
+    playScannerBeep
   };
 
   document.addEventListener('DOMContentLoaded', init);

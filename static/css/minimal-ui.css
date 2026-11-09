@@ -1,7 +1,9 @@
 /**
- * AERO FLOW AIRLINES — Estilos Minimalistas de Alta Gama (v3.0)
- * Sistema de diseño ejecutivo: escala de 8px, cero emojis, micro-interacciones GPU.
- * Estética de aerolínea de primer nivel (Inter / Plus Jakarta Sans).
+ * AERO FLOW AIRLINES — Estilos Minimalistas de Alta Gama (v3.5)
+ * Edición Ejecutiva con Modo Admin en Vivo, Lápiz SVG en tarjetas,
+ * Fuselaje Vectorial SVG detallado (VIP & Economy), Pasarela Multimétodo (Tarjeta, PSE, Nequi)
+ * y Pase de Abordar con troquel y código de barras.
+ * CERO EMOJIS — 100% SVG Vectorial.
  */
 
 /* ==========================================================================
@@ -123,7 +125,7 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .btn-header-login {
@@ -209,7 +211,7 @@ body {
    3. HERO FLOTANTE Y BUSCADOR CENTRAL (Idéntico a la referencia)
    ========================================================================== */
 .hero-search-section {
-  padding: 40px 24px 20px;
+  padding: 36px 24px 20px;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -224,7 +226,6 @@ body {
   position: relative;
 }
 
-/* Segmented Trip Type Toggle */
 .trip-type-segmented-bar {
   display: inline-flex;
   background-color: var(--bg-subtle, #F1F5F9);
@@ -252,7 +253,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* Fila de Inputs */
 .search-inputs-row {
   display: grid;
   grid-template-columns: 2fr auto 2fr 1.5fr 1.5fr 1.5fr auto;
@@ -536,7 +536,7 @@ body {
 }
 
 /* ==========================================================================
-   5. SECCIÓN DE OFERTAS (Grid 3 Columnas)
+   5. SECCIÓN DE OFERTAS (Grid 3 Columnas + Tarjetas con Lápiz Admin)
    ========================================================================== */
 .offers-catalog-section {
   max-width: 1200px;
@@ -552,11 +552,36 @@ body {
   margin-bottom: 24px;
 }
 
+.catalog-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .catalog-title {
   font-size: 1.625rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary, #0F172A);
+}
+
+.btn-crear-vuelo-admin-top {
+  display: none;
+  background: #0F172A;
+  color: #FFFFFF;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+
+.btn-crear-vuelo-admin-top:hover {
+  opacity: 0.9;
 }
 
 /* Category Filter Bar */
@@ -601,6 +626,31 @@ body {
   gap: 24px;
 }
 
+/* Tarjeta "+ Crear nuevo vuelo" en el grid */
+.card-create-flight-admin {
+  border: 2px dashed #3B82F6;
+  background: #EFF6FF;
+  border-radius: 16px;
+  padding: 32px 24px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.card-create-flight-admin:hover {
+  transform: translateY(-4px);
+  background: #DBEAFE;
+}
+
+.card-create-flight-admin.visible {
+  display: flex;
+}
+
 .offer-flight-card {
   background: var(--bg-surface, #FFFFFF);
   border-radius: 16px;
@@ -610,6 +660,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+  position: relative;
   cursor: pointer;
 }
 
@@ -641,7 +692,7 @@ body {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
   color: #FFFFFF;
   font-size: 0.75rem;
@@ -655,13 +706,62 @@ body {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   color: #0F172A;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 9999px;
+}
+
+/* Botones Flotantes de Edición para el Admin */
+.card-admin-floating-btns {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: none;
+  gap: 8px;
+  z-index: 10;
+}
+
+.card-admin-floating-btns.visible {
+  display: flex;
+}
+
+.btn-admin-pencil,
+.btn-admin-trash {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s, background-color 0.15s;
+}
+
+.btn-admin-pencil {
+  color: #0F172A;
+}
+
+.btn-admin-pencil:hover {
+  background-color: #0F172A;
+  color: #FFFFFF;
+  transform: scale(1.08);
+}
+
+.btn-admin-trash {
+  color: #EF4444;
+}
+
+.btn-admin-trash:hover {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  transform: scale(1.08);
 }
 
 .offer-card-body {
@@ -774,7 +874,519 @@ body {
 }
 
 /* ==========================================================================
-   6. MODALES CON BACKDROP BLUR (Login, Mapa de Cabina, Reservas, Admin)
+   6. MODAL GESTOR Y EDITOR DE VUELOS (ADMINISTRADOR)
+   ========================================================================== */
+.modal-card-flight-editor {
+  width: 760px;
+  max-width: 100%;
+  padding: 32px;
+}
+
+.editor-grid-2cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.image-preview-box-16-10 {
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  overflow: hidden;
+  background-color: var(--bg-subtle, #F1F5F9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.image-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.price-live-calculator-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.8125rem;
+  color: #475569;
+  margin-top: 8px;
+}
+
+.badges-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.badge-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: #0F172A;
+  cursor: pointer;
+  background: #F1F5F9;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid #E2E8F0;
+}
+
+/* ==========================================================================
+   7. MODAL MAPA VECTORIAL DEL AVIÓN (FUSELAJE + SILLAS VIP Y ECONOMY)
+   ========================================================================== */
+.modal-card-cabin {
+  width: 920px;
+  max-width: 100%;
+  padding: 28px;
+}
+
+.cabin-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+}
+
+.cabin-flight-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+}
+
+.cabin-flight-route {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #475569);
+}
+
+.retention-timer-badge {
+  background-color: #FEF3C7;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cabin-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+}
+
+/* Fuselaje Vectorial Completo */
+.airplane-fuselage-svg-wrap {
+  background-color: #F8FAFC;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 24px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.airplane-nose-svg {
+  width: 120px;
+  height: 50px;
+  margin-bottom: 10px;
+}
+
+.airplane-wings-emergency-exit {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #DC2626;
+  text-transform: uppercase;
+  border-top: 1px dashed #CBD5E1;
+  border-bottom: 1px dashed #CBD5E1;
+  margin: 12px 0;
+}
+
+.cabin-rows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.cabin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.row-num-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted, #94A3B8);
+  width: 24px;
+  text-align: center;
+}
+
+.seat-group {
+  display: flex;
+  gap: 8px;
+}
+
+.seat-aisle-space {
+  width: 28px;
+  text-align: center;
+  font-size: 0.625rem;
+  color: #CBD5E1;
+  user-select: none;
+}
+
+/* Poltrona VIP Vectorial */
+.seat-vip-btn {
+  width: 44px;
+  height: 46px;
+  border-radius: 8px;
+  border: 2px solid #3B82F6;
+  background: #EFF6FF;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1E40AF;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+
+.seat-vip-btn::after {
+  content: 'VIP';
+  font-size: 0.5625rem;
+  color: #3B82F6;
+  font-weight: 800;
+}
+
+.seat-vip-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  border-color: #1D4ED8;
+}
+
+.seat-vip-btn.selected {
+  background-color: #1E3A8A;
+  color: #FFFFFF;
+  border-color: #1E3A8A;
+}
+
+.seat-vip-btn.selected::after {
+  color: #93C5FD;
+}
+
+/* Silla Turista Vectorial */
+.seat-eco-btn {
+  width: 36px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong, #CBD5E1);
+  background: var(--bg-surface, #FFFFFF);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary, #0F172A);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+
+.seat-eco-btn:hover:not(:disabled) {
+  border-color: #0F172A;
+  background-color: #F8FAFC;
+  transform: scale(1.06);
+}
+
+.seat-eco-btn.selected {
+  background-color: #0F172A;
+  color: #FFFFFF;
+  border-color: #0F172A;
+}
+
+.seat-eco-btn:disabled,
+.seat-vip-btn:disabled,
+.seat-occupied {
+  background-color: #E2E8F0 !important;
+  border-color: #CBD5E1 !important;
+  color: #94A3B8 !important;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ==========================================================================
+   8. SIMULADOR PASARELA DE PAGOS (TARJETA, PSE, NEQUI)
+   ========================================================================== */
+.checkout-payment-methods-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.pay-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pay-tab-btn.active {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Tarjeta de Crédito Vectorial Interactiva */
+.credit-card-preview-interactive {
+  width: 100%;
+  aspect-ratio: 1.58 / 1;
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  border-radius: 14px;
+  padding: 18px;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-chip-svg {
+  width: 32px;
+  height: 24px;
+}
+
+.card-brand-logo-svg {
+  width: 44px;
+  height: 26px;
+}
+
+.card-number-display {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+}
+
+.card-meta-bottom {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+}
+
+/* PSE & Nequi */
+.pse-bank-select,
+.nequi-input {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  padding: 0 12px;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.nequi-push-simulator-banner {
+  background: #FEF9C3;
+  border: 1px solid #FDE047;
+  color: #854D0E;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  margin-top: 10px;
+  display: none;
+  text-align: center;
+}
+
+/* ==========================================================================
+   9. PASE DE ABORDAR CON TROQUEL Y CÓDIGO DE BARRAS
+   ========================================================================== */
+.boarding-pass-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.pass-header {
+  background-color: #0F172A;
+  color: #FFFFFF;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pass-brand-text {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pass-status-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pass-status-pill.status-abordado {
+  background-color: #10B981;
+  color: #FFFFFF;
+}
+
+.pass-body {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.pass-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pass-field-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted, #94A3B8);
+  text-transform: uppercase;
+}
+
+.pass-field-val {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+}
+
+.pass-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px dashed var(--border-subtle, #E2E8F0);
+  padding-left: 20px;
+}
+
+.qr-code-svg {
+  width: 90px;
+  height: 90px;
+}
+
+/* Troquel Perforado */
+.pass-cut-line {
+  position: relative;
+  border-top: 2px dashed #E2E8F0;
+  margin: 12px 0 0;
+}
+
+.pass-cut-line::before,
+.pass-cut-line::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-app, #F8FAFC);
+}
+
+.pass-cut-line::before { left: -10px; }
+.pass-cut-line::after { right: -10px; }
+
+/* Código de Barras Vectorial */
+.barcode-svg-container {
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #FFFFFF;
+}
+
+.barcode-svg {
+  width: 100%;
+  max-width: 280px;
+  height: 38px;
+}
+
+.pass-actions-footer {
+  padding: 14px 20px;
+  background-color: var(--bg-subtle, #F1F5F9);
+  border-top: 1px solid var(--border-subtle, #E2E8F0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-board-flight {
+  background-color: #10B981;
+  color: #FFFFFF;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn-board-flight:hover {
+  opacity: 0.92;
+}
+
+.btn-board-flight:active {
+  transform: scale(0.98);
+}
+
+.btn-board-flight.boarded {
+  background-color: var(--bg-surface, #FFFFFF);
+  border: 1px solid #10B981;
+  color: #10B981;
+  cursor: default;
+}
+
+/* ==========================================================================
+   10. MODAL GENÉRICO OVERLAY
    ========================================================================== */
 .modal-overlay {
   position: fixed;
@@ -835,7 +1447,6 @@ body {
   background-color: var(--bg-subtle, #F1F5F9);
 }
 
-/* Modal Login Card */
 .modal-card-login {
   width: 440px;
   max-width: 100%;
@@ -867,7 +1478,6 @@ body {
   margin-top: 4px;
 }
 
-/* Role Selector Tabs (Only 2 Roles: Pasajero & Admin) */
 .login-role-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -899,7 +1509,6 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-/* Demo Quick Autofill Buttons */
 .demo-autofill-row {
   display: flex;
   gap: 10px;
@@ -972,7 +1581,8 @@ body {
   padding: 4px;
 }
 
-.btn-submit-login {
+.btn-submit-login,
+.btn-save-flight-admin {
   width: 100%;
   height: 48px;
   background-color: #0F172A;
@@ -986,7 +1596,8 @@ body {
   transition: opacity 0.15s;
 }
 
-.btn-submit-login:hover {
+.btn-submit-login:hover,
+.btn-save-flight-admin:hover {
   opacity: 0.92;
 }
 
@@ -1002,457 +1613,7 @@ body {
 }
 
 /* ==========================================================================
-   7. MODAL MAPA DE CABINA A320 Y CHECKOUT
-   ========================================================================== */
-.modal-card-cabin {
-  width: 840px;
-  max-width: 100%;
-  padding: 28px;
-}
-
-.cabin-header-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-}
-
-.cabin-flight-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-}
-
-.cabin-flight-route {
-  font-size: 0.875rem;
-  color: var(--text-secondary, #475569);
-}
-
-.retention-timer-badge {
-  background-color: #FEF3C7;
-  border: 1px solid #FDE68A;
-  color: #92400E;
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cabin-layout-grid {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 28px;
-}
-
-/* Fuselaje A320 */
-.fuselage-container {
-  background-color: var(--bg-subtle, #F1F5F9);
-  border: 1px solid var(--border-subtle, #E2E8F0);
-  border-radius: 16px;
-  padding: 24px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.cockpit-indicator {
-  width: 80px;
-  height: 20px;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  border: 2px solid var(--border-strong, #CBD5E1);
-  border-bottom: none;
-  margin-bottom: 20px;
-}
-
-.cabin-rows-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  max-width: 320px;
-}
-
-.cabin-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.row-num-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted, #94A3B8);
-  width: 24px;
-  text-align: center;
-}
-
-.seat-group {
-  display: flex;
-  gap: 8px;
-}
-
-.seat-aisle-space {
-  width: 24px;
-}
-
-.seat-btn {
-  width: 34px;
-  height: 36px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong, #CBD5E1);
-  background: var(--bg-surface, #FFFFFF);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-primary, #0F172A);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.12s;
-}
-
-.seat-btn:hover:not(:disabled) {
-  border-color: #0F172A;
-  background-color: #F8FAFC;
-}
-
-.seat-btn.selected {
-  background-color: #0F172A;
-  color: #FFFFFF;
-  border-color: #0F172A;
-}
-
-.seat-btn:disabled,
-.seat-btn.occupied {
-  background-color: #E2E8F0;
-  border-color: #CBD5E1;
-  color: #94A3B8;
-  cursor: not-allowed;
-}
-
-/* Panel Desglose Financiero */
-.checkout-summary-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.summary-card-inner {
-  background-color: var(--bg-subtle, #F1F5F9);
-  border-radius: 14px;
-  padding: 18px;
-}
-
-.summary-title {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-  margin-bottom: 12px;
-}
-
-.breakdown-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8125rem;
-  color: var(--text-secondary, #475569);
-  margin-bottom: 6px;
-}
-
-.breakdown-total {
-  display: flex;
-  justify-content: space-between;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-  padding-top: 10px;
-  margin-top: 10px;
-  border-top: 1px solid var(--border-subtle, #E2E8F0);
-}
-
-.btn-confirm-pay {
-  background-color: #0F172A;
-  color: #FFFFFF;
-  border: none;
-  border-radius: 10px;
-  height: 48px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.btn-confirm-pay:hover {
-  opacity: 0.92;
-}
-
-.btn-confirm-pay:active {
-  transform: scale(0.98);
-}
-
-/* ==========================================================================
-   8. MODAL MIS RESERVAS Y PASE DE ABORDAR
-   ========================================================================== */
-.modal-card-reservas {
-  width: 620px;
-  max-width: 100%;
-  padding: 28px;
-}
-
-.reservas-header-title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-  margin-bottom: 4px;
-}
-
-.reservas-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary, #475569);
-  margin-bottom: 20px;
-}
-
-.boarding-pass-card {
-  background: var(--bg-surface, #FFFFFF);
-  border: 1px solid var(--border-subtle, #E2E8F0);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
-  margin-bottom: 20px;
-}
-
-.pass-header {
-  background-color: #0F172A;
-  color: #FFFFFF;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pass-brand-text {
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.pass-status-pill {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.pass-status-pill.status-abordado {
-  background-color: #10B981;
-  color: #FFFFFF;
-}
-
-.pass-body {
-  padding: 20px;
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  align-items: center;
-}
-
-.pass-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.pass-field-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted, #94A3B8);
-  text-transform: uppercase;
-}
-
-.pass-field-val {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-}
-
-.pass-qr-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px dashed var(--border-subtle, #E2E8F0);
-  padding-left: 20px;
-}
-
-.qr-code-svg {
-  width: 90px;
-  height: 90px;
-}
-
-.pass-actions-footer {
-  padding: 14px 20px;
-  background-color: var(--bg-subtle, #F1F5F9);
-  border-top: 1px solid var(--border-subtle, #E2E8F0);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.btn-board-flight {
-  background-color: #10B981;
-  color: #FFFFFF;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.btn-board-flight:hover {
-  opacity: 0.92;
-}
-
-.btn-board-flight:active {
-  transform: scale(0.98);
-}
-
-.btn-board-flight.boarded {
-  background-color: var(--bg-surface, #FFFFFF);
-  border: 1px solid #10B981;
-  color: #10B981;
-  cursor: default;
-}
-
-/* ==========================================================================
-   9. MODAL PANEL DE ADMINISTRACIÓN (Exclusivo Administrador)
-   ========================================================================== */
-.modal-card-admin {
-  width: 960px;
-  max-width: 100%;
-  padding: 32px;
-}
-
-.admin-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.admin-title-h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-}
-
-.admin-tabs-nav {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-  margin-bottom: 24px;
-}
-
-.admin-tab-btn {
-  background: none;
-  border: none;
-  padding: 10px 18px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary, #475569);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-}
-
-.admin-tab-btn.active {
-  color: #0F172A;
-  border-bottom-color: #0F172A;
-}
-
-.admin-tab-content {
-  display: none;
-}
-
-.admin-tab-content.active {
-  display: block;
-}
-
-/* Tablas Admin */
-.admin-table-wrapper {
-  border: 1px solid var(--border-subtle, #E2E8F0);
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-
-.admin-data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-  text-align: left;
-}
-
-.admin-data-table th {
-  background-color: var(--bg-subtle, #F1F5F9);
-  padding: 12px 16px;
-  font-weight: 600;
-  color: var(--text-secondary, #475569);
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-}
-
-.admin-data-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-  color: var(--text-primary, #0F172A);
-}
-
-.admin-data-table tr:last-child td {
-  border-bottom: none;
-}
-
-.btn-admin-action {
-  background: var(--bg-subtle, #F1F5F9);
-  border: 1px solid var(--border-subtle, #E2E8F0);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-admin-action:hover {
-  background: #0F172A;
-  color: #FFFFFF;
-}
-
-.btn-admin-danger {
-  color: #EF4444;
-}
-
-.btn-admin-danger:hover {
-  background: #EF4444;
-  color: #FFFFFF;
-  border-color: #EF4444;
-}
-
-/* ==========================================================================
-   10. RESPONSIVE MEDIA QUERIES
+   11. RESPONSIVE MEDIA QUERIES
    ========================================================================== */
 @media (max-width: 1024px) {
   .search-inputs-row {
@@ -1466,6 +1627,9 @@ body {
     width: 90%;
   }
   .cabin-layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .editor-grid-2cols {
     grid-template-columns: 1fr;
   }
 }

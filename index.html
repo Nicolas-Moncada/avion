@@ -153,7 +153,7 @@
           </button>
         </div>
 
-        <!-- POPOVER CALENDARIO TARIFARIO (¿Cuándo quieres volar?) -->
+        <!-- POPOVER CALENDARIO TARIFARIO (¿Cuando quieres volar?) -->
         <div class="fare-calendar-popover" id="fare-calendar-popover" role="dialog" aria-label="Selector de fechas con tarifas">
           <div class="calendar-top-bar">
             <span class="calendar-headline">¿Cuando quieres volar?</span>
@@ -182,35 +182,46 @@
       </div>
     </section>
 
-    <!-- SECCIÓN DE OFERTAS Y GRID EN 3 COLUMNAS -->
+    <!-- SECCION DE OFERTAS Y GRID EN 3 COLUMNAS -->
     <section class="offers-catalog-section" id="catalog-offers-section">
-      <div class="catalog-header-area">
-        <h2 class="catalog-title">Descubre las mejores ofertas</h2>
+      <div class="catalog-header-area" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;">
+        <div>
+          <h2 class="catalog-title">Descubre las mejores ofertas</h2>
 
-        <!-- Barra de Filtros Rápidos por Categoría -->
-        <div class="category-filter-bar" role="tablist">
-          <button type="button" class="category-filter-pill active" data-cat="todos" onclick="AeroMinimalUI.filtrarPorCategoria('todos')">
-            Todos los vuelos
-          </button>
-          <button type="button" class="category-filter-pill" data-cat="oferta" onclick="AeroMinimalUI.filtrarPorCategoria('oferta')">
-            En oferta
-          </button>
-          <button type="button" class="category-filter-pill" data-cat="playa" onclick="AeroMinimalUI.filtrarPorCategoria('playa')">
-            Destinos playeros
-          </button>
-          <button type="button" class="category-filter-pill" data-cat="ciudad" onclick="AeroMinimalUI.filtrarPorCategoria('ciudad')">
-            Aventuras urbanas
-          </button>
-          <button type="button" class="category-filter-pill" data-cat="nocturna" onclick="AeroMinimalUI.filtrarPorCategoria('nocturna')">
-            Vida nocturna
-          </button>
-          <button type="button" class="category-filter-pill" data-cat="naturaleza" onclick="AeroMinimalUI.filtrarPorCategoria('naturaleza')">
-            Retiros naturales
-          </button>
+          <!-- Barra de Filtros Rapidos por Categoria -->
+          <div class="category-filter-bar" role="tablist">
+            <button type="button" class="category-filter-pill active" data-cat="todos" onclick="AeroMinimalUI.filtrarPorCategoria('todos')">
+              Todos los vuelos
+            </button>
+            <button type="button" class="category-filter-pill" data-cat="oferta" onclick="AeroMinimalUI.filtrarPorCategoria('oferta')">
+              En oferta
+            </button>
+            <button type="button" class="category-filter-pill" data-cat="playa" onclick="AeroMinimalUI.filtrarPorCategoria('playa')">
+              Destinos playeros
+            </button>
+            <button type="button" class="category-filter-pill" data-cat="ciudad" onclick="AeroMinimalUI.filtrarPorCategoria('ciudad')">
+              Aventuras urbanas
+            </button>
+            <button type="button" class="category-filter-pill" data-cat="nocturna" onclick="AeroMinimalUI.filtrarPorCategoria('nocturna')">
+              Vida nocturna
+            </button>
+            <button type="button" class="category-filter-pill" data-cat="naturaleza" onclick="AeroMinimalUI.filtrarPorCategoria('naturaleza')">
+              Retiros naturales
+            </button>
+          </div>
         </div>
+
+        <!-- Boton Superior de Crear Vuelo (Admin) -->
+        <button type="button" class="btn-crear-vuelo-admin-top" id="btn-admin-top-create" onclick="AeroMinimalUI.abrirEditorVuelo(null)" style="display:none;background:#0F172A;color:#FFFFFF;border:none;border-radius:9999px;padding:10px 20px;font-size:0.875rem;font-weight:600;cursor:pointer;align-items:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Nuevo vuelo</span>
+        </button>
       </div>
 
-      <!-- Cuadrícula de Tarjetas en 3 Columnas -->
+      <!-- Cuadricula de Tarjetas en 3 Columnas -->
       <div class="offers-grid-container" id="offers-cards-grid">
         <!-- Generado dinamicamente desde /api/vuelos -->
       </div>
@@ -222,7 +233,7 @@
   <!-- 3. MODALES CON BACKDROP BLUR                                     -->
   <!-- ================================================================ -->
 
-  <!-- MODAL DE LOGIN CONDICIONAL (2 ROLES ÚNICAMENTE) -->
+  <!-- MODAL DE LOGIN CONDICIONAL (2 ROLES UNICAMENTE) -->
   <div class="modal-overlay" id="modal-login-auth" role="dialog" aria-labelledby="login-title-h2">
     <div class="modal-card modal-card-login">
       <button type="button" class="modal-close-btn" onclick="AeroAuth.cerrarLoginModal()" aria-label="Cerrar modal">
@@ -241,7 +252,7 @@
         <p class="login-modal-desc">Ingresa para seleccionar tu silla y gestionar tu reserva</p>
       </div>
 
-      <!-- Pestañas de Rol (Solo 2 Roles) -->
+      <!-- Pestanas de Rol (Solo 2 Roles) -->
       <div class="login-role-tabs" role="tablist">
         <button type="button" class="role-tab-btn active" data-role="pasajero" onclick="AeroAuth.seleccionarTabLogin('pasajero')">
           <span class="role-indicator-dot dot-pasajero"></span>
@@ -253,7 +264,7 @@
         </button>
       </div>
 
-      <!-- Botones de Autofill Rápido Demo -->
+      <!-- Botones de Autofill Rapido Demo -->
       <div class="demo-autofill-row">
         <button type="button" class="btn-autofill-demo" onclick="AeroAuth.autofillDemo('pasajero')">
           Pasajero Demo
@@ -280,7 +291,7 @@
             <button type="button" class="input-icon-btn" onclick="AeroAuth.togglePasswordVisibility()" title="Mostrar/ocultar clave">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="7" r="3"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
               </svg>
             </button>
           </div>
@@ -293,7 +304,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE MAPA DE CABINA AIRBUS A320 Y CHECKOUT -->
+  <!-- MODAL DE MAPA DE CABINA VECTORIAL Y CHECKOUT MULTIMETODO -->
   <div class="modal-overlay" id="modal-cabin-map" role="dialog" aria-labelledby="cabin-modal-title">
     <div class="modal-card modal-card-cabin">
       <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarMapaCabina()" aria-label="Cerrar modal">
@@ -305,7 +316,7 @@
 
       <div class="cabin-header-flex">
         <div>
-          <h2 class="cabin-flight-title" id="cabin-modal-title">Mapa de Cabina — Airbus A320</h2>
+          <h2 class="cabin-flight-title" id="cabin-modal-title">Mapa de Cabina — Airbus A320neo</h2>
           <p class="cabin-flight-route" id="cabin-modal-route">Bogota -> Medellin</p>
         </div>
         <div class="retention-timer-badge">
@@ -318,20 +329,40 @@
       </div>
 
       <div class="cabin-layout-grid">
-        <!-- Fuselaje Interactivo -->
-        <div class="fuselage-container">
-          <div class="cockpit-indicator" title="Cabina de mando"></div>
+        <!-- Fuselaje Interactivo Vectorial -->
+        <div class="airplane-fuselage-svg-wrap">
+          <!-- Nariz / Cockpit Vectorial -->
+          <svg class="airplane-nose-svg" viewBox="0 0 120 50" fill="none">
+            <path d="M10 50 C10 15, 40 5, 60 5 C80 5, 110 15, 110 50" stroke="#CBD5E1" stroke-width="2" fill="#FFFFFF"/>
+            <path d="M45 35 C50 25, 70 25, 75 35" stroke="#94A3B8" stroke-width="1.5" fill="#F1F5F9"/>
+          </svg>
+
+          <!-- Indicador Cabina VIP -->
+          <div style="font-size:0.6875rem;font-weight:700;color:#3B82F6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
+            Cabina Ejecutiva VIP
+          </div>
+
+          <!-- Filas de Asientos -->
           <div class="cabin-rows-list" id="fuselage-rows-list">
-            <!-- Generado dinamicamente por AeroMinimalUI -->
+            <!-- Inyectado dinamicamente segun la aeronave -->
+          </div>
+
+          <!-- Salida de Emergencia Vectorial -->
+          <div class="airplane-wings-emergency-exit">
+            <span>Salida Emergencia</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.5">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Salida Emergencia</span>
           </div>
         </div>
 
-        <!-- Desglose Financiero en Enteros COP -->
+        <!-- Panel de Checkout y Simulador de Pagos -->
         <div class="checkout-summary-panel">
           <div class="summary-card-inner">
             <h3 class="summary-title">Resumen de Tarifa</h3>
             <div class="breakdown-row">
-              <span>Tarifa Base</span>
+              <span id="label-tarifa-base">Tarifa Base</span>
               <span class="tabular-nums" id="summary-base-cop">COP 71.810</span>
             </div>
             <div class="breakdown-row">
@@ -353,28 +384,116 @@
           </div>
 
           <!-- Datos de Pasajero -->
-          <div class="form-group-minimal">
-            <label class="form-label-minimal" for="passenger-doc-input">Documento de Identidad</label>
-            <input type="text" class="form-input-minimal" id="passenger-doc-input" value="101829384" placeholder="CC / Pasaporte">
-          </div>
-          <div class="form-group-minimal">
-            <label class="form-label-minimal" for="passenger-name-input">Nombre Completo</label>
-            <input type="text" class="form-input-minimal" id="passenger-name-input" value="Carlos Alberto Mendoza" placeholder="Nombre y apellido">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div class="form-group-minimal" style="margin-bottom:0;">
+              <label class="form-label-minimal" for="passenger-doc-input">Documento</label>
+              <input type="text" class="form-input-minimal" id="passenger-doc-input" value="101829384" placeholder="CC / Pasaporte">
+            </div>
+            <div class="form-group-minimal" style="margin-bottom:0;">
+              <label class="form-label-minimal" for="passenger-name-input">Nombre Completo</label>
+              <input type="text" class="form-input-minimal" id="passenger-name-input" value="Carlos Alberto Mendoza" placeholder="Nombre">
+            </div>
           </div>
 
-          <button type="button" class="btn-confirm-pay" onclick="AeroMinimalUI.procesarPagoReserva()">
+          <!-- Pestanas Simulador de Pago -->
+          <div class="checkout-payment-methods-tabs" role="tablist">
+            <button type="button" class="pay-tab-btn active" data-pay="card" onclick="AeroMinimalUI.alternarMetodoPago('card')">
+              Tarjeta
+            </button>
+            <button type="button" class="pay-tab-btn" data-pay="pse" onclick="AeroMinimalUI.alternarMetodoPago('pse')">
+              PSE
+            </button>
+            <button type="button" class="pay-tab-btn" data-pay="nequi" onclick="AeroMinimalUI.alternarMetodoPago('nequi')">
+              Nequi
+            </button>
+          </div>
+
+          <!-- Panel 1: Tarjeta Vectorial Interactiva -->
+          <div class="pay-content-panel active" id="pay-panel-card">
+            <div class="credit-card-preview-interactive">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <svg class="card-chip-svg" viewBox="0 0 32 24" fill="none">
+                  <rect width="32" height="24" rx="4" fill="#D4AF37"/>
+                  <line x1="0" y1="12" x2="32" y2="12" stroke="#996515" stroke-width="1"/>
+                  <line x1="16" y1="0" x2="16" y2="24" stroke="#996515" stroke-width="1"/>
+                  <rect x="8" y="5" width="16" height="14" rx="2" stroke="#996515" stroke-width="1" fill="none"/>
+                </svg>
+                <span style="font-weight:700;font-size:0.875rem;letter-spacing:0.05em;color:#93C5FD;">AERO FLOW</span>
+              </div>
+              <div class="card-number-display" id="cc-preview-number">•••• •••• •••• 8910</div>
+              <div class="card-meta-bottom">
+                <div>
+                  <div style="font-size:0.5625rem;color:#94A3B8;">TITULAR</div>
+                  <div style="font-weight:600;letter-spacing:0.05em;" id="cc-preview-name">CARLOS MENDOZA</div>
+                </div>
+                <div>
+                  <div style="font-size:0.5625rem;color:#94A3B8;">VENCE</div>
+                  <div style="font-weight:600;" id="cc-preview-exp">12/28</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group-minimal">
+              <label class="form-label-minimal" for="card-number-input">Numero de Tarjeta</label>
+              <input type="text" class="form-input-minimal tabular-nums" id="card-number-input" placeholder="4532 0123 4567 8910" value="4532 0123 4567 8910" maxlength="19" oninput="AeroMinimalUI.alCambiarTarjetaCredito()">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group-minimal">
+                <label class="form-label-minimal" for="card-exp-input">Vencimiento</label>
+                <input type="text" class="form-input-minimal" id="card-exp-input" placeholder="MM/AA" maxlength="5" value="12/28" oninput="AeroMinimalUI.alCambiarTarjetaCredito()">
+              </div>
+              <div class="form-group-minimal">
+                <label class="form-label-minimal" for="card-cvv-input">CVV</label>
+                <input type="password" class="form-input-minimal" id="card-cvv-input" placeholder="•••" maxlength="4" value="123">
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 2: PSE -->
+          <div class="pay-content-panel" id="pay-panel-pse" style="display:none;">
+            <div class="form-group-minimal">
+              <label class="form-label-minimal" for="pse-bank-select">Banco para Transferencia</label>
+              <select class="form-input-minimal pse-bank-select" id="pse-bank-select">
+                <option value="bancolombia">Bancolombia</option>
+                <option value="bogota">Banco de Bogota</option>
+                <option value="davivienda">Davivienda</option>
+                <option value="bbva">BBVA Colombia</option>
+                <option value="scotiabank">Scotiabank Colpatria</option>
+                <option value="agrario">Banco Agrario</option>
+                <option value="nequi_pse">Nequi (PSE)</option>
+                <option value="dale">Dale!</option>
+              </select>
+            </div>
+            <div class="form-group-minimal">
+              <label class="form-label-minimal" for="pse-doc-number">Documento del Pagador</label>
+              <input type="text" class="form-input-minimal" id="pse-doc-number" value="101829384" placeholder="Numero de Cedula">
+            </div>
+          </div>
+
+          <!-- Panel 3: Nequi -->
+          <div class="pay-content-panel" id="pay-panel-nequi" style="display:none;">
+            <div class="form-group-minimal">
+              <label class="form-label-minimal" for="nequi-phone-number">Celular Registrado en Nequi</label>
+              <input type="tel" class="form-input-minimal nequi-input" id="nequi-phone-number" value="310 987 6543" placeholder="300 000 0000" oninput="AeroMinimalUI.alCambiarCelularNequi()">
+            </div>
+            <div class="nequi-push-simulator-banner" id="nequi-push-banner" style="display:block;">
+              Notificacion Push simulada lista: Al presionar pagar, autoriza la transaccion en tu app Nequi.
+            </div>
+          </div>
+
+          <button type="button" class="btn-confirm-pay" onclick="AeroMinimalUI.procesarPagoReserva()" style="margin-top:12px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
               <line x1="1" y1="10" x2="23" y2="10"></line>
             </svg>
-            <span id="btn-confirmar-pago-text">Pagar y Confirmar</span>
+            <span id="btn-confirmar-pago-text">Pagar COP 288.454 y Confirmar</span>
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL MIS RESERVAS Y PASE DE ABORDAR -->
+  <!-- MODAL MIS RESERVAS Y PASE DE ABORDAR CON BARCODE Y ABORDAJE SONORO -->
   <div class="modal-overlay" id="modal-mis-reservas" role="dialog" aria-labelledby="reservas-modal-title">
     <div class="modal-card modal-card-reservas">
       <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalMisReservas()" aria-label="Cerrar modal">
@@ -385,7 +504,7 @@
       </button>
 
       <h2 class="reservas-header-title" id="reservas-modal-title">Mis Reservas y Tiquetes</h2>
-      <p class="reservas-subtitle">Pases de abordar emitidos con codigo QR y control de abordaje en rampa</p>
+      <p class="reservas-subtitle">Pases de abordar emitidos con codigo QR, codigo de barras y control de abordaje en rampa</p>
 
       <div id="boarding-passes-container">
         <!-- Renderizado dinamicamente -->
@@ -393,7 +512,147 @@
     </div>
   </div>
 
-  <!-- MODAL CONSOLA DE ADMINISTRACIÓN (EXCLUSIVO ADMINISTRADOR) -->
+  <!-- MODAL GESTOR Y EDITOR DE VUELOS (ADMINISTRADOR) -->
+  <div class="modal-overlay" id="modal-admin-editor-vuelo" role="dialog" aria-labelledby="editor-flight-modal-title">
+    <div class="modal-card modal-card-flight-editor">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarEditorVuelo()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="admin-header-row" style="margin-bottom: 20px;">
+        <h2 class="admin-title-h2" id="editor-flight-modal-title">Editar Vuelo y Oferta</h2>
+        <span class="pass-status-pill" id="editor-mode-badge" style="background:#0F172A;color:#FFFFFF;">Modo Edicion</span>
+      </div>
+
+      <form id="form-admin-flight-editor" onsubmit="event.preventDefault(); AeroMinimalUI.guardarVueloAdmin();">
+        <input type="hidden" id="editor-is-new-flight" value="0">
+        
+        <div class="editor-grid-2cols">
+          <!-- Codigo de Vuelo -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-code">Codigo de Vuelo</label>
+            <input type="text" class="form-input-minimal" id="editor-flight-code" placeholder="p.ej. AF2025" required>
+          </div>
+
+          <!-- Aeronave -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-aeronave">Aeronave (Flota Oficial)</label>
+            <select class="form-input-minimal" id="editor-flight-aeronave" onchange="AeroMinimalUI.alCambiarAeronaveEditor()">
+              <option value="Airbus A320neo">Airbus A320neo (36 sillas)</option>
+              <option value="Airbus A350-900 XWB">Airbus A350-900 XWB (80 sillas)</option>
+              <option value="Boeing 787-9 Dreamliner">Boeing 787-9 Dreamliner (64 sillas)</option>
+              <option value="Airbus A319 Corporate">Airbus A319 Corporate (26 sillas)</option>
+              <option value="Boeing 737 MAX 8">Boeing 737 MAX 8 (48 sillas)</option>
+              <option value="Embraer Praetor 600 Regional">Embraer Praetor 600 (12 sillas)</option>
+              <option value="Boeing 777-300ER Flagship">Boeing 777-300ER (100 sillas)</option>
+            </select>
+          </div>
+
+          <!-- Origen -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-origen">Ciudad de Origen</label>
+            <input type="text" class="form-input-minimal" id="editor-flight-origen" placeholder="BOG - Bogota El Dorado" required>
+          </div>
+
+          <!-- Destino -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-destino">Ciudad de Destino</label>
+            <input type="text" class="form-input-minimal" id="editor-flight-destino" placeholder="MDE - Medellin" required>
+          </div>
+
+          <!-- Precio Base COP -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-price">Tarifa Base (COP)</label>
+            <input type="number" class="form-input-minimal tabular-nums" id="editor-flight-price" min="10000" step="500" value="71810" required oninput="AeroMinimalUI.actualizarCalculoTarifaEditor()">
+            <div class="price-live-calculator-box" id="editor-price-breakdown">
+              Base: COP 71.810 + Admin: COP 45.000 + Tasa: COP 158.000 + IVA (19%): COP 13.644 = <strong>Total: COP 288.454</strong>
+            </div>
+          </div>
+
+          <!-- Categoria -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-categoria">Categoria de Destino</label>
+            <select class="form-input-minimal" id="editor-flight-categoria">
+              <option value="playa">Destinos playeros</option>
+              <option value="ciudad">Aventuras urbanas</option>
+              <option value="nocturna">Vida nocturna</option>
+              <option value="naturaleza">Retiros naturales</option>
+            </select>
+          </div>
+
+          <!-- Fecha Salida -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-date">Fecha de Salida</label>
+            <input type="date" class="form-input-minimal" id="editor-flight-date" value="2026-12-01" required>
+          </div>
+
+          <!-- Hora Salida -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-time">Hora de Salida</label>
+            <input type="text" class="form-input-minimal" id="editor-flight-time" value="08:30 AM" placeholder="08:30 AM" required>
+          </div>
+
+          <!-- Puerta -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-gate">Puerta de Embarque</label>
+            <input type="text" class="form-input-minimal" id="editor-flight-gate" value="B-03" placeholder="B-03" required>
+          </div>
+
+          <!-- Estado Operacional -->
+          <div class="form-group-minimal">
+            <label class="form-label-minimal" for="editor-flight-status">Estado Operacional</label>
+            <select class="form-input-minimal" id="editor-flight-status">
+              <option value="Programado">Programado</option>
+              <option value="A Tiempo">A Tiempo</option>
+              <option value="Abordando">Abordando</option>
+              <option value="Retrasado">Retrasado</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Imagen del Destino (URL o Archivo Local) -->
+        <div class="form-group-minimal" style="margin-top: 14px;">
+          <label class="form-label-minimal">Fotografia de la Oferta (16:10)</label>
+          <div style="display:flex;gap:12px;margin-bottom:10px;">
+            <input type="text" class="form-input-minimal" id="editor-flight-image-url" placeholder="URL de la imagen (ej: /static/img/oferta-cali.jpg)" style="flex:2;" oninput="AeroMinimalUI.actualizarPreviewFoto(this.value)">
+            <label class="btn-autofill-demo" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;margin:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <span>Subir Foto</span>
+              <input type="file" id="editor-flight-image-file" accept="image/*" style="display:none;" onchange="AeroMinimalUI.cargarFotoArchivo(event)">
+            </label>
+          </div>
+          <div class="image-preview-box-16-10">
+            <img id="editor-flight-image-preview" src="/static/img/oferta-cali.jpg" alt="Vista previa 16:10" class="image-preview-img">
+          </div>
+        </div>
+
+        <!-- Etiqueta y Badges -->
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="editor-flight-tag">Etiqueta Principal</label>
+          <input type="text" class="form-input-minimal" id="editor-flight-tag" value="Recomendado para ti" placeholder="Recomendado para ti">
+        </div>
+
+        <button type="submit" class="btn-save-flight-admin" id="btn-save-flight-submit" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span id="editor-submit-btn-text">Guardar Vuelo en Base de Datos</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL CONSOLA DE ADMINISTRACION (EXCLUSIVO ADMINISTRADOR) -->
   <div class="modal-overlay" id="modal-panel-admin" role="dialog" aria-labelledby="admin-modal-title">
     <div class="modal-card modal-card-admin">
       <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarPanelAdmin()" aria-label="Cerrar modal">

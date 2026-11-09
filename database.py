@@ -613,7 +613,11 @@ def actualizar_vuelo_admin(codigo: str, datos: dict):
             cursor = conn.cursor()
             campos = []
             valores = []
-            cols_permitidas = ('imagen_url', 'precio_base_cop', 'categoria', 'tag_destacado', 'fecha_salida', 'hora_salida_12h', 'puerta', 'estado')
+            cols_permitidas = (
+                'origen', 'destino', 'tipo_aeronave', 'capacidad_maxima',
+                'imagen_url', 'precio_base_cop', 'categoria', 'tag_destacado',
+                'fecha_salida', 'hora_salida_12h', 'hora_llegada_12h', 'puerta', 'estado'
+            )
             for col in cols_permitidas:
                 if col in datos:
                     campos.append(f"{col} = ?")
@@ -622,6 +626,20 @@ def actualizar_vuelo_admin(codigo: str, datos: dict):
                 valores.append(str(codigo).strip().upper())
                 cursor.execute(f"UPDATE vuelos SET {', '.join(campos)} WHERE UPPER(codigo) = ?", valores)
                 conn.commit()
+    finally:
+        conn.close()
+
+def eliminar_vuelo_definitivo(codigo: str):
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cod = str(codigo).strip().upper()
+            cursor.execute("DELETE FROM cola_standby WHERE UPPER(vuelo_codigo) = ?", (cod,))
+            cursor.execute("DELETE FROM manifiesto WHERE UPPER(vuelo_codigo) = ?", (cod,))
+            cursor.execute("DELETE FROM ordenes WHERE UPPER(vuelo_codigo) = ?", (cod,))
+            cursor.execute("DELETE FROM vuelos WHERE UPPER(codigo) = ?", (cod,))
+            conn.commit()
     finally:
         conn.close()
 
