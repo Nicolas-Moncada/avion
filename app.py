@@ -10,8 +10,12 @@ import time
 import random
 import logging
 import threading
+import io
+import base64
+import uuid
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, g, send_from_directory
+from PIL import Image, ImageOps
 import config
 import database as db
 import validation
@@ -34,9 +38,68 @@ app = Flask(
 )
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
-app.config["MAX_CONTENT_LENGTH"] = config.MAX_BODY_BYTES
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB para aceptar fotos de alta resolución del admin
 # Conservar tildes y emojis en respuestas JSON
 app.json.ensure_ascii = False
+
+# Directorio para subida y procesamiento universal de imágenes (16:10)
+UPLOAD_FOLDER = os.path.join(config.BUNDLE_DIR, "static", "img", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def procesar_y_redimensionar_imagen_16_10(file_or_data, nombre_base="destino"):
+    """
+    Escalador y Normalizador Universal de Imágenes (Pillow):
+    1. Acepta cualquier formato (JPG, PNG, WebP, GIF, etc.) y resolución (hasta 4K/8K).
+    2. Convierte a RGB para neutralizar canales alfa y paletas indexadas.
+    3. Escala y recorta proporcionalmente a relación 16:10 exacta (1280x800 px) mediante ImageOps.fit.
+    4. Comprime a JPEG optimizado (calidad 85, peso objetivo < 300 KB).
+    5. Guarda en static/img/uploads/ y retorna la URL web relativa.
+    """
+    try:
+        raw_img = None
+        if isinstance(file_or_data, str) and file_or_data.startswith("data:image"):
+            # Base64 Data URI
+            _, b64data = file_or_data.split(",", 1)
+            raw_bytes = base64.b64decode(b64data)
+            raw_img = Image.open(io.BytesIO(raw_bytes))
+        elif hasattr(file_or_data, "read"):
+            # FileStorage o stream de Flask
+            raw_img = Image.open(file_or_data)
+        elif isinstance(file_or_data, bytes):
+            raw_img = Image.open(io.BytesIO(file_or_data))
+
+        if not raw_img:
+            return None
+
+        # Neutralizar transparencias sobre lienzo blanco sólido
+        if raw_img.mode in ("RGBA", "LA", "P"):
+            canvas = Image.new("RGB", raw_img.size, (255, 255, 255))
+            if raw_img.mode == "P":
+                raw_img = raw_img.convert("RGBA")
+            canvas.paste(raw_img, mask=raw_img.split()[-1] if raw_img.mode == "RGBA" else None)
+            raw_img = canvas
+        elif raw_img.mode != "RGB":
+            raw_img = raw_img.convert("RGB")
+
+        # Proporción exacta 16:10 (1280 x 800) con filtro de alta calidad LANCZOS y centrado automático
+        img_16_10 = ImageOps.fit(
+            raw_img,
+            (1280, 800),
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5),
+        )
+
+        filename = f"{nombre_base}_{int(time.time())}_{uuid.uuid4().hex[:8]}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        # Compresión JPEG optimizada
+        img_16_10.save(filepath, format="JPEG", quality=85, optimize=True)
+
+        return f"/static/img/uploads/{filename}"
+    except Exception as err:
+        logging.getLogger(__name__).error(f"Error procesando imagen universal: {err}")
+        return None
 
 # Inicializar Base de Datos (y semilla opcional por env)
 if config.AUTO_RESET_ON_START:
@@ -1610,7 +1673,7 @@ def abordar_pasajero_especifico(codigo):
         pasajero_doc=documento,
         pasajero_nombre=nombre,
         categoria="Estándar",
-        hora_ingreso=hora_actual_12h(),
+        hora_ingreso=ahora_12h(),
     )
 
     if documento:
@@ -1629,6 +1692,62 @@ def abordar_pasajero_especifico(codigo):
                 "estado": "Abordado",
             }
         ),
+        200,
+    )
+
+
+@app.route("/api/admin/upload-imagen", methods=["POST"])
+def api_admin_upload_imagen():
+    """
+    Endpoint del Procesador Universal de Imágenes de Destino (Admin):
+    Intercepta cualquier archivo o base64 (sin importar resolución o tamaño),
+    lo escala y recorta automáticamente a proporción 16:10 exacta (1280x800)
+    y lo comprime a JPEG ligero optimizado para carga web instantánea.
+    """
+    rol = (
+        (
+            request.headers.get("X-User-Role")
+            or (request.get_json(silent=True) or {}).get("usuario_rol")
+            or ""
+        )
+        .lower()
+        .strip()
+    )
+    if rol in ("pasajero", "anonimo") or not rol:
+        return (
+            jsonify({"error": "Acceso no autorizado: requiere rol Administrador o Integral"}),
+            403,
+        )
+
+    url_final = None
+    if "file" in request.files:
+        archivo = request.files["file"]
+        if archivo and archivo.filename != "":
+            url_final = procesar_y_redimensionar_imagen_16_10(archivo, "admin_upload")
+    elif request.is_json:
+        data = request.get_json(silent=True) or {}
+        b64 = data.get("imagen_base64") or data.get("imagen_url")
+        if b64 and str(b64).startswith("data:image"):
+            url_final = procesar_y_redimensionar_imagen_16_10(b64, "admin_upload")
+
+    if not url_final:
+        return (
+            jsonify({"error": "No se pudo procesar la imagen o el archivo no es un formato válido"}),
+            400,
+        )
+
+    full_path = os.path.join(config.BUNDLE_DIR, url_final.lstrip("/"))
+    peso_kb = round(os.path.getsize(full_path) / 1024, 1) if os.path.exists(full_path) else 0
+
+    return (
+        jsonify({
+            "exito": True,
+            "mensaje": "Fotografía procesada, adaptada a relación 16:10 y optimizada para web",
+            "url": url_final,
+            "ancho": 1280,
+            "alto": 800,
+            "peso_kb": peso_kb,
+        }),
         200,
     )
 
@@ -1666,6 +1785,12 @@ def api_admin_crear_vuelo():
     config_aero = obtener_configuracion_aeronave(tipo_aero)
     capacidad = int(data.get("capacidad_maxima") or config_aero.get("capacidad", 36))
 
+    raw_img = str(data.get("imagen_url", "/static/img/oferta-cali.jpg")).strip()
+    if raw_img.startswith("data:image"):
+        procesada = procesar_y_redimensionar_imagen_16_10(raw_img, f"vuelo_{codigo}")
+        if procesada:
+            raw_img = procesada
+
     vuelo_dict = {
         "codigo": codigo,
         "origen": origen,
@@ -1679,7 +1804,7 @@ def api_admin_crear_vuelo():
         "puerta": str(data.get("puerta", "B-01")),
         "capacidad_maxima": capacidad,
         "estado": str(data.get("estado", "Programado")),
-        "imagen_url": str(data.get("imagen_url", "/static/img/oferta-cali.jpg")),
+        "imagen_url": raw_img or "/static/img/oferta-cali.jpg",
         "precio_base_cop": int(data.get("precio_base_cop", 82000)),
         "categoria": str(data.get("categoria", "ciudad")),
         "tag_destacado": str(data.get("tag_destacado", "Recomendado para ti")),
@@ -1728,6 +1853,14 @@ def api_admin_editar_vuelo(codigo=None):
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
         return jsonify({"error": f"Vuelo {codigo} no encontrado"}), 404
+
+    # Interceptar imagen en base64 para normalizar a 16:10
+    if "imagen_url" in data:
+        raw_img = str(data["imagen_url"]).strip()
+        if raw_img.startswith("data:image"):
+            procesada = procesar_y_redimensionar_imagen_16_10(raw_img, f"vuelo_{codigo}")
+            if procesada:
+                data["imagen_url"] = procesada
 
     campos = (
         "origen",

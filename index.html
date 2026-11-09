@@ -494,19 +494,19 @@
         </svg>
       </button>
 
-      <!-- Barra de Pasos del Checkout (Stepper) -->
+      <!-- Barra de Pasos del Checkout (Stepper con Bloqueo Estricto) -->
       <div class="checkout-stepper-bar">
-        <div class="stepper-step active" id="step-nav-1">
+        <div class="stepper-step active" id="step-nav-1" onclick="AeroMinimalUI.intentarNavegarPaso(1)">
           <div class="stepper-num-circle">1</div>
           <span>Seleccion de Silla</span>
         </div>
         <div class="stepper-divider-line"></div>
-        <div class="stepper-step" id="step-nav-2">
+        <div class="stepper-step disabled" id="step-nav-2" onclick="AeroMinimalUI.intentarNavegarPaso(2)">
           <div class="stepper-num-circle">2</div>
           <span>Datos y Equipaje</span>
         </div>
         <div class="stepper-divider-line"></div>
-        <div class="stepper-step" id="step-nav-3">
+        <div class="stepper-step disabled" id="step-nav-3" onclick="AeroMinimalUI.intentarNavegarPaso(3)">
           <div class="stepper-num-circle">3</div>
           <span>Pasarela de Pago</span>
         </div>
@@ -553,15 +553,15 @@
               </button>
               <div class="category-accordion-body" id="acc-body-vip">
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Más espacio para tus piernas</span>
                 </div>
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Embarque y desembarque prioritario</span>
                 </div>
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Lugar exclusivo para tu equipaje</span>
                 </div>
               </div>
@@ -584,11 +584,11 @@
               </button>
               <div class="category-accordion-body" id="acc-body-forward" style="display:none;">
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Filas 6 a 10 con desembarque rápido</span>
                 </div>
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Desembarque más ágil al aterrizar</span>
                 </div>
               </div>
@@ -611,11 +611,11 @@
               </button>
               <div class="category-accordion-body" id="acc-body-emergency" style="display:none;">
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Mayor espacio para tus piernas (Fila 12 XL)</span>
                 </div>
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Disposición para colaborar en evacuación</span>
                 </div>
               </div>
@@ -638,11 +638,11 @@
               </button>
               <div class="category-accordion-body" id="acc-body-standard" style="display:none;">
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Asientos cómodos con ergonomía clásica</span>
                 </div>
                 <div class="benefit-check-item">
-                  <svg class="benefit-check-svg" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg class="benefit-check-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>Filas 13 a 30 con puerto de carga USB</span>
                 </div>
               </div>
@@ -712,17 +712,17 @@
                 <span>Estás seleccionando asiento para:</span>
               </div>
 
-              <!-- Tarjeta de Selección Actual -->
+              <!-- Tarjeta de Selección Actual (Estado Inicial Vacío) -->
               <div class="selected-seat-card" id="latam-selected-seat-card">
-                <div class="seat-badge-box" id="latam-seat-badge-box" style="background:#E11D48;">
-                  <span id="latam-seat-number-badge">5B</span>
+                <div class="seat-badge-box" id="latam-seat-badge-box" style="background:#94A3B8;">
+                  <span id="latam-seat-number-badge">--</span>
                 </div>
                 <div class="seat-info-middle">
-                  <span class="pax-name-label" id="latam-pax-name">Adulto 1</span>
-                  <span class="pax-seat-category" id="latam-pax-category" style="color:#E11D48;">AeroFlow+ | Medio</span>
+                  <span class="pax-name-label" id="latam-pax-name">Adulto 1 (Tú)</span>
+                  <span class="pax-seat-category" id="latam-pax-category" style="color:#64748B;">Elige tu silla en el avión</span>
                 </div>
                 <div class="seat-price-box">
-                  <span class="seat-price-text tabular-nums" id="latam-seat-price">COP 58.075</span>
+                  <span class="seat-price-text tabular-nums" id="latam-seat-price">COP 0</span>
                 </div>
               </div>
             </div>
@@ -736,10 +736,10 @@
                     <polyline points="18 15 12 9 6 15"></polyline>
                   </svg>
                 </button>
-                <span class="final-price-total tabular-nums" id="latam-final-price-display">COP 78.810</span>
+                <span class="final-price-total tabular-nums" id="latam-final-price-display">COP 0</span>
               </div>
 
-              <button type="button" class="btn-latam-primary" id="btn-latam-continue" onclick="AeroMinimalUI.avanzarPasoCheckout(2)">
+              <button type="button" class="btn-latam-primary disabled" id="btn-latam-continue" disabled="disabled" onclick="AeroMinimalUI.avanzarPasoCheckout(2)">
                 Agregar y continuar
               </button>
 
@@ -897,9 +897,6 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               </svg>
-              <span>Transaccion Idempotente Blindada • PCI-DSS SAQ-A Criptografica</span>
-            </div>
-          </div>
               <span>Transaccion Idempotente Blindada • PCI-DSS SAQ-A Criptografica</span>
             </div>
           </div>

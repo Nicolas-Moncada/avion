@@ -673,19 +673,45 @@
     if (imgEl && url) imgEl.src = url;
   }
 
-  function cargarFotoArchivo(event) {
+  async function cargarFotoArchivo(event) {
     const file = event.target?.files?.[0];
     if (!file) return;
 
+    // Vista previa inmediata con FileReader
     const reader = new FileReader();
     reader.onload = function (e) {
-      const dataUrl = e.target.result;
-      const urlInput = document.getElementById('editor-flight-image-url');
-      if (urlInput) urlInput.value = dataUrl;
-      actualizarPreviewFoto(dataUrl);
-      showToast('Fotografía cargada correctamente');
+      actualizarPreviewFoto(e.target.result);
     };
     reader.readAsDataURL(file);
+
+    showToast('Procesando y recortando imagen a 16:10 en el servidor...');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const sesion = window.AeroAuth ? window.AeroAuth.obtenerSesionActual() : null;
+      const response = await fetch('/api/admin/upload-imagen', {
+        method: 'POST',
+        headers: {
+          'X-User-Role': sesion ? sesion.rol : 'admin'
+        },
+        body: formData
+      });
+
+      const res = await response.json();
+      if (response.ok && res.exito && res.url) {
+        const urlInput = document.getElementById('editor-flight-image-url');
+        if (urlInput) urlInput.value = res.url;
+        actualizarPreviewFoto(res.url);
+        showToast(`Imagen procesada a 16:10 (${res.ancho}x${res.alto}px, ${res.peso_kb} KB)`);
+      } else {
+        showToast(res.error || 'Error al procesar la imagen', true);
+      }
+    } catch (err) {
+      console.warn('Fallback a vista previa local:', err);
+      showToast('Imagen cargada localmente');
+    }
   }
 
   function actualizarCalculoTarifaEditor() {
@@ -810,15 +836,44 @@
       return;
     }
     uiState.selectedFlight = vuelo;
-    uiState.selectedSeat = null;
+    uiState.selectedSeat = null; // Cero preselección inicial
 
     const modal = document.getElementById('modal-cabin-map');
     if (!modal) return;
 
     const titleEl = document.getElementById('cabin-modal-title');
-    const routeEl = document.getElementById('cabin-modal-route');
-    if (titleEl) titleEl.textContent = `Mapa de Cabina — ${vuelo.tipo_aeronave || 'Airbus A320neo'}`;
-    if (routeEl) routeEl.textContent = `${vuelo.origen} -> ${vuelo.destino} (Vuelo ${vuelo.codigo})`;
+    const routeCities = document.getElementById('cabin-route-cities');
+    const routeDate = document.getElementById('cabin-route-date');
+    if (titleEl) titleEl.textContent = 'Elige tus asientos';
+    if (routeCities) {
+      const orig = vuelo.origen.split('-')[0].trim();
+      const dest = vuelo.destino.split('-')[0].trim();
+      routeCities.textContent = `${orig} a ${dest}`;
+    }
+    if (routeDate) routeDate.textContent = vuelo.fecha_salida || '1 de diciembre';
+
+    // Resetear panel lateral de asiento al estado inicial vacío
+    const badgeBox = document.getElementById('latam-seat-badge-box');
+    const badgeNum = document.getElementById('latam-seat-number-badge');
+    const paxCat = document.getElementById('latam-pax-category');
+    const seatPrice = document.getElementById('latam-seat-price');
+    const finalPrice = document.getElementById('latam-final-price-display');
+
+    if (badgeBox) badgeBox.style.background = '#94A3B8';
+    if (badgeNum) badgeNum.textContent = '--';
+    if (paxCat) {
+      paxCat.style.color = '#64748B';
+      paxCat.textContent = 'Elige tu silla en el avión';
+    }
+    if (seatPrice) seatPrice.textContent = 'COP 0';
+    if (finalPrice) finalPrice.textContent = formatoCOP(vuelo.precio_base_cop || 71810);
+
+    // Botón Continuar desactivado hasta seleccionar silla
+    const btnContinue = document.getElementById('btn-latam-continue');
+    if (btnContinue) {
+      btnContinue.setAttribute('disabled', 'disabled');
+      btnContinue.classList.add('disabled');
+    }
 
     iniciarTemporizadorRetencion();
     renderizarFuselajeAeronave(vuelo);
@@ -835,28 +890,73 @@
     detenerTemporizadorRetencion();
   }
 
+  // Intercepta clics en los números del Stepper superior para imponer bloqueo estricto
+  function intentarNavegarPaso(paso) {
+    if (paso === 1) {
+      avanzarPasoCheckout(1);
+      return;
+    }
+    if (paso === 2) {
+      if (!uiState.selectedSeat) {
+        showToast('Selecciona primero tu asiento en el avión para continuar', true);
+        return;
+      }
+      avanzarPasoCheckout(2);
+      return;
+    }
+    if (paso === 3) {
+      if (!uiState.selectedSeat) {
+        showToast('Selecciona primero tu asiento en el avión antes de ir a pagar', true);
+        return;
+      }
+      if (uiState.currentCheckoutStep < 2) {
+        showToast('Completa tus datos de pasajero en el Paso 2 antes de pagar', true);
+        return;
+      }
+      avanzarPasoCheckout(3);
+      return;
+    }
+  }
+
   function avanzarPasoCheckout(paso) {
-    if (paso === 2 && !uiState.selectedSeat) {
+    if (paso >= 2 && !uiState.selectedSeat) {
       showToast('Por favor selecciona una silla en el mapa de cabina antes de continuar.', true);
       return;
     }
 
     uiState.currentCheckoutStep = paso;
 
-    // Actualizar Stepper Navigation
+    // Actualizar Stepper Navigation con bloqueo estricto
     for (let p = 1; p <= 3; p++) {
       const stepNav = document.getElementById(`step-nav-${p}`);
       const stepContent = document.getElementById(`checkout-step-${p}`);
       if (stepNav) {
         stepNav.classList.toggle('active', p === paso);
         stepNav.classList.toggle('completed', p < paso);
+
+        // Bloqueo visual estricto
+        if (p === 1) {
+          stepNav.classList.remove('disabled');
+        } else if (p === 2) {
+          stepNav.classList.toggle('disabled', !uiState.selectedSeat);
+        } else if (p === 3) {
+          stepNav.classList.toggle('disabled', !uiState.selectedSeat || paso < 2);
+        }
       }
       if (stepContent) {
         stepContent.style.display = (p === paso) ? 'block' : 'none';
       }
     }
 
+    const modalTitle = document.getElementById('cabin-modal-title');
+    if (modalTitle) {
+      if (paso === 1) modalTitle.textContent = 'Elige tus asientos';
+      else if (paso === 2) modalTitle.textContent = 'Datos del Pasajero';
+      else if (paso === 3) modalTitle.textContent = 'Pasarela de Pagos';
+    }
+
     if (paso === 3) {
+      actualizarDesgloseFinancieroPaso3();
       // Sincronizar nombres del titular con los datos del pasajero
       const paxName = document.getElementById('passenger-name-input')?.value.trim() || 'CARLOS ALBERTO MENDOZA';
       const vHolder = document.getElementById('cc-preview-name');
@@ -997,9 +1097,6 @@
 
       container.appendChild(rowDiv);
     }
-
-    // Pre-seleccionar 5B por defecto
-    seleccionarSillaLATAM('5B', CATEGORIAS_ASIENTO.vip, 'Medio');
   }
 
   function crearBotonSillaLATAM(fila, col, categoria, ocupada) {
@@ -1115,21 +1212,45 @@
     const total = baseVuelo + categoria.precio;
     if (finalPrice) finalPrice.textContent = `COP ${total.toLocaleString('es-CO')}`;
 
+    // Habilitar instantáneamente el botón "Agregar y continuar" y el Paso 2
+    const btnContinue = document.getElementById('btn-latam-continue');
+    if (btnContinue) {
+      btnContinue.removeAttribute('disabled');
+      btnContinue.classList.remove('disabled');
+    }
+    const step2 = document.getElementById('step-nav-2');
+    if (step2) {
+      step2.classList.remove('disabled');
+    }
+
     actualizarDesgloseFinancieroPaso3();
   }
 
   function toggleAccordion(catKey) {
+    const categories = ['vip', 'forward', 'emergency', 'standard'];
     const body = document.getElementById(`acc-body-${catKey}`);
     const card = document.getElementById(`acc-card-${catKey}`);
     if (!body || !card) return;
 
-    const isHidden = body.style.display === 'none';
-    body.style.display = isHidden ? 'block' : 'none';
-    card.classList.toggle('active', isHidden);
+    const willOpen = (body.style.display === 'none');
 
-    const chevron = card.querySelector('.acc-chevron-svg');
-    if (chevron) {
-      chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    // Cerrar los otros acordeones para mantener la columna izquierda compacta y sin desbordes
+    categories.forEach(k => {
+      const b = document.getElementById(`acc-body-${k}`);
+      const c = document.getElementById(`acc-card-${k}`);
+      if (b && c) {
+        b.style.display = 'none';
+        c.classList.remove('active');
+        const chev = c.querySelector('.acc-chevron-svg');
+        if (chev) chev.style.transform = 'rotate(0deg)';
+      }
+    });
+
+    if (willOpen) {
+      body.style.display = 'block';
+      card.classList.add('active');
+      const chevron = card.querySelector('.acc-chevron-svg');
+      if (chevron) chevron.style.transform = 'rotate(180deg)';
     }
   }
 
@@ -1144,6 +1265,17 @@
       posicion: 'Pasillo',
       esXL: false
     };
+
+    const btnContinue = document.getElementById('btn-latam-continue');
+    if (btnContinue) {
+      btnContinue.removeAttribute('disabled');
+      btnContinue.classList.remove('disabled');
+    }
+    const step2 = document.getElementById('step-nav-2');
+    if (step2) {
+      step2.classList.remove('disabled');
+    }
+
     showToast('Asiento estándar 16C asignado automáticamente sin costo.');
     actualizarDesgloseFinancieroPaso3();
     avanzarPasoCheckout(2);
@@ -2142,6 +2274,7 @@
     eliminarVueloAdmin,
     abrirMapaCabina,
     cerrarMapaCabina,
+    intentarNavegarPaso,
     toggleAccordion,
     seleccionarSillaLATAM,
     elegirAsientoDespues,

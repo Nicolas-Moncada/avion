@@ -1020,15 +1020,17 @@ body {
 .seat-categories-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  width: 300px;
+  flex-shrink: 0;
 }
 
 .category-accordion-card {
   background: #FFFFFF;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #E2E8F0;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
   transition: all 0.18s ease;
 }
 
@@ -1037,7 +1039,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 10px 14px;
   background: #FFFFFF;
   border: none;
   cursor: pointer;
@@ -1072,8 +1074,8 @@ body {
 }
 
 .category-accordion-body {
-  padding: 12px 14px 14px;
-  background: #FFFFFF;
+  padding: 10px 14px 12px;
+  background: #FAFAFA;
   border-top: 1px solid #F1F5F9;
 }
 
@@ -1089,6 +1091,17 @@ body {
 
 .benefit-check-item:last-child {
   margin-bottom: 0;
+}
+
+/* Ícono vectorial de check verde pequeño, limpio y estandarizado */
+.benefit-check-svg {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  flex-shrink: 0 !important;
+  stroke: #10B981 !important;
+  display: inline-block !important;
 }
 
 /* Columna 2: Fuselaje Central con Alas y Turbinas */
@@ -1370,6 +1383,17 @@ body {
 
 .btn-latam-primary:active {
   transform: scale(0.99);
+}
+
+.btn-latam-primary:disabled,
+.btn-latam-primary.disabled {
+  background: #CBD5E1 !important;
+  color: #64748B !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .btn-latam-secondary {
@@ -2061,6 +2085,17 @@ body {
 
 .stepper-step.completed {
   color: #10B981;
+}
+
+.stepper-step.disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: grayscale(1);
+}
+
+.stepper-step:not(.disabled) {
+  cursor: pointer;
 }
 
 .stepper-num-circle {
