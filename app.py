@@ -418,6 +418,22 @@ def serve_js(filename):
     return send_from_directory(os.path.join(config.BUNDLE_DIR, "js"), filename)
 
 
+@app.route("/descargar-apk")
+@app.route("/api/descargar-apk")
+def descargar_apk():
+    """Sirve la aplicacion APK oficial para dispositivos Android."""
+    apk_dir = os.path.join(config.BUNDLE_DIR, "static", "apk")
+    apk_filename = "AeroFlowAirlines.apk"
+    if not os.path.exists(os.path.join(apk_dir, apk_filename)):
+        apk_dir = os.path.join(config.BUNDLE_DIR, "dist")
+    return send_from_directory(
+        apk_dir,
+        apk_filename,
+        as_attachment=True,
+        mimetype="application/vnd.android.package-archive",
+    )
+
+
 @app.route("/")
 def index():
     return render_template("index.html")

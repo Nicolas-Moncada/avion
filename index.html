@@ -44,9 +44,21 @@
         <button type="button" class="nav-link-item" id="nav-btn-abordar" onclick="AeroMinimalUI.mostrarSeccion('abordar')">Abordar</button>
       </nav>
 
-      <div class="header-actions" id="header-auth-actions">
-        <!-- Renderizado dinamicamente por AeroAuth.actualizarHeaderUI -->
-        <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
+      <div class="header-right-zone">
+        <a href="/descargar-apk" class="btn-download-apk-header" download="AeroFlowAirlines.apk" title="Descargar APK oficial para Android (1.0 MB)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>App Android</span>
+          <span class="apk-badge-micro">APK</span>
+        </a>
+
+        <div class="header-actions" id="header-auth-actions">
+          <!-- Renderizado dinamicamente por AeroAuth.actualizarHeaderUI -->
+          <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
+        </div>
       </div>
     </div>
   </header>
@@ -204,6 +216,65 @@
         <!-- Cuadricula de Tarjetas en 3 Columnas -->
         <div class="offers-grid-container" id="offers-cards-grid">
           <!-- Generado dinamicamente desde /api/vuelos -->
+        </div>
+
+        <!-- Banner de Descarga Oficial de APK Android -->
+        <div class="apk-download-hero-card">
+          <div class="apk-download-card-content">
+            <div class="apk-download-badge-row">
+              <span class="apk-live-pill">
+                <span class="apk-live-dot"></span>
+                Disponible para Android
+              </span>
+              <span class="apk-meta-tag">APK Oficial v1.0.0 • 1.04 MB</span>
+            </div>
+            <h3 class="apk-download-card-title">Descarga la App Móvil de Aero Flow</h3>
+            <p class="apk-download-card-desc">
+              Accede a tus reservas oficiales, selección de sillas VIP en tiempo real, pases de abordar de alta fidelidad con código de barras y estado de vuelos en sala directo desde tu smartphone Android.
+            </p>
+            <div class="apk-download-actions-row">
+              <a href="/descargar-apk" class="btn-download-apk-main" download="AeroFlowAirlines.apk">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Descargar APK Directa</span>
+              </a>
+              <span class="apk-security-note">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                Instalación rápida • Sin Google Play requerido • 100% segura
+              </span>
+            </div>
+          </div>
+          <div class="apk-download-card-graphic" aria-hidden="true">
+            <svg class="phone-vector-svg" viewBox="0 0 160 220" fill="none" stroke="currentColor">
+              <!-- Chasis de Celular -->
+              <rect x="25" y="10" width="110" height="200" rx="18" stroke="#334155" stroke-width="2.5" fill="#0B132B"></rect>
+              <!-- Notch -->
+              <line x1="65" y1="20" x2="95" y2="20" stroke="#475569" stroke-width="2" stroke-linecap="round"></line>
+              <!-- Pantalla -->
+              <rect x="33" y="30" width="94" height="162" rx="10" fill="#0F172A"></rect>
+              <circle cx="48" cy="46" r="4" fill="#10B981"></circle>
+              <line x1="58" y1="46" x2="105" y2="46" stroke="#94A3B8" stroke-width="2"></line>
+              <!-- Tarjeta de Tiquete -->
+              <rect x="40" y="58" width="80" height="52" rx="6" fill="#1E293B" stroke="#334155" stroke-width="1"></rect>
+              <line x1="46" y1="68" x2="76" y2="68" stroke="#F8FAFC" stroke-width="2"></line>
+              <line x1="46" y1="76" x2="114" y2="76" stroke="#38BDF8" stroke-width="1.5"></line>
+              <line x1="46" y1="88" x2="88" y2="88" stroke="#64748B" stroke-width="1.5"></line>
+              <line x1="46" y1="98" x2="114" y2="98" stroke="#10B981" stroke-width="2" stroke-dasharray="3 2"></line>
+              <!-- Boton acción -->
+              <rect x="40" y="120" width="80" height="18" rx="4" fill="#2563EB"></rect>
+              <line x1="55" y1="129" x2="105" y2="129" stroke="#FFFFFF" stroke-width="1.5"></line>
+              <rect x="40" y="146" width="80" height="34" rx="4" fill="#1E293B"></rect>
+              <line x1="46" y1="156" x2="70" y2="156" stroke="#94A3B8" stroke-width="1.5"></line>
+              <line x1="46" y1="166" x2="95" y2="166" stroke="#94A3B8" stroke-width="1.5"></line>
+              <!-- Home bar -->
+              <line x1="65" y1="202" x2="95" y2="202" stroke="#64748B" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
         </div>
       </section>
     </div>
