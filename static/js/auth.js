@@ -337,6 +337,9 @@
       headerActions.innerHTML = `
         <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
       `;
+      if (window.AeroMinimalUI && typeof window.AeroMinimalUI.sincronizarModoAdmin === "function") {
+        window.AeroMinimalUI.sincronizarModoAdmin(false);
+      }
       return;
     }
 
