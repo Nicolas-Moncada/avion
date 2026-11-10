@@ -832,16 +832,6 @@ body {
 .btn-choose-seat {
   display: none;
 }
-  height: 42px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity 0.15s, transform 0.1s;
-}
 
 .btn-choose-seat:hover {
   opacity: 0.92;
