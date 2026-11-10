@@ -1675,6 +1675,7 @@ def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "
     if len(password) < 6:
         return {"exito": False, "error": "La contraseña debe tener al menos 6 caracteres."}
 
+    init_db()
     conn = get_connection()
     try:
         with conn:
@@ -1704,6 +1705,7 @@ def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "
 
 def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None) -> Dict[str, Any]:
     """Valida credenciales de usuario contra la base de datos SQLite/MySQL."""
+    init_db()
     email_clean = email.strip().lower()
 
     conn = get_connection()
@@ -1738,6 +1740,7 @@ def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None)
 
 def listar_usuarios_registrados() -> list:
     """Devuelve la lista de usuarios registrados para auditoría y visualización."""
+    init_db()
     conn = get_connection()
     try:
         cursor = conn.cursor()
