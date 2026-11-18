@@ -26,6 +26,8 @@
     vuelosCargados: [],
     selectedFlight: null,
     selectedSeat: null,
+    currentFlightSeats: [],
+    currentFlightFull: false,
     currentCheckoutStep: 1,
     passengerData: {
       docType: 'CC',
@@ -39,11 +41,22 @@
     retentionSeconds: 720, // 12 minutos pesimistas
     retentionInterval: null,
     misReservas: [],
+    misDocumentosComprados: new Set(),
+    canceladasEnSesion: new Set(),
+    abordadosEnSesion: new Set(),
+    boardingMutationEpoch: 0,
+    reservasServidorCargadas: false,
+    pendingCancelacion: null,
     // Consola de Abordaje Masivo
-    activeGateFlight: 'AF2025',
+    activeGateFlight: 'AF1001',
     flightQueueTickets: [],
+    manifiestosPorVuelo: {},
+    vuelosDespegados: [],
+    vuelosDespegadosEnSesion: new Set(),
     isAutomaticBoardingRunning: false,
-    boardingInterval: null
+    isDepartureAnimationRunning: false,
+    boardingInterval: null,
+    departureTimers: []
   };
 
   const NOMBRES_MESES = [
@@ -52,8 +65,227 @@
   ];
 
   // =========================================================================
-  // 2. UTILIDADES DE FORMATO Y MONEDA
+  // 2. UTILIDADES DE FORMATO, IDENTIDAD Y PERMISOS
   // =========================================================================
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttr(str) {
+    return escapeHtml(str);
+  }
+
+  function limpiarDocumento(rawDoc) {
+    return String(rawDoc || '').replace(/^[A-Za-z]+-/, '').trim();
+  }
+
+  function construirClavePasajeroVuelo(vueloCodigo, documento, asiento) {
+    const vueloUpper = String(vueloCodigo || '').trim().toUpperCase();
+    const docLimpio = limpiarDocumento(documento);
+    const asientoLimpio = String(asiento || '').trim().toUpperCase();
+    return {
+      vueloUpper,
+      docLimpio,
+      asientoLimpio,
+      ticketKey: `${vueloUpper}::${docLimpio}`,
+      seatKey: `${vueloUpper}::SEAT::${asientoLimpio}`
+    };
+  }
+
+  function estaPasajeroAbordado(reserva) {
+    if (!reserva) return false;
+    if (reserva.abordado === true) return true;
+    const estadoRaw = String(reserva.estado_embarque || reserva.estado || '').trim().toUpperCase();
+    if (['ABORDADO', 'EMBARCADO', 'A BORDO'].includes(estadoRaw)) return true;
+    const { docLimpio, asientoLimpio, ticketKey, seatKey } = construirClavePasajeroVuelo(
+      reserva.vueloCodigo || reserva.vuelo_id,
+      reserva.documentoReal || reserva.pasajeroDoc || reserva.documento,
+      reserva.asiento
+    );
+    if (docLimpio && uiState.abordadosEnSesion.has(ticketKey)) return true;
+    if (asientoLimpio && uiState.abordadosEnSesion.has(seatKey)) return true;
+    return false;
+  }
+
+  function marcarPasajeroAbordadoEnEstado(ticket) {
+    if (!ticket) return;
+    ticket.estado = 'Abordado';
+    ticket.estado_embarque = 'ABORDADO';
+    ticket.abordado = true;
+    uiState.boardingMutationEpoch += 1;
+
+    const { vueloUpper, docLimpio, asientoLimpio, ticketKey, seatKey } = construirClavePasajeroVuelo(
+      ticket.vueloCodigo,
+      ticket.documentoReal || ticket.pasajeroDoc,
+      ticket.asiento
+    );
+    if (docLimpio) uiState.abordadosEnSesion.add(ticketKey);
+    if (asientoLimpio) uiState.abordadosEnSesion.add(seatKey);
+
+    const listaManif = Array.isArray(uiState.manifiestosPorVuelo[vueloUpper])
+      ? uiState.manifiestosPorVuelo[vueloUpper]
+      : [];
+    [...uiState.misReservas, ...listaManif].forEach(r => {
+      const rKey = construirClavePasajeroVuelo(
+        r.vueloCodigo,
+        r.documentoReal || r.pasajeroDoc,
+        r.asiento
+      );
+      const mismoVuelo = !vueloUpper || rKey.vueloUpper === vueloUpper;
+      const mismoDoc = docLimpio && rKey.docLimpio === docLimpio;
+      const mismoAsiento = !docLimpio && asientoLimpio && rKey.asientoLimpio === asientoLimpio;
+      if (mismoVuelo && (mismoDoc || mismoAsiento)) {
+        r.estado = 'Abordado';
+        r.estado_embarque = 'ABORDADO';
+        r.abordado = true;
+      }
+    });
+  }
+
+  function escaparSelector(val) {
+    const s = String(val ?? '');
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(s);
+    }
+    return s.replace(/["\\]/g, '\\$&');
+  }
+
+  function buscarTarjetaPorIdentidad(container, { vueloCodigo, documento, asiento }) {
+    if (!container) return null;
+    const { vueloUpper, docLimpio, asientoLimpio } = construirClavePasajeroVuelo(
+      vueloCodigo,
+      documento,
+      asiento
+    );
+    const vueloAttr = vueloUpper ? `[data-boarding-vuelo="${escaparSelector(vueloUpper)}"]` : '';
+
+    if (docLimpio) {
+      const docSelector = `${vueloAttr}[data-boarding-doc="${escaparSelector(docLimpio)}"]`;
+      const exactDoc = container.querySelector(docSelector)
+        || container.querySelector(`[data-boarding-doc="${escaparSelector(docLimpio)}"]`);
+      if (exactDoc) return exactDoc;
+    }
+
+    if (asientoLimpio) {
+      const seatSelector = `${vueloAttr}[data-boarding-asiento="${escaparSelector(asientoLimpio)}"]`;
+      const exactSeat = container.querySelector(seatSelector)
+        || container.querySelector(`[data-boarding-asiento="${escaparSelector(asientoLimpio)}"]`);
+      if (exactSeat) return exactSeat;
+    }
+
+    return null;
+  }
+
+  function aplicarEstadoAbordadoEnTarjetaDOM(card) {
+    if (!card) return;
+    card.classList.remove('active-scanning');
+    card.classList.add('is-boarded');
+
+    if (!card.querySelector('.stamp-abordado')) {
+      const stamp = document.createElement('div');
+      stamp.className = 'stamp-abordado';
+      stamp.textContent = 'ABORDADO';
+      card.appendChild(stamp);
+    }
+
+    const badgeStatus = card.querySelector('.ticket-status-pill');
+    if (badgeStatus) {
+      badgeStatus.textContent = 'Abordado';
+      badgeStatus.classList.add('status-abordado');
+    }
+
+    const btnManual = card.querySelector('.btn-ticket-board-manual');
+    if (btnManual) {
+      btnManual.classList.add('boarded');
+      btnManual.disabled = true;
+      const span = btnManual.querySelector('span');
+      if (span) span.textContent = '✓ Pasajero Abordado';
+    }
+
+    const btnStub = card.querySelector('.btn-board-flight');
+    if (btnStub) {
+      btnStub.classList.add('boarded');
+      btnStub.disabled = true;
+      const span = btnStub.querySelector('span');
+      if (span) span.textContent = '✓ Abordado';
+    }
+
+    const btnCancel = card.querySelector('.btn-cancelar-reserva');
+    if (btnCancel) btnCancel.remove();
+  }
+
+  function normalizarTexto(txt) {
+    return String(txt || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function obtenerContextoUsuario() {
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === 'function')
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rolRaw = String(sesion?.rol || '').toLowerCase().trim();
+    const esOperadorOAdmin = rolRaw === 'admin' || rolRaw === 'integral' || rolRaw === 'operador';
+    const esPasajero = rolRaw === 'pasajero' || rolRaw === 'cliente';
+    const nombreSesion = String(sesion?.nombre || '').trim();
+    const docSesion = String(sesion?.documento || '').replace(/^[A-Za-z]+-/, '').trim();
+    const emailSesion = String(sesion?.email || '').toLowerCase().trim();
+    return { sesion, rolRaw, esOperadorOAdmin, esPasajero, nombreSesion, docSesion, emailSesion };
+  }
+
+  function esReservaPropia(reserva, ctx) {
+    if (!reserva) return false;
+    const docReserva = String(reserva.documentoReal || reserva.pasajeroDoc || '').replace(/^[A-Za-z]+-/, '').trim();
+
+    if (!ctx || !ctx.sesion) {
+      return Boolean(reserva.compradaEnSesion);
+    }
+
+    if (ctx.docSesion && docReserva && docReserva === ctx.docSesion) {
+      return true;
+    }
+
+    if (docReserva && uiState.misDocumentosComprados.has(docReserva)) {
+      return true;
+    }
+
+    // Usuario demo estándar (Carlos Mendoza / pasajero@aeroflow.com)
+    if (ctx.emailSesion === 'pasajero@aeroflow.com' && docReserva === '101829384') {
+      return true;
+    }
+
+    if (ctx.nombreSesion && reserva.pasajeroNombre) {
+      const nomReserva = normalizarTexto(reserva.pasajeroNombre);
+      const nomUsuario = normalizarTexto(ctx.nombreSesion);
+      if (nomReserva === nomUsuario) return true;
+      const tokensUsuario = nomUsuario.split(/\s+/).filter(t => t.length >= 2);
+      if (tokensUsuario.length >= 2 && tokensUsuario.every(t => nomReserva.includes(t))) {
+        return true;
+      }
+    }
+
+    return Boolean(reserva.compradaEnSesion);
+  }
+
+  function obtenerReservasVisibles() {
+    const ctx = obtenerContextoUsuario();
+    if (ctx.esOperadorOAdmin) {
+      return uiState.misReservas;
+    }
+    if (ctx.esPasajero) {
+      return uiState.misReservas.filter(r => esReservaPropia(r, ctx));
+    }
+    // Visitante no autenticado: solo reservas creadas en esta sesión (si las hay)
+    return uiState.misReservas.filter(r => Boolean(r.compradaEnSesion));
+  }
+
   function formatoCOP(numero) {
     const n = Math.round(Number(numero) || 0);
     return 'COP ' + n.toLocaleString('es-CO');
@@ -162,6 +394,28 @@
     }
   }
 
+  function playTakeoffFanfare() {
+    try {
+      const ctx = obtenerAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = now + i * 0.09;
+        osc.type = i >= 3 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.50);
+      });
+    } catch (e) {}
+  }
+
   // =========================================================================
   // 4. TOASTS Y NOTIFICACIONES (CERO EMOJIS)
   // =========================================================================
@@ -173,6 +427,10 @@
       container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
       document.body.appendChild(container);
     }
+
+    // Evitar apilar múltiples toasts idénticos si el usuario hace varios clics
+    const yaExiste = Array.from(container.children).some(el => el.textContent === mensaje);
+    if (yaExiste) return;
 
     const toast = document.createElement('div');
     toast.style.cssText = `
@@ -242,12 +500,31 @@
 
     if (nombreSeccion !== 'abordar') {
       detenerAbordajeAutomatico();
+      if (uiState.isDepartureAnimationRunning) {
+        limpiarTimersDespegue();
+        ocultarOverlayDespegue();
+        uiState.isDepartureAnimationRunning = false;
+        const sig = obtenerSiguienteVueloPendiente(uiState.activeGateFlight);
+        uiState.activeGateFlight = sig || '';
+      }
     }
 
     if (nombreSeccion === 'viajes') {
       actualizarPortalPasajero();
+      cargarReservasServidor().then(() => actualizarPortalPasajero());
     } else if (nombreSeccion === 'abordar') {
+      const epochInicial = uiState.boardingMutationEpoch;
       inicializarConsolaAbordaje();
+      Promise.all([cargarVuelosCatalogo(), cargarReservasServidor()]).then(() => {
+        if (
+          uiState.activeSection === 'abordar' &&
+          !uiState.isAutomaticBoardingRunning &&
+          !uiState.isDepartureAnimationRunning &&
+          uiState.boardingMutationEpoch === epochInicial
+        ) {
+          inicializarConsolaAbordaje();
+        }
+      });
     }
   }
 
@@ -440,15 +717,90 @@
   // =========================================================================
   async function cargarVuelosCatalogo() {
     try {
-      const res = await fetch('/api/vuelos');
+      const res = await fetch('/api/vuelos', { cache: 'no-store' });
       if (!res.ok) throw new Error('Error al consultar vuelos');
       const data = await res.json();
       uiState.vuelosCargados = data.vuelos || data.proximos || data.todos_admin || [];
+      uiState.vuelosDespegados = Array.isArray(data.despegados) ? data.despegados : [];
+      uiState.vuelosDespegados.forEach(v => {
+        const cod = String(v?.codigo || '').trim().toUpperCase();
+        if (cod) uiState.vuelosDespegadosEnSesion.add(cod);
+      });
       renderizarCatalogoOfertas();
-      poblarSelectVuelosGate();
+      if (!uiState.isDepartureAnimationRunning) {
+        poblarSelectVuelosGate();
+      }
     } catch (e) {
       console.warn('[UI] Usando vuelos de respaldo:', e);
       renderizarCatalogoOfertas();
+    }
+  }
+
+  async function cargarReservasServidor() {
+    try {
+      const res = await fetch('/api/pasajeros-recientes', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Error al consultar reservas');
+      const data = await res.json();
+      const registros = Array.isArray(data.registros) ? data.registros : [];
+
+      const localesCompradas = uiState.misReservas.filter(
+        r => r && !r.esServidor && !r.esDemoOffline && r.compradaEnSesion &&
+             !uiState.canceladasEnSesion.has(`${String(r.vueloCodigo || '').toUpperCase()}::${String(r.documentoReal || r.pasajeroDoc || '').replace(/^[A-Za-z]+-/, '').trim()}`)
+      );
+      const delServidor = registros
+        .filter(r => {
+          const st = String(r.estado_embarque || '').trim().toUpperCase();
+          const clave = `${String(r.vuelo_id || '').trim().toUpperCase()}::${String(r.documento || '').trim()}`;
+          return st !== 'CANCELADO' && !uiState.canceladasEnSesion.has(clave);
+        })
+        .map(r => {
+          const vueloInfo = uiState.vuelosCargados.find(v => v.codigo === r.vuelo_id);
+          const partesOD = String(r.origen_destino || 'BOG -> MDE').split('->');
+          const origenStr = vueloInfo?.origen || (partesOD[0] || 'BOG').trim();
+          const destinoStr = vueloInfo?.destino || (partesOD[1] || 'MDE').trim();
+          const esVip = String(r.categoria || '').toUpperCase().includes('VIP');
+          const reservaMapped = {
+            pnr: r.referencia_pago || `AF-${r.vuelo_id}-${r.id}`,
+            recibo: `REC-BOG-${1000 + (Number(r.id) || 0)}`,
+            vueloCodigo: r.vuelo_id,
+            origen: origenStr,
+            destino: destinoStr,
+            fecha: vueloInfo?.fecha_salida || '2026-12-02',
+            hora: vueloInfo?.hora_salida_12h || '08:30 AM',
+            puerta: vueloInfo?.puerta || 'B-03',
+            tipoAeronave: vueloInfo?.tipo_aeronave || 'Airbus A320neo',
+            asiento: r.asiento || '1A',
+            clase: esVip ? 'VIP Executive' : 'Economy',
+            pasajeroDoc: r.documento,
+            documentoReal: r.documento,
+            pasajeroNombre: r.nombre_completo,
+            metodoPago: r.metodo_pago || 'Tarjeta',
+            tarifaTotalCOP: Number(r.monto_cop) || 288454,
+            estado: r.estado_embarque || 'Confirmado',
+            estado_embarque: r.estado_embarque || 'Confirmado',
+            imagen_url: vueloInfo?.imagen_url || '',
+            esServidor: true
+          };
+          if (estaPasajeroAbordado(reservaMapped)) {
+            reservaMapped.estado = 'Abordado';
+            reservaMapped.estado_embarque = 'ABORDADO';
+            reservaMapped.abordado = true;
+          }
+          return reservaMapped;
+        });
+
+      // Combinar evitando duplicados por (vueloCodigo, documentoReal)
+      const clavesServidor = new Set(
+        delServidor.map(r => `${r.vueloCodigo}::${String(r.documentoReal || r.pasajeroDoc)}`)
+      );
+      const localesUnicos = localesCompradas.filter(
+        r => !clavesServidor.has(`${r.vueloCodigo}::${String(r.documentoReal || r.pasajeroDoc).replace(/^[A-Za-z]+-/, '')}`)
+      );
+
+      uiState.misReservas = [...localesUnicos, ...delServidor];
+      uiState.reservasServidorCargadas = true;
+    } catch (e) {
+      console.warn('[UI] No se pudieron sincronizar reservas del servidor:', e);
     }
   }
 
@@ -465,7 +817,7 @@
   function esUsuarioAdmin() {
     if (!window.AeroAuth || typeof window.AeroAuth.obtenerSesionActual !== 'function') return false;
     const sesion = window.AeroAuth.obtenerSesionActual();
-    return Boolean(sesion && (sesion.rol === 'admin' || sesion.rol === 'integral'));
+    return Boolean(sesion && (sesion.rol === 'admin' || sesion.rol === 'integral' || sesion.rol === 'operador'));
   }
 
   function sincronizarModoAdmin(forzarEstado) {
@@ -474,7 +826,24 @@
     if (btnTop) {
       btnTop.style.display = esAdmin ? 'inline-flex' : 'none';
     }
+    const gateControls = document.getElementById('gate-operator-controls');
+    if (gateControls) {
+      gateControls.style.display = esAdmin ? 'flex' : 'none';
+    }
+    const gateReadonlyNotice = document.getElementById('gate-readonly-notice');
+    if (gateReadonlyNotice) {
+      gateReadonlyNotice.style.display = esAdmin ? 'none' : 'flex';
+    }
     renderizarCatalogoOfertas();
+    if (uiState.activeSection === 'viajes') {
+      actualizarPortalPasajero();
+    } else if (uiState.activeSection === 'abordar' && !uiState.isDepartureAnimationRunning && !uiState.isAutomaticBoardingRunning) {
+      inicializarConsolaAbordaje();
+    }
+    const modalReservas = document.getElementById('modal-mis-reservas');
+    if (modalReservas && modalReservas.classList.contains('active')) {
+      renderizarContenidoModalMisReservas();
+    }
   }
 
   function renderizarCatalogoOfertas() {
@@ -858,6 +1227,8 @@
     }
     uiState.selectedFlight = vuelo;
     uiState.selectedSeat = null; // Cero preselección inicial
+    uiState.currentFlightSeats = [];
+    uiState.currentFlightFull = false;
 
     const modal = document.getElementById('modal-cabin-map');
     if (!modal) return;
@@ -871,7 +1242,7 @@
       const dest = vuelo.destino.split('-')[0].trim();
       routeCities.textContent = `${orig} a ${dest}`;
     }
-    if (routeDate) routeDate.textContent = vuelo.fecha_salida || '1 de diciembre';
+    if (routeDate) routeDate.textContent = vuelo.fecha_salida || 'Hoy';
 
     // Resetear panel lateral de asiento al estado inicial vacío
     const badgeBox = document.getElementById('latam-seat-badge-box');
@@ -896,13 +1267,35 @@
       btnContinue.classList.add('disabled');
     }
 
+    const rowsContainer = document.getElementById('fuselage-rows-list');
+    if (rowsContainer) {
+      rowsContainer.innerHTML = '<div style="padding:28px;text-align:center;color:#64748B;font-size:0.875rem;font-weight:600;">Cargando mapa real de cabina...</div>';
+    }
+
     iniciarTemporizadorRetencion();
-    renderizarFuselajeAeronave(vuelo);
-    actualizarDesgloseFinancieroPaso3();
     avanzarPasoCheckout(1);
     alternarMetodoPago('card');
-
     modal.classList.add('active');
+
+    // Consultar fuente única de verdad en el backend: GET /api/avion/<codigo>/mapa
+    try {
+      const res = await fetch(`/api/avion/${encodeURIComponent(codigoVuelo)}/mapa`, { cache: 'no-store' });
+      const mapaData = await res.json();
+      if (!res.ok) {
+        throw new Error(mapaData.error || 'No se pudo cargar el mapa de asientos.');
+      }
+      if (mapaData.vuelo) {
+        uiState.selectedFlight = mapaData.vuelo;
+      }
+      renderizarFuselajeAeronave(uiState.selectedFlight, mapaData);
+      actualizarDesgloseFinancieroPaso3();
+    } catch (err) {
+      console.error('[Mapa Cabina] Error obteniendo mapa del servidor:', err);
+      showToast(err.message || 'Error consultando los asientos de la aeronave.', true);
+      if (rowsContainer) {
+        rowsContainer.innerHTML = '<div style="padding:24px;text-align:center;color:#DC2626;font-size:0.875rem;font-weight:600;">No se pudo cargar el mapa oficial del avión.</div>';
+      }
+    }
   }
 
   function cerrarMapaCabina() {
@@ -1054,15 +1447,7 @@
     }
   };
 
-  const ASIENTOS_OCUPADOS_DEMO = new Set([
-    '1A', '1C', '2D', '3B', '4A', '4B', '4C', '4D', '5A',
-    '6B', '7C', '8B', '8C', '8D', '8E', '10A',
-    '11A', '11B',
-    '12F',
-    '14B', '15E', '18C', '20A', '22D', '25B', '27F', '29C'
-  ]);
-
-  function renderizarFuselajeAeronave(vuelo) {
+  function renderizarFuselajeAeronave(vuelo, mapaData) {
     const container = document.getElementById('fuselage-rows-list');
     if (!container) return;
     container.innerHTML = '';
@@ -1077,31 +1462,106 @@
     const elAircraft = document.getElementById('cabin-aircraft-label');
 
     if (elRouteCities) elRouteCities.textContent = `${origCiudad} a ${destCiudad}`;
-    if (elRouteDate) elRouteDate.textContent = '1 de diciembre';
-    if (elAircraft) elAircraft.textContent = vuelo.tipo_aeronave ? vuelo.tipo_aeronave.replace('neo', '').trim() : 'Airbus 320';
+    if (elRouteDate) elRouteDate.textContent = vuelo.fecha_salida || 'Hoy';
+    if (elAircraft) elAircraft.textContent = vuelo.tipo_aeronave || 'Airbus A320neo';
 
-    for (let f = 1; f <= 30; f++) {
-      if (f === 11 || f === 12) {
+    const asientos = Array.isArray(mapaData?.configuracion_aeronave?.asientos)
+      ? mapaData.configuracion_aeronave.asientos
+      : [];
+    uiState.currentFlightSeats = asientos;
+    uiState.currentFlightFull = Boolean(mapaData?.lleno);
+
+    if (asientos.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#64748B;font-size:0.875rem;">No se encontraron asientos configurados para esta aeronave.</div>';
+      return;
+    }
+
+    if (uiState.currentFlightFull) {
+      const standbyBanner = document.createElement('div');
+      standbyBanner.style.cssText = 'margin:0 auto 10px;padding:10px 12px;border-radius:10px;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;font-size:0.78rem;font-weight:700;text-align:center;max-width:92%;';
+      standbyBanner.textContent = `Vuelo al 100% (${mapaData.ocupacion}/${mapaData.capacidad_maxima}). Usa "Quiero elegir asientos después" para ingresar a Lista Prioritaria Standby FIFO.`;
+      container.appendChild(standbyBanner);
+    }
+
+    // Agrupar asientos reales del backend por número de fila
+    const filasMap = new Map();
+    const izqColsSet = new Set();
+    const derColsSet = new Set();
+    let maxFilaVip = 0;
+
+    asientos.forEach(s => {
+      const fNum = Number(s.fila);
+      if (!filasMap.has(fNum)) filasMap.set(fNum, []);
+      filasMap.get(fNum).push(s);
+      if (s.clase === 'VIP' && fNum > maxFilaVip) maxFilaVip = fNum;
+      if (s.lado === 'izq') izqColsSet.add(s.col);
+      else derColsSet.add(s.col);
+    });
+
+    const filasOrdenadas = Array.from(filasMap.keys()).sort((a, b) => a - b);
+    const maxFila = filasOrdenadas[filasOrdenadas.length - 1] || 1;
+    const izqCols = Array.from(izqColsSet).sort();
+    const derCols = Array.from(derColsSet).sort();
+    const gridTemplate = `repeat(${Math.max(1, izqCols.length)}, 36px) 28px repeat(${Math.max(1, derCols.length)}, 36px)`;
+
+    // Actualizar cabecera dinámica de columnas (ej: A B | C D)
+    const headerCols = document.getElementById('fuselage-columns-header');
+    if (headerCols) {
+      headerCols.style.gridTemplateColumns = gridTemplate;
+      headerCols.innerHTML = [
+        ...izqCols.map(c => `<span>${escapeHtml(c)}</span>`),
+        '<span></span>',
+        ...derCols.map(c => `<span>${escapeHtml(c)}</span>`)
+      ].join('');
+    }
+
+    const filaEmergencia = maxFila >= 7 ? Math.ceil((maxFilaVip + maxFila) / 2) : -1;
+
+    filasOrdenadas.forEach(f => {
+      if (f === filaEmergencia) {
         const exitBanner = document.createElement('div');
         exitBanner.className = 'emergency-exit-banner-row';
         exitBanner.innerHTML = '<span>&lt;-------- SALIDA DE EMERGENCIA --------&gt;</span>';
         container.appendChild(exitBanner);
       }
 
-      let cat = CATEGORIAS_ASIENTO.standard;
-      if (f <= 5) cat = CATEGORIAS_ASIENTO.vip;
-      else if (f <= 10) cat = CATEGORIAS_ASIENTO.forward;
-      else if (f === 12) cat = CATEGORIAS_ASIENTO.emergency;
+      const rowSeats = filasMap.get(f) || [];
+      const rowIzq = rowSeats.filter(s => s.lado === 'izq');
+      const rowDer = rowSeats.filter(s => s.lado === 'der');
 
       const rowDiv = document.createElement('div');
       rowDiv.className = 'cabin-latam-row';
+      rowDiv.style.gridTemplateColumns = gridTemplate;
 
-      // Grupo Izquierdo: A, B, C
-      ['A', 'B', 'C'].forEach(col => {
-        const seatId = `${f}${col}`;
-        const isOccupied = ASIENTOS_OCUPADOS_DEMO.has(seatId);
-        rowDiv.appendChild(crearBotonSillaLATAM(f, col, cat, isOccupied));
-      });
+      const resolverCategoria = (seat) => {
+        if (seat.clase === 'VIP') return CATEGORIAS_ASIENTO.vip;
+        if (f === filaEmergencia) return CATEGORIAS_ASIENTO.emergency;
+        if (f <= maxFilaVip + 2) return CATEGORIAS_ASIENTO.forward;
+        return CATEGORIAS_ASIENTO.standard;
+      };
+
+      // Lado izquierdo: si VIP tiene menos sillas (ej. 1 frente a 2 columnas), alinear a ventana
+      if (rowIzq.length < izqCols.length) {
+        rowIzq.forEach(seat => {
+          rowDiv.appendChild(crearBotonSillaLATAM(seat, resolverCategoria(seat)));
+        });
+        for (let i = rowIzq.length; i < izqCols.length; i++) {
+          const sp = document.createElement('span');
+          sp.className = 'seat-spacer';
+          rowDiv.appendChild(sp);
+        }
+      } else {
+        izqCols.forEach(col => {
+          const seat = rowIzq.find(s => s.col === col);
+          if (seat) {
+            rowDiv.appendChild(crearBotonSillaLATAM(seat, resolverCategoria(seat)));
+          } else {
+            const sp = document.createElement('span');
+            sp.className = 'seat-spacer';
+            rowDiv.appendChild(sp);
+          }
+        });
+      }
 
       // Pasillo Central con Número de Fila
       const aisleLabel = document.createElement('span');
@@ -1109,19 +1569,38 @@
       aisleLabel.textContent = f;
       rowDiv.appendChild(aisleLabel);
 
-      // Grupo Derecho: D, E, F
-      ['D', 'E', 'F'].forEach(col => {
-        const seatId = `${f}${col}`;
-        const isOccupied = ASIENTOS_OCUPADOS_DEMO.has(seatId);
-        rowDiv.appendChild(crearBotonSillaLATAM(f, col, cat, isOccupied));
-      });
+      // Lado derecho: si VIP tiene menos sillas (ej. 1 frente a 2 columnas), espaciar pasillo y alinear a ventana
+      if (rowDer.length < derCols.length) {
+        for (let i = rowDer.length; i < derCols.length; i++) {
+          const sp = document.createElement('span');
+          sp.className = 'seat-spacer';
+          rowDiv.appendChild(sp);
+        }
+        rowDer.forEach(seat => {
+          rowDiv.appendChild(crearBotonSillaLATAM(seat, resolverCategoria(seat)));
+        });
+      } else {
+        derCols.forEach(col => {
+          const seat = rowDer.find(s => s.col === col);
+          if (seat) {
+            rowDiv.appendChild(crearBotonSillaLATAM(seat, resolverCategoria(seat)));
+          } else {
+            const sp = document.createElement('span');
+            sp.className = 'seat-spacer';
+            rowDiv.appendChild(sp);
+          }
+        });
+      }
 
       container.appendChild(rowDiv);
-    }
+    });
   }
 
-  function crearBotonSillaLATAM(fila, col, categoria, ocupada) {
-    const seatId = `${fila}${col}`;
+  function crearBotonSillaLATAM(seatObj, categoria) {
+    const seatId = seatObj.id;
+    const col = seatObj.col;
+    const ocupada = Boolean(seatObj.ocupado);
+
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `latam-seat-btn tier-${categoria.id}`;
@@ -1131,16 +1610,16 @@
     const esXL = categoria.esXL;
     const isSelected = uiState.selectedSeat?.id === seatId;
 
-    let posicion = 'Medio';
-    if (col === 'A' || col === 'F') posicion = 'Ventana';
-    else if (col === 'C' || col === 'D') posicion = 'Pasillo';
+    let posicion = 'Pasillo';
+    if (seatObj.tipo_asiento && seatObj.tipo_asiento.toLowerCase().includes('ventana')) posicion = 'Ventana';
+    else if (col === 'A' || col === 'D' || col === 'F') posicion = (seatObj.clase === 'VIP' || col === 'A' || col === 'D' || col === 'F') ? 'Ventana' : 'Pasillo';
 
     btn.setAttribute('data-position', posicion);
 
     if (ocupada) {
       btn.classList.add('occupied');
       btn.disabled = true;
-      btn.title = `Asiento ${seatId} (${categoria.nombre}) - No disponible`;
+      btn.title = `Asiento ${seatId} (${categoria.nombre}) - Ocupado`;
       btn.innerHTML = `
         <svg class="latam-seat-svg" viewBox="0 0 32 36" fill="none">
           ${esXL ? '<rect x="8" y="2" width="16" height="6" rx="2" stroke="#CBD5E1" stroke-dasharray="2,2" stroke-width="1.2"/><text x="16" y="7" font-size="5" font-weight="bold" fill="#94A3B8" text-anchor="middle">XL</text>' : ''}
@@ -1152,7 +1631,7 @@
         </svg>
       `;
     } else {
-      btn.title = `Asiento ${seatId} (${categoria.nombre}) • COP ${categoria.precio.toLocaleString('es-CO')} • ${posicion}`;
+      btn.title = `Asiento ${seatId} (${seatObj.tipo_asiento || categoria.nombre}) • COP ${categoria.precio.toLocaleString('es-CO')} • ${posicion}`;
       if (isSelected) btn.classList.add('selected');
 
       const strokeColor = categoria.color;
@@ -1171,22 +1650,24 @@
         </svg>
       `;
 
-      btn.onclick = () => seleccionarSillaLATAM(seatId, categoria, posicion);
+      btn.onclick = () => seleccionarSillaLATAM(seatId, categoria, posicion, seatObj.clase);
     }
 
     return btn;
   }
 
-  function seleccionarSillaLATAM(seatId, categoria, posicion) {
+  function seleccionarSillaLATAM(seatId, categoria, posicion, claseBackend = null) {
     uiState.selectedSeat = {
       id: seatId,
       categoria: categoria.nombre,
+      clase: claseBackend || (categoria.id === 'vip' ? 'VIP' : 'Estándar'),
       catId: categoria.id,
       color: categoria.color,
       fill: categoria.fill,
       precio: categoria.precio,
       posicion: posicion,
-      esXL: categoria.esXL
+      esXL: categoria.esXL,
+      esStandby: false
     };
 
     document.querySelectorAll('.latam-seat-btn').forEach(btn => {
@@ -1276,16 +1757,39 @@
   }
 
   function elegirAsientoDespues() {
-    uiState.selectedSeat = {
-      id: '16C',
-      categoria: 'Estándar',
-      catId: 'standard',
-      color: '#4F46E5',
-      fill: '#E0E7FF',
-      precio: 0,
-      posicion: 'Pasillo',
-      esXL: false
-    };
+    const asientosReales = uiState.currentFlightSeats || [];
+    const libre = asientosReales.find(s => !s.ocupado && s.clase !== 'VIP')
+      || asientosReales.find(s => !s.ocupado);
+
+    if (libre) {
+      uiState.selectedSeat = {
+        id: libre.id,
+        categoria: 'Estándar',
+        clase: libre.clase || 'Estándar',
+        catId: libre.clase === 'VIP' ? 'vip' : 'standard',
+        color: libre.clase === 'VIP' ? '#E11D48' : '#4F46E5',
+        fill: libre.clase === 'VIP' ? '#FFE4E6' : '#E0E7FF',
+        precio: 0,
+        posicion: (libre.tipo_asiento && libre.tipo_asiento.includes('Ventana')) ? 'Ventana' : 'Pasillo',
+        esXL: libre.clase === 'VIP',
+        esStandby: false
+      };
+      showToast(`Asiento ${libre.id} asignado automáticamente sin costo.`);
+    } else {
+      uiState.selectedSeat = {
+        id: 'STANDBY',
+        categoria: 'Lista Prioritaria (Standby FIFO)',
+        clase: 'Estándar',
+        catId: 'standard',
+        color: '#D97706',
+        fill: '#FEF3C7',
+        precio: 0,
+        posicion: 'Standby FIFO',
+        esXL: false,
+        esStandby: true
+      };
+      showToast('Vuelo lleno: continuarás en Lista Prioritaria (Standby FIFO).');
+    }
 
     const btnContinue = document.getElementById('btn-latam-continue');
     if (btnContinue) {
@@ -1297,7 +1801,6 @@
       step2.classList.remove('disabled');
     }
 
-    showToast('Asiento estándar 16C asignado automáticamente sin costo.');
     actualizarDesgloseFinancieroPaso3();
     avanzarPasoCheckout(2);
   }
@@ -1458,31 +1961,86 @@
       const iva = Math.round(tarifaBase * 0.19);
       const totalPagar = tarifaBase + admin + tasa + equipaje + iva;
 
-      const nuevaReserva = {
-        pnr,
-        recibo,
-        vueloCodigo: vuelo.codigo,
-        origen: vuelo.origen,
-        destino: vuelo.destino,
-        fecha: vuelo.fecha_salida,
-        hora: vuelo.hora_salida_12h || '08:30 AM',
-        puerta: vuelo.puerta || 'B-03',
-        tipoAeronave: vuelo.tipo_aeronave || 'Airbus A320neo',
-        asiento: uiState.selectedSeat.id,
-        clase: isVip ? 'VIP Executive' : 'Economy',
-        pasajeroDoc: `${docType}-${docNumber}`,
-        pasajeroNombre: fullName,
-        pasajeroEmail: email,
-        pasajeroPhone: phone,
-        metodoPago: uiState.activePaymentMethod,
-        tarifaTotalCOP: totalPagar,
-        estado: 'Confirmado'
+      const metodoLabels = {
+        card: 'Tarjeta Débito/Crédito Visa/Mastercard',
+        pse: 'PSE Colombia',
+        nequi: 'Nequi / Billetera Digital'
       };
 
-      uiState.misReservas.unshift(nuevaReserva);
+      // Persistir la emisión del tiquete / check-in en el backend (SQLite + estructuras en memoria)
+      let persistidoOk = false;
+      let esStandby = false;
+      let mensajeStandby = '';
+      try {
+        const asientoEnviar = uiState.selectedSeat.esStandby ? '' : uiState.selectedSeat.id;
+        const categoriaEnviar = uiState.selectedSeat.clase || (isVip ? 'VIP' : 'Estándar');
+        const resCheckin = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codigo_vuelo: vuelo.codigo,
+            documento: docNumber,
+            nombre_nuevo: fullName,
+            categoria: categoriaEnviar,
+            asiento: asientoEnviar,
+            metodo_pago: metodoLabels[uiState.activePaymentMethod] || 'Tarjeta'
+          })
+        });
+        const dataCheckin = await resCheckin.json().catch(() => ({}));
+        if (resCheckin.ok) {
+          persistidoOk = true;
+          if (dataCheckin.accion === 'STANDBY_ASIGNADO') {
+            esStandby = true;
+            mensajeStandby = dataCheckin.mensaje || 'Vuelo lleno: agregado a lista de espera Standby FIFO.';
+          }
+        } else if (!(resCheckin.status === 409 && docNumber === '101829384')) {
+          showToast(dataCheckin.error || 'No se pudo emitir la reserva en el servidor.', true);
+          return;
+        }
+      } catch (e) {
+        console.warn('[UI] Fallback local al procesar reserva:', e);
+      }
+
+      if (persistidoOk) {
+        uiState.canceladasEnSesion.delete(`${String(vuelo.codigo || '').toUpperCase()}::${docNumber}`);
+        uiState.misDocumentosComprados.add(docNumber);
+        await cargarVuelosCatalogo();
+        await cargarReservasServidor();
+      } else {
+        uiState.canceladasEnSesion.delete(`${String(vuelo.codigo || '').toUpperCase()}::${docNumber}`);
+        uiState.misDocumentosComprados.add(docNumber);
+        const nuevaReserva = {
+          pnr,
+          recibo,
+          vueloCodigo: vuelo.codigo,
+          origen: vuelo.origen,
+          destino: vuelo.destino,
+          fecha: vuelo.fecha_salida,
+          hora: vuelo.hora_salida_12h || '08:30 AM',
+          puerta: vuelo.puerta || 'B-03',
+          tipoAeronave: vuelo.tipo_aeronave || 'Airbus A320neo',
+          asiento: uiState.selectedSeat.id,
+          clase: isVip ? 'VIP Executive' : 'Economy',
+          pasajeroDoc: `${docType}-${docNumber}`,
+          documentoReal: docNumber,
+          pasajeroNombre: fullName,
+          pasajeroEmail: email,
+          pasajeroPhone: phone,
+          metodoPago: uiState.activePaymentMethod,
+          tarifaTotalCOP: totalPagar,
+          estado: esStandby ? 'En Espera (Standby)' : 'Confirmado',
+          esServidor: false,
+          compradaEnSesion: true
+        };
+        uiState.misReservas.unshift(nuevaReserva);
+      }
 
       cerrarMapaCabina();
-      showToast(`¡Pago exitoso! Tiquete ${pnr} emitido. Recibo ${recibo}.`);
+      if (esStandby) {
+        showToast(mensajeStandby);
+      } else {
+        showToast(`¡Pago exitoso! Tiquete ${pnr} emitido. Recibo ${recibo}.`);
+      }
       mostrarSeccion('viajes');
     } finally {
       if (payBtn) payBtn.disabled = false;
@@ -1505,16 +2063,40 @@
     return '/static/img/oferta-cartagena.jpg';
   }
 
-  function generarHTMLPaseDobleTalon(reserva, idx, puedeEscanearEnRampa = true) {
-    const isVip = reserva.clase.includes('VIP');
+  function generarHTMLPaseDobleTalon(reserva, idx, puedeEscanearEnRampa = true, scope = '') {
+    const isVip = String(reserva.clase || '').includes('VIP');
     const badgeClass = isVip ? 'style="background:#3B82F6;color:#FFFFFF;"' : 'style="background:#0F172A;color:#FFFFFF;"';
     const iataOrigen = (reserva.origen || 'BOG').split('-')[0].trim();
     const iataDestino = (reserva.destino || 'CTG').split('-')[0].trim();
-    const esAbordado = reserva.estado === 'Abordado';
+    const estadoReservaUpper = String(reserva.estado_embarque || reserva.estado || '').trim().toUpperCase();
+    const esAbordado = estaPasajeroAbordado(reserva);
+    const esCancelado = estadoReservaUpper === 'CANCELADO';
+    const vueloInfo = uiState.vuelosCargados.find(v => v.codigo === reserva.vueloCodigo);
+    const estadoVueloUpper = String(vueloInfo?.estado || '').toUpperCase();
+    const vueloDespegado = ['DESPEGADO', 'EN VUELO', 'ATERRIZADO', 'CERRADO'].includes(estadoVueloUpper) || estadoVueloUpper.includes('CANCELADO');
+    const { vueloUpper, docLimpio, asientoLimpio, ticketKey } = construirClavePasajeroVuelo(
+      reserva.vueloCodigo,
+      reserva.documentoReal || reserva.pasajeroDoc,
+      reserva.asiento
+    );
+    const scopeSlug = scope || (puedeEscanearEnRampa ? 'portal' : 'gate');
+    const slugUnico = `${vueloUpper}-${docLimpio || asientoLimpio || idx}`.replace(/[^A-Za-z0-9_-]/g, '_');
+    const ctx = obtenerContextoUsuario();
+    const esPropia = esReservaPropia(reserva, ctx);
+    // Solo operario/admin puede cancelar a cualquier pasajero; pasajero normal solo sus propias reservas
+    // (y nunca en tarjetas de terceros dentro de la fila FIFO de Abordar).
+    const tienePermisoCancelar = ctx.esOperadorOAdmin || (ctx.esPasajero && esPropia) || (!ctx.sesion && Boolean(reserva.compradaEnSesion));
+    const puedeCancelar = tienePermisoCancelar && !vueloDespegado && !esAbordado && !esCancelado;
     const fotoDestino = obtenerFotoDestino(reserva);
 
     return `
-      <div class="printable-ticket-card stagger-item-${(idx % 3) + 1}" id="ticket-card-${idx}">
+      <div class="printable-ticket-card stagger-item-${(idx % 3) + 1}${esAbordado ? ' is-boarded' : ''}"
+           id="ticket-card-${escapeAttr(scopeSlug)}-${escapeAttr(slugUnico)}"
+           data-ticket-key="${escapeAttr(ticketKey)}"
+           data-boarding-vuelo="${escapeAttr(vueloUpper)}"
+           data-boarding-doc="${escapeAttr(docLimpio)}"
+           data-boarding-asiento="${escapeAttr(asientoLimpio)}"
+           data-boarding-scope="${escapeAttr(scopeSlug)}">
         
         ${esAbordado ? '<div class="stamp-abordado">ABORDADO</div>' : ''}
 
@@ -1544,8 +2126,8 @@
               <span class="pass-status-pill" ${badgeClass}>
                 ${isVip ? 'VIP FIRST CLASS' : 'CLASE ECONOMY'}
               </span>
-              <span class="pass-status-pill ${esAbordado ? 'status-abordado' : ''}" id="badge-status-${idx}">
-                ${reserva.estado}
+              <span class="pass-status-pill ticket-status-pill ${esAbordado ? 'status-abordado' : ''}" id="badge-status-${escapeAttr(scopeSlug)}-${escapeAttr(slugUnico)}">
+                ${esAbordado ? 'Abordado' : escapeHtml(reserva.estado || 'Confirmado')}
               </span>
             </div>
 
@@ -1664,30 +2246,56 @@
             </svg>
             <span style="font-size:0.625rem;font-family:monospace;letter-spacing:0.18em;color:#64748B;">${reserva.pnr}</span>
 
-            ${!puedeEscanearEnRampa ? `
-              <!-- Botón de Abordaje Manual Uno a Uno en Cola FIFO -->
+            ${ctx.esOperadorOAdmin ? (!puedeEscanearEnRampa ? `
+              <!-- Botón de Abordaje Manual Uno a Uno en Cola FIFO (Exclusivo Operario / Admin) -->
               <button type="button" class="btn-ticket-board-manual ${esAbordado ? 'boarded' : ''}" 
-                      id="btn-board-ticket-queue-${idx}" 
-                      onclick="AeroMinimalUI.abordarTicketEnFila(${idx})" 
+                      id="btn-board-ticket-queue-${escapeAttr(scopeSlug)}-${escapeAttr(slugUnico)}"
+                      data-action="abordar-pasajero-cola"
+                      data-vuelo="${escapeAttr(vueloUpper)}"
+                      data-documento="${escapeAttr(docLimpio)}"
+                      data-asiento="${escapeAttr(asientoLimpio)}"
                       style="width:100%;margin-top:10px;" 
                       ${esAbordado ? 'disabled' : ''}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span>${esAbordado ? 'Abordado' : 'Abordar este pasajero'}</span>
+                <span>${esAbordado ? '✓ Pasajero Abordado' : 'Abordar este pasajero'}</span>
               </button>
             ` : `
-              <!-- Botón de Abordaje Individual en Portal Pasajero -->
+              <!-- Botón de Abordaje Individual en Portal Operativo (Exclusivo Operario / Admin) -->
               <button type="button" class="btn-board-flight ${esAbordado ? 'boarded' : ''}" 
-                      id="btn-board-stub-${idx}" 
-                      onclick="AeroMinimalUI.abordarVueloPasajero(${idx})" 
-                      style="width:100%;margin-top:10px;">
+                      id="btn-board-stub-${escapeAttr(scopeSlug)}-${escapeAttr(slugUnico)}"
+                      data-action="abordar-pasajero-portal"
+                      data-vuelo="${escapeAttr(vueloUpper)}"
+                      data-documento="${escapeAttr(docLimpio)}"
+                      data-asiento="${escapeAttr(asientoLimpio)}"
+                      style="width:100%;margin-top:10px;"
+                      ${esAbordado ? 'disabled' : ''}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span>${esAbordado ? 'Abordado' : 'Abordar'}</span>
+                <span>${esAbordado ? '✓ Abordado' : 'Abordar'}</span>
               </button>
-            `}
+            `) : ''}
+
+            ${puedeCancelar ? `
+              <!-- Botón Táctico: Cancelar Vuelo / Reserva Individual -->
+              <button type="button"
+                      class="btn-cancelar-reserva"
+                      data-action="cancelar-reserva-pasajero"
+                      data-vuelo="${escapeAttr(reserva.vueloCodigo)}"
+                      data-documento="${escapeAttr(docLimpio)}"
+                      data-nombre="${escapeAttr(reserva.pasajeroNombre || '')}"
+                      data-asiento="${escapeAttr(reserva.asiento || '')}"
+                      data-pnr="${escapeAttr(reserva.pnr || '')}"
+                      style="width:100%;margin-top:8px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>✕ Cancelar Vuelo / Reserva</span>
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -1712,83 +2320,314 @@
         asiento: '1A',
         clase: 'VIP Executive',
         pasajeroDoc: 'CC-101829384',
+        documentoReal: '101829384',
         pasajeroNombre: 'Carlos Alberto Mendoza',
         pasajeroEmail: 'carlos.mendoza@aeroflow.com',
         pasajeroPhone: '+57 310 987 6543',
         metodoPago: 'Tarjeta Bancaria',
         tarifaTotalCOP: 331500,
-        estado: 'Confirmado'
+        estado: 'Confirmado',
+        esDemoOffline: true
       });
     }
   }
 
   function actualizarPortalPasajero() {
-    asegurarReservaDemo();
+    if (!uiState.reservasServidorCargadas) {
+      asegurarReservaDemo();
+    }
 
     const container = document.getElementById('passenger-portal-tickets-list');
     if (!container) return;
 
+    const visibles = obtenerReservasVisibles();
+
     // Actualizar Estadísticas
     const statTotal = document.getElementById('stat-pax-total-vuelos');
     const statRecibo = document.getElementById('stat-pax-recibo');
-    if (statTotal) statTotal.textContent = `${uiState.misReservas.length} vuelo${uiState.misReservas.length > 1 ? 's' : ''}`;
-    if (statRecibo && uiState.misReservas[0]) statRecibo.textContent = uiState.misReservas[0].recibo;
+    const totalRes = visibles.length;
+    if (statTotal) statTotal.textContent = `${totalRes} vuelo${totalRes === 1 ? '' : 's'}`;
+    if (statRecibo) {
+      statRecibo.textContent = visibles[0]?.recibo || 'Sin recibos activos';
+    }
 
     // Actualizar Línea de Tiempo del Vuelo Más Próximo
-    const proxima = uiState.misReservas[0];
+    const proxima = visibles[0];
+    const routeTitle = document.getElementById('timeline-route-title');
     if (proxima) {
-      const routeTitle = document.getElementById('timeline-route-title');
       if (routeTitle) routeTitle.textContent = `${proxima.origen} -> ${proxima.destino} • Vuelo ${proxima.vueloCodigo}`;
+    } else if (routeTitle) {
+      routeTitle.textContent = 'Sin reservas activas programadas';
     }
 
     container.innerHTML = '';
-    uiState.misReservas.forEach((reserva, idx) => {
-      container.innerHTML += generarHTMLPaseDobleTalon(reserva, idx, true);
-    });
+    if (totalRes === 0) {
+      const ctx = obtenerContextoUsuario();
+      const mensajeVacio = !ctx.sesion
+        ? 'Inicia sesión para consultar tus reservas oficiales o explora los vuelos disponibles.'
+        : 'Explora nuestros destinos disponibles y elige tu asiento preferido.';
+      container.innerHTML = `
+        <div style="background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:16px;padding:36px;text-align:center;">
+          <p style="font-size:1rem;font-weight:700;color:#0F172A;margin:0 0 6px;">No tienes reservas activas en este momento</p>
+          <p style="font-size:0.875rem;color:#64748B;margin:0 0 18px;">${mensajeVacio}</p>
+          <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.mostrarSeccion('explorar')">
+            <span>Explorar vuelos disponibles</span>
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = visibles
+      .map((reserva, idx) => generarHTMLPaseDobleTalon(reserva, idx, true, 'portal'))
+      .join('');
   }
 
   // =========================================================================
   // 14. CONSOLA DE PUERTA Y ABORDAJE AUTOMÁTICO MASIVO ("ABORDAR")
   // =========================================================================
+  function esVueloDespegado(vueloOrCodigo) {
+    if (!vueloOrCodigo) return false;
+    const codUpper = (typeof vueloOrCodigo === 'string'
+      ? vueloOrCodigo
+      : (vueloOrCodigo.codigo || '')
+    ).trim().toUpperCase();
+    if (!codUpper) return false;
+    if (uiState.vuelosDespegadosEnSesion.has(codUpper)) return true;
+
+    const vueloObj = (typeof vueloOrCodigo === 'object' && vueloOrCodigo !== null)
+      ? vueloOrCodigo
+      : (
+          uiState.vuelosCargados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper) ||
+          uiState.vuelosDespegados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper)
+        );
+    if (!vueloObj) return false;
+    const est = String(vueloObj.estado || '').trim().toUpperCase();
+    return ['DESPEGADO', 'CERRADO', 'ARCHIVADO'].includes(est) || est.includes('CANCELADO') || est.includes('EXPIRADO');
+  }
+
+  function obtenerVuelosGateClasificados() {
+    const pendientes = [];
+    const despegados = [];
+    const codigosVistos = new Set();
+
+    [...(uiState.vuelosCargados || []), ...(uiState.vuelosDespegados || [])].forEach(v => {
+      const cod = String(v?.codigo || '').trim().toUpperCase();
+      if (!cod || codigosVistos.has(cod)) return;
+      codigosVistos.add(cod);
+      if (esVueloDespegado(v)) {
+        despegados.push(v);
+      } else {
+        pendientes.push(v);
+      }
+    });
+
+    return { pendientes, despegados };
+  }
+
+  function obtenerSiguienteVueloPendiente(codigoExcluyendo = '') {
+    const excl = String(codigoExcluyendo || '').trim().toUpperCase();
+    const { pendientes } = obtenerVuelosGateClasificados();
+    const candidatos = pendientes.filter(v => String(v.codigo || '').trim().toUpperCase() !== excl);
+    if (candidatos.length === 0) return '';
+
+    const conPendientes = candidatos.find(v => {
+      const cod = String(v.codigo || '').trim().toUpperCase();
+      const manif = uiState.manifiestosPorVuelo[cod];
+      if (Array.isArray(manif) && manif.length > 0) {
+        return manif.some(r => !estaPasajeroAbordado(r));
+      }
+      const resVuelo = uiState.misReservas.filter(r => String(r.vueloCodigo || '').trim().toUpperCase() === cod);
+      if (resVuelo.some(r => !estaPasajeroAbordado(r))) return true;
+      return Number(v.ocupacion || 0) > 0;
+    });
+    return conPendientes ? conPendientes.codigo : '';
+  }
+
+  function limpiarTimersDespegue() {
+    if (Array.isArray(uiState.departureTimers)) {
+      uiState.departureTimers.forEach(id => clearTimeout(id));
+      uiState.departureTimers = [];
+    }
+  }
+
+  function ocultarOverlayDespegue() {
+    const overlay = document.getElementById('gate-departure-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function actualizarEstadoVisualConsolaPuerta(vueloObj, hayPendientes = true) {
+    const liveBadge = document.getElementById('gate-live-status-badge');
+    const btnAuto = document.getElementById('btn-iniciar-abordaje-masivo');
+    const btnAutoText = document.getElementById('btn-iniciar-abordaje-text');
+    const btnNext = document.getElementById('btn-abordar-siguiente');
+    const btnReset = document.getElementById('btn-reiniciar-fila');
+    const despegado = !vueloObj || esVueloDespegado(vueloObj) || !hayPendientes;
+
+    if (liveBadge) {
+      if (!hayPendientes) {
+        liveBadge.textContent = '✅ Rampa Despachada';
+        liveBadge.classList.add('gate-badge-departed');
+      } else if (despegado) {
+        liveBadge.textContent = '✈️ Vuelo Despegado';
+        liveBadge.classList.add('gate-badge-departed');
+      } else {
+        liveBadge.textContent = 'Abordaje Activo';
+        liveBadge.classList.remove('gate-badge-departed');
+      }
+    }
+
+    if (btnAuto) btnAuto.disabled = despegado || uiState.isDepartureAnimationRunning;
+    if (btnNext) btnNext.disabled = despegado || uiState.isDepartureAnimationRunning;
+    if (btnReset) btnReset.disabled = despegado || uiState.isDepartureAnimationRunning;
+    if (btnAutoText && !uiState.isAutomaticBoardingRunning) {
+      btnAutoText.textContent = despegado ? 'Vuelo Despegado' : 'Iniciar Abordaje Automatico';
+    }
+  }
+
   function poblarSelectVuelosGate() {
     const selector = document.getElementById('gate-flight-selector');
     if (!selector) return;
 
-    selector.innerHTML = '';
-    const codigosVistos = new Set();
+    const { pendientes, despegados } = obtenerVuelosGateClasificados();
+    const pendientesOrdenados = [...pendientes].sort((a, b) => {
+      const oA = Number(a.ocupacion || 0) > 0 ? 0 : 1;
+      const oB = Number(b.ocupacion || 0) > 0 ? 0 : 1;
+      return oA - oB;
+    });
+    const codigosActivos = new Set(pendientesOrdenados.map(v => String(v.codigo || '').trim().toUpperCase()));
+    const actualUpper = String(uiState.activeGateFlight || '').trim().toUpperCase();
 
-    uiState.vuelosCargados.forEach(v => {
-      if (!codigosVistos.has(v.codigo)) {
-        codigosVistos.add(v.codigo);
-        const opt = document.createElement('option');
-        opt.value = v.codigo;
-        opt.textContent = `${v.codigo} — ${v.origen.split('-')[0].trim()} -> ${v.destino.split('-')[0].trim()}`;
-        if (v.codigo === uiState.activeGateFlight) opt.selected = true;
-        selector.appendChild(opt);
-      }
+    if (!actualUpper || !codigosActivos.has(actualUpper)) {
+      const primeroConPax = pendientesOrdenados.find(v => Number(v.ocupacion || 0) > 0) || pendientesOrdenados[0];
+      uiState.activeGateFlight = primeroConPax ? primeroConPax.codigo : '';
+    }
+
+    selector.innerHTML = '';
+
+    pendientesOrdenados.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.codigo;
+      const paxCount = Number(v.ocupacion || 0);
+      opt.textContent = `${v.codigo} — ${v.origen.split('-')[0].trim()} -> ${v.destino.split('-')[0].trim()} (${paxCount} pax)`;
+      if (v.codigo === uiState.activeGateFlight) opt.selected = true;
+      selector.appendChild(opt);
     });
 
-    if (selector.options.length > 0 && !uiState.activeGateFlight) {
-      uiState.activeGateFlight = selector.options[0].value;
+    despegados.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.codigo;
+      opt.disabled = true;
+      opt.textContent = `✈️ DESPEGADO — ${v.codigo} — ${v.origen.split('-')[0].trim()} -> ${v.destino.split('-')[0].trim()}`;
+      selector.appendChild(opt);
+    });
+
+    if (pendientesOrdenados.length === 0 && despegados.length > 0) {
+      const emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.selected = true;
+      emptyOpt.textContent = '✅ Sin vuelos pendientes por abordar';
+      selector.insertBefore(emptyOpt, selector.firstChild);
     }
   }
 
   function cambiarVueloConsolaAbordaje(codigo) {
+    if (uiState.isDepartureAnimationRunning) return;
+    if (esVueloDespegado(codigo)) {
+      showToast(`El vuelo ${codigo} ya despegó y su puerta está cerrada.`, true);
+      poblarSelectVuelosGate();
+      return;
+    }
     uiState.activeGateFlight = codigo;
     detenerAbordajeAutomatico();
     inicializarConsolaAbordaje();
   }
 
+  async function cargarManifiestoVuelo(codigoVuelo) {
+    const codUpper = String(codigoVuelo || '').trim().toUpperCase();
+    if (!codUpper) return [];
+    try {
+      const res = await fetch(`/api/vuelos/${encodeURIComponent(codUpper)}/manifiesto`, { cache: 'no-store' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const vuelo =
+        uiState.vuelosCargados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper) ||
+        uiState.vuelosDespegados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper) || {};
+
+      const lista = (Array.isArray(data.pasajeros) ? data.pasajeros : []).map(p => {
+        const esVip = String(p.clase_cabina || p.categoria || '').toUpperCase().includes('VIP');
+        const item = {
+          pnr: p.referencia_pago || `AF-${codUpper}-${p.orden || 1}`,
+          recibo: `REC-BOG-${1000 + (Number(p.orden) || 0)}`,
+          vueloCodigo: codUpper,
+          origen: vuelo.origen || 'BOG - Bogotá El Dorado',
+          destino: vuelo.destino || 'MDE - Medellín',
+          fecha: vuelo.fecha_salida || '',
+          hora: vuelo.hora_salida_12h || '08:30 AM',
+          puerta: vuelo.puerta || 'B-03',
+          tipoAeronave: vuelo.tipo_aeronave || 'Airbus A320neo',
+          asiento: p.asiento || '',
+          clase: esVip ? 'VIP Executive' : 'Economy',
+          pasajeroDoc: p.documento,
+          documentoReal: p.documento,
+          pasajeroNombre: p.nombre_completo || 'Pasajero',
+          metodoPago: p.metodo_pago || 'Tarjeta',
+          tarifaTotalCOP: Number(p.tarifa_pagada_cop) || 288454,
+          estado: p.abordado ? 'Abordado' : (p.estado_embarque || 'Confirmado'),
+          estado_embarque: p.estado_embarque || (p.abordado ? 'ABORDADO' : 'Confirmado'),
+          abordado: Boolean(p.abordado),
+          esServidor: true
+        };
+        if (estaPasajeroAbordado(item)) {
+          item.estado = 'Abordado';
+          item.estado_embarque = 'ABORDADO';
+          item.abordado = true;
+        }
+        return item;
+      });
+
+      lista.sort((a, b) => {
+        const vA = String(a.clase || '').includes('VIP') ? 0 : 1;
+        const vB = String(b.clase || '').includes('VIP') ? 0 : 1;
+        return vA - vB;
+      });
+
+      uiState.manifiestosPorVuelo[codUpper] = lista;
+
+      if (
+        uiState.activeSection === 'abordar' &&
+        String(uiState.activeGateFlight || '').trim().toUpperCase() === codUpper &&
+        !uiState.isAutomaticBoardingRunning &&
+        !uiState.isDepartureAnimationRunning
+      ) {
+        uiState.flightQueueTickets = lista;
+        renderizarColaAbordajeActual();
+      }
+      return lista;
+    } catch (e) {
+      return [];
+    }
+  }
+
   function generarManifiestoCompletoVuelo(codigoVuelo) {
-    const vuelo = uiState.vuelosCargados.find(v => v.codigo === codigoVuelo) || {
-      codigo: codigoVuelo || 'AF2025',
-      origen: 'BOG - Bogotá El Dorado',
-      destino: 'MDE - Medellín',
-      tipo_aeronave: 'Airbus A320neo',
-      puerta: 'B-03',
-      hora_salida_12h: '08:30 AM',
-      fecha_salida: '2026-12-02'
-    };
+    if (!codigoVuelo) {
+      uiState.flightQueueTickets = [];
+      return [];
+    }
+
+    const codUpper = String(codigoVuelo || '').trim().toUpperCase();
+    const vuelo =
+      uiState.vuelosCargados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper) ||
+      uiState.vuelosDespegados.find(v => String(v.codigo || '').trim().toUpperCase() === codUpper) || {
+        codigo: codigoVuelo || 'AF2025',
+        origen: 'BOG - Bogotá El Dorado',
+        destino: 'MDE - Medellín',
+        tipo_aeronave: 'Airbus A320neo',
+        puerta: 'B-03',
+        hora_salida_12h: '08:30 AM',
+        fecha_salida: '2026-12-02',
+        estado: 'Check-in abierto'
+      };
 
     // Actualizar cabecera de la puerta
     const gateBadge = document.getElementById('gate-number-badge');
@@ -1796,51 +2635,43 @@
     if (gateBadge) gateBadge.textContent = `Puerta ${vuelo.puerta || 'B-03'}`;
     if (planeBadge) planeBadge.textContent = vuelo.tipo_aeronave || 'Airbus A320neo';
 
-    // 1. Obtener tiquetes del usuario para este vuelo
-    const ticketsUsuario = uiState.misReservas.filter(r => r.vueloCodigo === vuelo.codigo);
+    const vueloYaDespegado = esVueloDespegado(vuelo);
 
-    // 2. Generar pasajeros complementarios de rampa para fila completa y realista
-    const nombresDemo = [
-      { doc: '102938475', nombre: 'Alejandra Morales', asiento: '1B', clase: 'VIP Executive' },
-      { doc: '109283746', nombre: 'Gabriel Restrepo', asiento: '2A', clase: 'VIP Executive' },
-      { doc: '103847291', nombre: 'Mariana Duque', asiento: '2B', clase: 'VIP Executive' },
-      { doc: '104829103', nombre: 'Felipe Jaramillo', asiento: '5A', clase: 'Economy' },
-      { doc: '105839201', nombre: 'Camila Ospina', asiento: '5B', clase: 'Economy' },
-      { doc: '106829402', nombre: 'Andres Velez', asiento: '5C', clase: 'Economy' },
-      { doc: '107839204', nombre: 'Sofia Castro', asiento: '6A', clase: 'Economy' },
-      { doc: '108849205', nombre: 'Mateo Cardenas', asiento: '6B', clase: 'Economy' }
-    ];
+    // 1. Priorizar el manifiesto oficial del vuelo desde el servidor si está disponible
+    const manifCache = uiState.manifiestosPorVuelo[codUpper];
+    const ticketsUsuario = (Array.isArray(manifCache) && manifCache.length > 0)
+      ? manifCache
+      : uiState.misReservas.filter(
+          r => String(r.vueloCodigo || '').trim().toUpperCase() === codUpper
+        );
+
+    if (vueloYaDespegado) {
+      const finalizados = ticketsUsuario.map(t => ({
+        ...t,
+        estado: 'Abordado',
+        estado_embarque: 'ABORDADO',
+        abordado: true
+      }));
+      uiState.flightQueueTickets = finalizados;
+      return finalizados;
+    }
 
     const todos = [];
 
-    // Prioridad 1: Sillas VIP del usuario y demo
-    ticketsUsuario.filter(t => t.clase.includes('VIP')).forEach(t => todos.push(t));
-    nombresDemo.filter(d => d.clase.includes('VIP')).forEach(d => {
-      if (!todos.some(x => x.asiento === d.asiento)) {
-        todos.push({
-          pnr: 'AF' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-          recibo: `REC-BOG-${Math.floor(1000 + Math.random() * 9000)}`,
-          vueloCodigo: vuelo.codigo,
-          origen: vuelo.origen,
-          destino: vuelo.destino,
-          fecha: vuelo.fecha_salida,
-          hora: vuelo.hora_salida_12h,
-          puerta: vuelo.puerta,
-          tipoAeronave: vuelo.tipo_aeronave,
-          asiento: d.asiento,
-          clase: d.clase,
-          pasajeroDoc: `CC-${d.doc}`,
-          pasajeroNombre: d.nombre,
-          tarifaTotalCOP: 331500,
-          estado: 'En Fila FIFO'
-        });
-      }
-    });
+    // Prioridad 1: Sillas VIP del servidor / usuario
+    ticketsUsuario.filter(t => String(t.clase || '').includes('VIP')).forEach(t => todos.push(t));
+    // Prioridad 2: Sillas Economy del servidor / usuario
+    ticketsUsuario.filter(t => !String(t.clase || '').includes('VIP')).forEach(t => todos.push(t));
 
-    // Prioridad 2: Sillas Economy
-    ticketsUsuario.filter(t => !t.clase.includes('VIP')).forEach(t => todos.push(t));
-    nombresDemo.filter(d => !d.clase.includes('VIP')).forEach(d => {
-      if (!todos.some(x => x.asiento === d.asiento)) {
+    // Solo usar respaldo offline si aún no se cargaron vuelos del servidor
+    if (todos.length === 0 && uiState.vuelosCargados.length === 0) {
+      const nombresDemo = [
+        { doc: '102938475', nombre: 'Alejandra Morales', asiento: '1B', clase: 'VIP Executive' },
+        { doc: '109283746', nombre: 'Gabriel Restrepo', asiento: '2A', clase: 'VIP Executive' },
+        { doc: '103847291', nombre: 'Mariana Duque', asiento: '2B', clase: 'VIP Executive' },
+        { doc: '104829103', nombre: 'Felipe Jaramillo', asiento: '5A', clase: 'Economy' }
+      ];
+      nombresDemo.forEach(d => {
         todos.push({
           pnr: 'AF' + Math.random().toString(36).substring(2, 8).toUpperCase(),
           recibo: `REC-BOG-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1854,10 +2685,19 @@
           asiento: d.asiento,
           clase: d.clase,
           pasajeroDoc: `CC-${d.doc}`,
+          documentoReal: d.doc,
           pasajeroNombre: d.nombre,
-          tarifaTotalCOP: 288454,
+          tarifaTotalCOP: d.clase.includes('VIP') ? 331500 : 288454,
           estado: 'En Fila FIFO'
         });
+      });
+    }
+
+    todos.forEach(t => {
+      if (estaPasajeroAbordado(t)) {
+        t.estado = 'Abordado';
+        t.estado_embarque = 'ABORDADO';
+        t.abordado = true;
       }
     });
 
@@ -1865,27 +2705,69 @@
     return todos;
   }
 
-  function inicializarConsolaAbordaje() {
-    poblarSelectVuelosGate();
-    const codigo = uiState.activeGateFlight || 'AF2025';
-    const tickets = generarManifiestoCompletoVuelo(codigo);
-
+  function renderizarColaAbordajeActual() {
     const container = document.getElementById('gate-fifo-queue-list');
     const badgeTotal = document.getElementById('fifo-total-count-badge');
     if (!container) return;
 
-    container.innerHTML = '';
-    tickets.forEach((t, idx) => {
-      container.innerHTML += generarHTMLPaseDobleTalon(t, idx, false);
-    });
+    const { pendientes } = obtenerVuelosGateClasificados();
+    const tickets = uiState.flightQueueTickets || [];
+
+    if (pendientes.length === 0 && !uiState.isDepartureAnimationRunning) {
+      container.innerHTML = `
+        <div class="gate-all-dispatched-card">
+          <p style="font-size:1.125rem;font-weight:800;margin:0 0 6px;">✅ Todos los vuelos con pasajeros en rampa han sido despachados</p>
+          <p style="font-size:0.875rem;color:#047857;margin:0;">Todas las puertas han sido cerradas y selladas en SQLite.</p>
+        </div>
+      `;
+    } else if (tickets.length === 0) {
+      container.innerHTML = `
+        <div style="background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:14px;padding:24px;text-align:center;">
+          <p style="font-size:0.95rem;font-weight:700;color:#0F172A;margin:0 0 4px;">No hay pasajeros en fila para este vuelo</p>
+          <p style="font-size:0.8125rem;color:#64748B;margin:0;">Cuando se confirmen reservas aparecerán aquí en orden FIFO.</p>
+        </div>
+      `;
+    } else {
+      container.innerHTML = tickets
+        .map((t, idx) => generarHTMLPaseDobleTalon(t, idx, false, 'gate'))
+        .join('');
+    }
 
     if (badgeTotal) badgeTotal.textContent = `Total en fila: ${tickets.length}`;
     actualizarProgresoPuerta();
   }
 
+  function inicializarConsolaAbordaje() {
+    const esAdmin = esUsuarioAdmin();
+    const gateControls = document.getElementById('gate-operator-controls');
+    if (gateControls) gateControls.style.display = esAdmin ? 'flex' : 'none';
+    const gateReadonlyNotice = document.getElementById('gate-readonly-notice');
+    if (gateReadonlyNotice) gateReadonlyNotice.style.display = esAdmin ? 'none' : 'flex';
+
+    if (!uiState.isDepartureAnimationRunning) {
+      ocultarOverlayDespegue();
+    }
+
+    poblarSelectVuelosGate();
+    const { pendientes } = obtenerVuelosGateClasificados();
+    const codigo = uiState.activeGateFlight || '';
+    const vueloObj =
+      uiState.vuelosCargados.find(v => v.codigo === codigo) ||
+      uiState.vuelosDespegados.find(v => v.codigo === codigo) ||
+      null;
+
+    actualizarEstadoVisualConsolaPuerta(vueloObj, pendientes.length > 0);
+    generarManifiestoCompletoVuelo(codigo);
+    renderizarColaAbordajeActual();
+
+    if (codigo && uiState.vuelosCargados.length > 0 && !uiState.isAutomaticBoardingRunning && !uiState.isDepartureAnimationRunning) {
+      cargarManifiestoVuelo(codigo);
+    }
+  }
+
   function actualizarProgresoPuerta() {
-    const tickets = uiState.flightQueueTickets;
-    const abordados = tickets.filter(t => t.estado === 'Abordado').length;
+    const tickets = uiState.flightQueueTickets || [];
+    const abordados = tickets.filter(t => estaPasajeroAbordado(t)).length;
     const total = tickets.length;
     const pct = total > 0 ? Math.round((abordados / total) * 100) : 0;
 
@@ -1896,15 +2778,33 @@
   }
 
   function iniciarAbordajeAutomatico() {
+    if (!esUsuarioAdmin()) {
+      showToast('Operación exclusiva del Operario / Administrador en puerta.', true);
+      return;
+    }
+    if (uiState.isDepartureAnimationRunning || !uiState.activeGateFlight || esVueloDespegado(uiState.activeGateFlight)) {
+      showToast('Este vuelo ya ha despegado y su puerta está cerrada.', true);
+      return;
+    }
     if (uiState.isAutomaticBoardingRunning) {
       detenerAbordajeAutomatico();
       return;
     }
 
-    const unboardedIndex = uiState.flightQueueTickets.findIndex(t => t.estado !== 'Abordado');
-    if (unboardedIndex === -1) {
+    const siguienteTicket = uiState.flightQueueTickets.find(t => !estaPasajeroAbordado(t));
+    if (!siguienteTicket) {
       showToast('Todos los pasajeros de este vuelo ya han sido abordados.');
       return;
+    }
+
+    const codActual = uiState.activeGateFlight;
+    const vueloActual = uiState.vuelosCargados.find(v => v.codigo === codActual);
+    if (vueloActual && Number(vueloActual.ocupacion || 0) > 0 && !esVueloDespegado(vueloActual)) {
+      const ctxEmb = obtenerContextoUsuario();
+      fetch(`/api/embarque/${encodeURIComponent(codActual)}/iniciar`, {
+        method: 'POST',
+        headers: { 'X-User-Role': ctxEmb.rolRaw || 'admin' }
+      }).catch(() => {});
     }
 
     uiState.isAutomaticBoardingRunning = true;
@@ -1921,151 +2821,409 @@
     if (statusHud) statusHud.textContent = 'ESCANEANDO CÓDIGOS QR DE FORMA AUTOMÁTICA // SECUENCIA FIFO ACTIVA';
 
     uiState.boardingInterval = setInterval(() => {
-      const nextIdx = uiState.flightQueueTickets.findIndex(t => t.estado !== 'Abordado');
-      if (nextIdx === -1) {
-        detenerAbordajeAutomatico();
-        playAirportChime();
-        showToast('Abordaje del vuelo completado exitosamente.');
-        if (btnText) btnText.textContent = 'Abordaje Completado';
+      const ticket = uiState.flightQueueTickets.find(t => !estaPasajeroAbordado(t));
+      if (!ticket) {
+        detenerAbordajeAutomatico(true);
         return;
       }
 
-      const ticket = uiState.flightQueueTickets[nextIdx];
-      escanearYAbordarTicket(nextIdx, ticket);
+      escanearYAbordarTicket(ticket);
     }, 1500);
   }
 
-  function detenerAbordajeAutomatico() {
+  function detenerAbordajeAutomatico(porDespegue = false) {
     if (uiState.boardingInterval) {
       clearInterval(uiState.boardingInterval);
       uiState.boardingInterval = null;
     }
     uiState.isAutomaticBoardingRunning = false;
     const btnText = document.getElementById('btn-iniciar-abordaje-text');
-    if (btnText) btnText.textContent = 'Reanudar Abordaje';
+    if (btnText) {
+      btnText.textContent = porDespegue ? '✈️ Vuelo Despegado' : 'Reanudar Abordaje';
+    }
   }
 
   function reiniciarFilaAbordaje() {
+    if (!esUsuarioAdmin()) {
+      showToast('Operación exclusiva del Operario / Administrador en puerta.', true);
+      return;
+    }
+    const vueloActual = String(uiState.activeGateFlight || '').trim().toUpperCase();
+    if (!vueloActual || esVueloDespegado(vueloActual) || uiState.isDepartureAnimationRunning) {
+      showToast('Un vuelo DESPEGADO no puede reiniciarse.', true);
+      return;
+    }
     detenerAbordajeAutomatico();
-    uiState.flightQueueTickets.forEach(t => t.estado = 'En Fila FIFO');
+    uiState.boardingMutationEpoch += 1;
+
+    Array.from(uiState.abordadosEnSesion).forEach(k => {
+      if (k.startsWith(`${vueloActual}::`)) {
+        uiState.abordadosEnSesion.delete(k);
+      }
+    });
+
+    const listaManifReset = Array.isArray(uiState.manifiestosPorVuelo[vueloActual])
+      ? uiState.manifiestosPorVuelo[vueloActual]
+      : [];
+    [...uiState.flightQueueTickets, ...listaManifReset].forEach(t => {
+      t.estado = 'En Fila FIFO';
+      t.estado_embarque = 'Confirmado';
+      t.abordado = false;
+    });
     uiState.misReservas.forEach(r => {
-      if (r.vueloCodigo === uiState.activeGateFlight) r.estado = 'Confirmado';
+      if (String(r.vueloCodigo || '').trim().toUpperCase() === vueloActual) {
+        r.estado = 'Confirmado';
+        r.estado_embarque = 'Confirmado';
+        r.abordado = false;
+      }
     });
 
     const btnText = document.getElementById('btn-iniciar-abordaje-text');
     if (btnText) btnText.textContent = 'Iniciar Abordaje Automatico';
+    const statusHud = document.getElementById('scanner-hud-status');
+    if (statusHud) statusHud.textContent = 'ESCÁNER ÓPTICO LISTO EN PUERTA // ESPERANDO SECUENCIA';
+    const lastPax = document.getElementById('scanner-last-scanned-pax');
+    if (lastPax) lastPax.textContent = 'Último pasajero: Ninguno';
 
     inicializarConsolaAbordaje();
     showToast('Fila de abordaje reiniciada para pruebas.');
   }
 
-  async function escanearYAbordarTicket(idx, ticket) {
-    // 1. Resaltar tarjeta actual en la fila
-    const ticketCard = document.getElementById(`ticket-card-${idx}`);
+  function dispararSecuenciaDespegueVuelo(vueloObj, siguienteSugeridoRef) {
+    const codUpper = String(vueloObj?.codigo || uiState.activeGateFlight || '').trim().toUpperCase();
+    if (!codUpper || uiState.isDepartureAnimationRunning) return;
+
+    limpiarTimersDespegue();
+    uiState.isDepartureAnimationRunning = true;
+    uiState.vuelosDespegadosEnSesion.add(codUpper);
+    detenerAbordajeAutomatico(true);
+
+    // Esperar ~1 segundo para que se aprecie el sello "ABORDADO" del último pasajero al 100%
+    const tInicio = setTimeout(() => {
+      if (uiState.activeSection !== 'abordar') {
+        uiState.isDepartureAnimationRunning = false;
+        return;
+      }
+
+      playTakeoffFanfare();
+
+      const origen = vueloObj?.origen || 'BOG';
+      const destino = vueloObj?.destino || 'DEST';
+      const liveBadge = document.getElementById('gate-live-status-badge');
+      if (liveBadge) {
+        liveBadge.textContent = '✈️ Vuelo Despegado';
+        liveBadge.classList.add('gate-badge-departed');
+      }
+
+      actualizarEstadoVisualConsolaPuerta({ ...(vueloObj || {}), codigo: codUpper, estado: 'DESPEGADO' }, true);
+
+      const statusHud = document.getElementById('scanner-hud-status');
+      if (statusHud) statusHud.textContent = `PUERTA CERRADA Y SELLADA // VUELO ${codUpper} EN DESPEGUE`;
+
+      const overlay = document.getElementById('gate-departure-overlay');
+      const headline = document.getElementById('gate-departure-headline');
+      const subtext = document.getElementById('gate-departure-subtext');
+      const telemetry = document.getElementById('gate-departure-telemetry');
+
+      if (headline) {
+        headline.textContent = `✈️ VUELO ${codUpper} (${origen} ➔ ${destino}) HA DESPEGADO — PUERTA CERRADA Y SELLADA`;
+      }
+      if (telemetry) {
+        telemetry.textContent = `PUERTA ${vueloObj?.puerta || 'B-03'} SELLADA • V1/VR ALCANZADA • ESTADO PERSISTIDO: DESPEGADO`;
+      }
+      if (subtext) {
+        subtext.textContent = 'Transfiriendo control de rampa al siguiente vuelo disponible en 3.5 segundos...';
+      }
+      if (overlay) {
+        overlay.style.display = 'block';
+        // Reiniciar animación SVG del avión para cada despegue
+        const runner = overlay.querySelector('.departure-plane-runner');
+        if (runner) {
+          const clone = runner.cloneNode(true);
+          runner.parentNode.replaceChild(clone, runner);
+        }
+        overlay.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      showToast(`✈️ Vuelo ${codUpper} (${origen} ➔ ${destino}) HA DESPEGADO — Puerta cerrada y sellada.`);
+
+      // Transición automática al siguiente vuelo disponible tras 3.5 segundos
+      const tTransicion = setTimeout(async () => {
+        ocultarOverlayDespegue();
+        uiState.isDepartureAnimationRunning = false;
+
+        await Promise.all([cargarVuelosCatalogo(), cargarReservasServidor()]);
+
+        const { pendientes } = obtenerVuelosGateClasificados();
+        const sugerido = String(siguienteSugeridoRef?.codigo || '').trim().toUpperCase();
+        const nextCode =
+          (sugerido && sugerido !== codUpper && pendientes.some(v => String(v.codigo || '').toUpperCase() === sugerido))
+            ? sugerido
+            : obtenerSiguienteVueloPendiente(codUpper);
+
+        if (nextCode) {
+          uiState.activeGateFlight = nextCode;
+          inicializarConsolaAbordaje();
+          const btnText = document.getElementById('btn-iniciar-abordaje-text');
+          if (btnText) btnText.textContent = 'Iniciar Abordaje Automatico';
+          if (statusHud) statusHud.textContent = 'ESCÁNER ÓPTICO LISTO EN PUERTA // ESPERANDO SECUENCIA';
+          const lastPax = document.getElementById('scanner-last-scanned-pax');
+          if (lastPax) lastPax.textContent = 'Último pasajero: Ninguno';
+          showToast(`🔄 Puerta asignada al siguiente vuelo: ${nextCode}`);
+        } else {
+          uiState.activeGateFlight = '';
+          inicializarConsolaAbordaje();
+          showToast('✅ Todos los vuelos con pasajeros en rampa han sido despachados');
+        }
+      }, 3500);
+
+      uiState.departureTimers.push(tTransicion);
+    }, 1000);
+
+    uiState.departureTimers.push(tInicio);
+  }
+
+  function sincronizarTarjetasPasajeroAbordadoEnOtrasVistas({ vueloCodigo, documento, asiento }) {
+    const portalContainer = document.getElementById('passenger-portal-tickets-list');
+    const modalContainer = document.getElementById('boarding-passes-container');
+    [portalContainer, modalContainer].forEach(cont => {
+      const card = buscarTarjetaPorIdentidad(cont, { vueloCodigo, documento, asiento });
+      if (card) aplicarEstadoAbordadoEnTarjetaDOM(card);
+    });
+  }
+
+  async function escanearYAbordarTicket(ticketOrIdx, maybeTicket) {
+    const ticket = (typeof ticketOrIdx === 'object' && ticketOrIdx !== null)
+      ? ticketOrIdx
+      : (maybeTicket || uiState.flightQueueTickets[ticketOrIdx]);
+    if (!ticket) return;
+
+    const { vueloUpper, docLimpio, asientoLimpio } = construirClavePasajeroVuelo(
+      ticket.vueloCodigo || uiState.activeGateFlight,
+      ticket.documentoReal || ticket.pasajeroDoc,
+      ticket.asiento
+    );
+
+    if (esVueloDespegado(vueloUpper)) {
+      showToast(`El vuelo ${vueloUpper} ya despegó y la puerta está cerrada.`, true);
+      return;
+    }
+
+    // 1. Marcar estado inmediatamente (evita que un intervalo o re-render duplique o pierda el estado)
+    marcarPasajeroAbordadoEnEstado(ticket);
+
+    // Determinar si este pasajero completa el 100% de la cola actual
+    const totalCola = uiState.flightQueueTickets.length;
+    const abordadosCola = uiState.flightQueueTickets.filter(t => estaPasajeroAbordado(t)).length;
+    const esUltimoPasajero = totalCola > 0 && abordadosCola >= totalCola;
+
+    if (esUltimoPasajero) {
+      detenerAbordajeAutomatico(true);
+    }
+
+    // 2. Localizar estrictamente la tarjeta en la cola FIFO por documento / asiento (jamás por índice)
+    const queueContainer = document.getElementById('gate-fifo-queue-list');
+    const ticketCard = buscarTarjetaPorIdentidad(queueContainer, {
+      vueloCodigo: vueloUpper,
+      documento: docLimpio,
+      asiento: asientoLimpio
+    });
+
     if (ticketCard) {
       ticketCard.classList.add('active-scanning');
       ticketCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // 2. Beep del escáner óptico a 1850 Hz
+    // 3. Beep del escáner óptico a 1850 Hz
     playScannerBeep();
 
-    // 3. Estampar sello "ABORDADO" y actualizar estado
-    ticket.estado = 'Abordado';
+    // 4. Persistir en backend en SQLite (incluyendo flag de último pasajero para cambio atómico a DESPEGADO)
+    const siguienteRef = { codigo: '' };
+    const ctxEmb = obtenerContextoUsuario();
+    fetch(`/api/embarque/${encodeURIComponent(vueloUpper)}/abordar-pasajero`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Role': ctxEmb.rolRaw || 'admin'
+      },
+      body: JSON.stringify({
+        documento: docLimpio,
+        nombre: ticket.pasajeroNombre,
+        asiento: ticket.asiento,
+        completado: esUltimoPasajero,
+        ultimo_pasajero: esUltimoPasajero
+      })
+    })
+      .then(r => r.json().catch(() => ({})))
+      .then(resp => {
+        if (resp?.siguiente_vuelo_disponible) {
+          siguienteRef.codigo = resp.siguiente_vuelo_disponible;
+        }
+        if (resp?.vuelo_despegado) {
+          uiState.vuelosDespegadosEnSesion.add(vueloUpper);
+        }
+      })
+      .catch(() => {});
 
-    // Sincronizar si es del usuario
-    const userRes = uiState.misReservas.find(r => r.pnr === ticket.pnr);
-    if (userRes) userRes.estado = 'Abordado';
-
-    // Notificar al backend en la base de datos
-    try {
-      fetch(`/api/embarque/${encodeURIComponent(ticket.vueloCodigo)}/abordar-pasajero`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documento: ticket.pasajeroDoc,
-          nombre: ticket.pasajeroNombre,
-          asiento: ticket.asiento
-        })
-      });
-    } catch (e) {}
-
-    // 4. Actualizar DOM del ticket
+    // 5. Tras el barrido óptico (400ms), fijar sello ABORDADO y verificar si el vuelo alcanzó el 100%
     setTimeout(() => {
-      if (ticketCard) {
-        ticketCard.classList.remove('active-scanning');
-        if (!ticketCard.querySelector('.stamp-abordado')) {
-          const stamp = document.createElement('div');
-          stamp.className = 'stamp-abordado';
-          stamp.textContent = 'ABORDADO';
-          ticketCard.appendChild(stamp);
-        }
+      const liveQueueContainer = document.getElementById('gate-fifo-queue-list');
+      const liveCard = buscarTarjetaPorIdentidad(liveQueueContainer, {
+        vueloCodigo: vueloUpper,
+        documento: docLimpio,
+        asiento: asientoLimpio
+      }) || ticketCard;
 
-        // Actualizar botón individual de abordaje manual si existe
-        const btnManual = ticketCard.querySelector('.btn-ticket-board-manual');
-        if (btnManual) {
-          btnManual.classList.add('boarded');
-          btnManual.disabled = true;
-          const span = btnManual.querySelector('span');
-          if (span) span.textContent = 'Abordado';
-        }
+      if (liveCard) {
+        aplicarEstadoAbordadoEnTarjetaDOM(liveCard);
       }
 
-      const badgeStatus = document.getElementById(`badge-status-${idx}`);
-      if (badgeStatus) {
-        badgeStatus.textContent = 'Abordado';
-        badgeStatus.classList.add('status-abordado');
-      }
+      sincronizarTarjetasPasajeroAbordadoEnOtrasVistas({
+        vueloCodigo: vueloUpper,
+        documento: docLimpio,
+        asiento: asientoLimpio
+      });
 
       const lastPax = document.getElementById('scanner-last-scanned-pax');
       if (lastPax) lastPax.textContent = `Último: ${ticket.pasajeroNombre} (Silla ${ticket.asiento})`;
 
       actualizarProgresoPuerta();
+
+      if (esUltimoPasajero) {
+        const vueloObj = uiState.vuelosCargados.find(
+          v => String(v.codigo || '').trim().toUpperCase() === vueloUpper
+        ) || {
+          codigo: vueloUpper,
+          origen: ticket.origen || 'BOG',
+          destino: ticket.destino || 'DEST',
+          puerta: ticket.puerta || 'B-03'
+        };
+        dispararSecuenciaDespegueVuelo(vueloObj, siguienteRef);
+      }
     }, 400);
   }
 
   // Abordaje manual 1 por 1 desde el botón superior de la consola
   function abordarSiguienteManual() {
+    if (!esUsuarioAdmin()) {
+      showToast('Operación exclusiva del Operario / Administrador en puerta.', true);
+      return;
+    }
+    if (uiState.isDepartureAnimationRunning || !uiState.activeGateFlight || esVueloDespegado(uiState.activeGateFlight)) {
+      showToast('Este vuelo ya ha despegado y su puerta está cerrada.', true);
+      return;
+    }
     if (uiState.isAutomaticBoardingRunning) {
       detenerAbordajeAutomatico();
     }
-    const nextIdx = uiState.flightQueueTickets.findIndex(t => t.estado !== 'Abordado');
+    const nextIdx = uiState.flightQueueTickets.findIndex(t => !estaPasajeroAbordado(t));
     if (nextIdx === -1) {
       showToast('Todos los pasajeros de este vuelo ya han sido abordados.');
       return;
     }
     const ticket = uiState.flightQueueTickets[nextIdx];
     showToast(`Abordando pasajero #${nextIdx + 1}: ${ticket.pasajeroNombre} (Silla ${ticket.asiento})`);
-    escanearYAbordarTicket(nextIdx, ticket);
+    escanearYAbordarTicket(ticket);
   }
 
-  // Abordaje manual individual desde la tarjeta del tiquete en la fila
-  function abordarTicketEnFila(idx) {
+  // Abordaje manual individual desde la tarjeta del tiquete en la fila (por identidad o índice)
+  function abordarTicketEnFilaPorIdentidad({ vueloCodigo, documento, asiento }) {
+    if (!esUsuarioAdmin()) {
+      showToast('Operación exclusiva del Operario / Administrador en puerta.', true);
+      return;
+    }
+    if (uiState.isDepartureAnimationRunning || esVueloDespegado(vueloCodigo || uiState.activeGateFlight)) {
+      showToast('Este vuelo ya ha despegado y su puerta está cerrada.', true);
+      return;
+    }
     if (uiState.isAutomaticBoardingRunning) {
       detenerAbordajeAutomatico();
     }
-    const ticket = uiState.flightQueueTickets[idx];
-    if (!ticket || ticket.estado === 'Abordado') {
+    const { vueloUpper, docLimpio, asientoLimpio } = construirClavePasajeroVuelo(
+      vueloCodigo || uiState.activeGateFlight,
+      documento,
+      asiento
+    );
+    const ticket = uiState.flightQueueTickets.find(t => {
+      const k = construirClavePasajeroVuelo(
+        t.vueloCodigo,
+        t.documentoReal || t.pasajeroDoc,
+        t.asiento
+      );
+      if (vueloUpper && k.vueloUpper !== vueloUpper) return false;
+      if (docLimpio && k.docLimpio === docLimpio) return true;
+      return Boolean(asientoLimpio && k.asientoLimpio === asientoLimpio);
+    });
+    if (!ticket || estaPasajeroAbordado(ticket)) {
       showToast('Este pasajero ya ha completado su abordaje.');
       return;
     }
     showToast(`Abordando a: ${ticket.pasajeroNombre} (Silla ${ticket.asiento})`);
-    escanearYAbordarTicket(idx, ticket);
+    escanearYAbordarTicket(ticket);
   }
 
-  // Abordaje manual individual desde un tiquete
-  async function abordarVueloPasajero(idx) {
-    const reserva = uiState.misReservas[idx];
-    if (!reserva || reserva.estado === 'Abordado') return;
+  function abordarTicketEnFila(idxOrDoc) {
+    if (typeof idxOrDoc === 'string' && !/^\d+$/.test(idxOrDoc.trim())) {
+      abordarTicketEnFilaPorIdentidad({ documento: idxOrDoc });
+      return;
+    }
+    const ticket = uiState.flightQueueTickets[Number(idxOrDoc)];
+    if (!ticket || estaPasajeroAbordado(ticket)) {
+      showToast('Este pasajero ya ha completado su abordaje.');
+      return;
+    }
+    abordarTicketEnFilaPorIdentidad({
+      vueloCodigo: ticket.vueloCodigo,
+      documento: ticket.documentoReal || ticket.pasajeroDoc,
+      asiento: ticket.asiento
+    });
+  }
+
+  // Abordaje manual individual desde un tiquete en portal / modal
+  async function abordarVueloPasajeroPorIdentidad({ vueloCodigo, documento, asiento }) {
+    if (!esUsuarioAdmin()) {
+      showToast('Operación exclusiva del Operario / Administrador en puerta.', true);
+      return;
+    }
+    const { vueloUpper, docLimpio, asientoLimpio } = construirClavePasajeroVuelo(
+      vueloCodigo,
+      documento,
+      asiento
+    );
+    const visibles = obtenerReservasVisibles();
+    const buscarMatch = (lista) => lista.find(r => {
+      const k = construirClavePasajeroVuelo(
+        r.vueloCodigo,
+        r.documentoReal || r.pasajeroDoc,
+        r.asiento
+      );
+      if (vueloUpper && k.vueloUpper !== vueloUpper) return false;
+      if (docLimpio && k.docLimpio === docLimpio) return true;
+      return Boolean(asientoLimpio && k.asientoLimpio === asientoLimpio);
+    });
+    const reserva = buscarMatch(visibles) || buscarMatch(uiState.misReservas);
+    if (!reserva || estaPasajeroAbordado(reserva)) return;
 
     playAirportChime();
+    marcarPasajeroAbordadoEnEstado(reserva);
+    const ctxEmb = obtenerContextoUsuario();
+
+    const portalCard = buscarTarjetaPorIdentidad(document.getElementById('passenger-portal-tickets-list'), {
+      vueloCodigo: vueloUpper,
+      documento: docLimpio,
+      asiento: asientoLimpio
+    });
+    if (portalCard) portalCard.classList.add('active-scanning');
 
     try {
-      await fetch(`/api/embarque/${encodeURIComponent(reserva.vueloCodigo)}/abordar-pasajero`, {
+      await fetch(`/api/embarque/${encodeURIComponent(vueloUpper)}/abordar-pasajero`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': ctxEmb.rolRaw || 'admin'
+        },
         body: JSON.stringify({
-          documento: reserva.pasajeroDoc,
+          documento: docLimpio,
           nombre: reserva.pasajeroNombre,
           asiento: reserva.asiento
         })
@@ -2074,54 +3232,226 @@
 
     setTimeout(() => {
       playScannerBeep();
-      reserva.estado = 'Abordado';
-
-      const statusEl = document.getElementById(`badge-status-${idx}`);
-      const btnEl = document.getElementById(`btn-board-stub-${idx}`);
-
-      if (statusEl) {
-        statusEl.textContent = 'Abordado';
-        statusEl.classList.add('status-abordado');
-      }
-      if (btnEl) {
-        btnEl.classList.add('boarded');
-        btnEl.querySelector('span').textContent = 'Abordado';
-      }
-
-      const card = document.getElementById(`ticket-card-${idx}`);
-      if (card && !card.querySelector('.stamp-abordado')) {
-        const stamp = document.createElement('div');
-        stamp.className = 'stamp-abordado';
-        stamp.textContent = 'ABORDADO';
-        card.appendChild(stamp);
-      }
-
+      sincronizarTarjetasPasajeroAbordadoEnOtrasVistas({
+        vueloCodigo: vueloUpper,
+        documento: docLimpio,
+        asiento: asientoLimpio
+      });
+      const gateCard = buscarTarjetaPorIdentidad(document.getElementById('gate-fifo-queue-list'), {
+        vueloCodigo: vueloUpper,
+        documento: docLimpio,
+        asiento: asientoLimpio
+      });
+      if (gateCard) aplicarEstadoAbordadoEnTarjetaDOM(gateCard);
       showToast(`Pasajero ${reserva.pasajeroNombre} ha abordado exitosamente.`);
     }, 450);
   }
 
+  async function abordarVueloPasajero(idx) {
+    const visibles = obtenerReservasVisibles();
+    const reserva = visibles[idx] || uiState.misReservas[idx];
+    if (!reserva) return;
+    await abordarVueloPasajeroPorIdentidad({
+      vueloCodigo: reserva.vueloCodigo,
+      documento: reserva.documentoReal || reserva.pasajeroDoc,
+      asiento: reserva.asiento
+    });
+  }
+
   // =========================================================================
-  // 15. MODAL MIS RESERVAS (POPUP SECUNDARIO)
+  // 15. MODAL MIS RESERVAS (POPUP SECUNDARIO) & CANCELACIÓN DE RESERVA
   // =========================================================================
+  function renderizarContenidoModalMisReservas() {
+    const container = document.getElementById('boarding-passes-container');
+    if (!container) return;
+    const visibles = obtenerReservasVisibles();
+    container.innerHTML = '';
+    if (visibles.length === 0) {
+      container.innerHTML = `
+        <div style="background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:14px;padding:28px;text-align:center;">
+          <p style="font-size:0.95rem;font-weight:700;color:#0F172A;margin:0 0 6px;">No hay reservas activas</p>
+          <p style="font-size:0.8125rem;color:#64748B;margin:0;">Tus tiquetes emitidos aparecerán aquí.</p>
+        </div>
+      `;
+      return;
+    }
+    container.innerHTML = visibles
+      .map((r, idx) => generarHTMLPaseDobleTalon(r, idx, true, 'modal'))
+      .join('');
+  }
+
   function abrirModalMisReservas() {
-    asegurarReservaDemo();
+    if (!uiState.reservasServidorCargadas) {
+      asegurarReservaDemo();
+    }
     const modal = document.getElementById('modal-mis-reservas');
     if (!modal) return;
 
-    const container = document.getElementById('boarding-passes-container');
-    if (container) {
-      container.innerHTML = '';
-      uiState.misReservas.forEach((r, idx) => {
-        container.innerHTML += generarHTMLPaseDobleTalon(r, idx, true);
-      });
-    }
-
+    renderizarContenidoModalMisReservas();
     modal.classList.add('active');
+
+    cargarReservasServidor().then(() => {
+      if (modal.classList.contains('active')) {
+        renderizarContenidoModalMisReservas();
+      }
+    });
   }
 
   function cerrarModalMisReservas() {
     const modal = document.getElementById('modal-mis-reservas');
     if (modal) modal.classList.remove('active');
+  }
+
+  function solicitarCancelacionReserva({ codigoVuelo, documento, nombre, asiento, pnr }) {
+    if (!codigoVuelo || !documento) {
+      showToast('Datos incompletos para cancelar la reserva.', true);
+      return;
+    }
+    uiState.pendingCancelacion = { codigoVuelo, documento, nombre, asiento, pnr };
+
+    const modal = document.getElementById('modal-confirmar-cancelacion');
+    const bodyEl = document.getElementById('cancel-res-modal-body');
+    if (!modal || !bodyEl) return;
+
+    bodyEl.innerHTML = `
+      <p style="margin:0 0 8px;">¿Estás seguro de que deseas cancelar el tiquete de <strong>${escapeHtml(nombre || 'Pasajero')}</strong> (Doc: <code>${escapeHtml(documento)}</code>)?</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.8125rem;color:#475569;margin-bottom:8px;">
+        <span><strong>Vuelo:</strong> ${escapeHtml(codigoVuelo)}</span>
+        ${asiento ? `<span><strong>Asiento:</strong> ${escapeHtml(asiento)}</span>` : ''}
+        ${pnr ? `<span><strong>PNR:</strong> ${escapeHtml(pnr)}</span>` : ''}
+      </div>
+      <p style="margin:0;font-size:0.8125rem;color:#B91C1C;font-weight:600;">
+        Al confirmar, el asiento quedará libre en la cabina y, si existe lista de espera (Standby FIFO), se asignará automáticamente al siguiente pasajero.
+      </p>
+    `;
+
+    modal.classList.add('active');
+  }
+
+  function cerrarModalCancelarReserva() {
+    const modal = document.getElementById('modal-confirmar-cancelacion');
+    if (modal) modal.classList.remove('active');
+    uiState.pendingCancelacion = null;
+  }
+
+  async function syncAllViews() {
+    uiState.manifiestosPorVuelo = {};
+    await cargarVuelosCatalogo();
+    await cargarReservasServidor();
+
+    actualizarPortalPasajero();
+
+    const modalReservas = document.getElementById('modal-mis-reservas');
+    if (modalReservas && modalReservas.classList.contains('active')) {
+      renderizarContenidoModalMisReservas();
+    }
+
+    if (uiState.activeSection === 'abordar') {
+      inicializarConsolaAbordaje();
+    }
+  }
+
+  function removerReservaDeMemoriaYDom(codigoVuelo, documento) {
+    const vueloTarget = String(codigoVuelo || '').trim().toUpperCase();
+    const docTarget = String(documento || '').replace(/^[A-Za-z]+-/, '').trim();
+    uiState.canceladasEnSesion.add(`${vueloTarget}::${docTarget}`);
+
+    const coincide = (r) => {
+      const rVuelo = String(r?.vueloCodigo || '').trim().toUpperCase();
+      const rDoc = String(r?.documentoReal || r?.pasajeroDoc || '').replace(/^[A-Za-z]+-/, '').trim();
+      return rVuelo === vueloTarget && rDoc === docTarget;
+    };
+
+    uiState.misReservas = uiState.misReservas.filter(r => !coincide(r));
+    uiState.flightQueueTickets = uiState.flightQueueTickets.filter(t => !coincide(t));
+    if (Array.isArray(uiState.manifiestosPorVuelo[vueloTarget])) {
+      uiState.manifiestosPorVuelo[vueloTarget] = uiState.manifiestosPorVuelo[vueloTarget].filter(t => !coincide(t));
+    }
+
+    // Remover nodo(s) del DOM inmediatamente y re-renderizar vistas activas en 0 ms
+    const selector = `[data-ticket-key="${vueloTarget}::${docTarget}"]`;
+    document.querySelectorAll(selector).forEach(card => card.remove());
+
+    actualizarPortalPasajero();
+
+    const modalReservas = document.getElementById('modal-mis-reservas');
+    if (modalReservas && modalReservas.classList.contains('active')) {
+      renderizarContenidoModalMisReservas();
+    }
+
+    if (uiState.activeSection === 'abordar') {
+      renderizarColaAbordajeActual();
+    }
+  }
+
+  async function confirmarCancelacionReserva() {
+    const pending = uiState.pendingCancelacion;
+    if (!pending) return;
+
+    const btnConfirm = document.getElementById('btn-confirmar-cancelacion-definitiva');
+    if (btnConfirm) {
+      if (btnConfirm.disabled) return;
+      btnConfirm.disabled = true;
+    }
+
+    try {
+      const ctx = obtenerContextoUsuario();
+      const headers = { 'Content-Type': 'application/json' };
+      if (ctx.rolRaw) headers['X-User-Role'] = ctx.rolRaw;
+      if (ctx.nombreSesion) headers['X-User-Name'] = ctx.nombreSesion;
+      if (ctx.docSesion) headers['X-User-Doc'] = ctx.docSesion;
+
+      const res = await fetch('/api/checkin/cancelar', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          codigo_vuelo: pending.codigoVuelo,
+          documento: pending.documento
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        const vueloCancelado = pending.codigoVuelo;
+        const docCancelado = pending.documento;
+        const nombreCancelado = pending.nombre;
+
+        cerrarModalCancelarReserva();
+        // Actualización inmediata en 0 segundos en memoria local y DOM
+        removerReservaDeMemoriaYDom(vueloCancelado, docCancelado);
+
+        showToast(data.mensaje || `Reserva cancelada para ${nombreCancelado}.`);
+        if (data.ascenso_standby && data.ascenso_standby.mensaje) {
+          setTimeout(() => {
+            showToast(data.ascenso_standby.mensaje);
+            playAirportChime();
+          }, 350);
+        }
+
+        // Resincronizar con servidor (vuelos, ocupación y eventual ascenso Standby)
+        await syncAllViews();
+      } else {
+        // Si era un tiquete demo/local que no existía en SQLite (404), limpiarlo igualmente del estado local
+        const docTarget = String(pending.documento || '').replace(/^[A-Za-z]+-/, '').trim();
+        const vueloTarget = String(pending.codigoVuelo || '').trim().toUpperCase();
+        const reservaLocal = uiState.misReservas.find(r =>
+          String(r?.vueloCodigo || '').trim().toUpperCase() === vueloTarget &&
+          String(r?.documentoReal || r?.pasajeroDoc || '').replace(/^[A-Za-z]+-/, '').trim() === docTarget
+        );
+        if (res.status === 404 && reservaLocal && !reservaLocal.esServidor) {
+          cerrarModalCancelarReserva();
+          removerReservaDeMemoriaYDom(vueloTarget, docTarget);
+          showToast(`Reserva cancelada para ${pending.nombre}.`);
+        } else {
+          showToast(data.error || 'No se pudo cancelar la reserva.', true);
+        }
+      }
+    } catch (err) {
+      console.error('[Cancelación] Error de red:', err);
+      showToast('Error de comunicación con el servidor al cancelar la reserva.', true);
+    } finally {
+      if (btnConfirm) btnConfirm.disabled = false;
+    }
   }
 
   // =========================================================================
@@ -2241,6 +3571,7 @@
     cerrarCalendarioTarifas();
     cerrarMapaCabina();
     cerrarModalMisReservas();
+    cerrarModalCancelarReserva();
     cerrarPanelAdmin();
     cerrarEditorVuelo();
     if (window.AeroAuth && typeof window.AeroAuth.cerrarLoginModal === 'function') {
@@ -2253,12 +3584,51 @@
   // 18. INICIALIZACIÓN
   // =========================================================================
   function init() {
-    cargarVuelosCatalogo();
+    cargarVuelosCatalogo().then(() => cargarReservasServidor());
 
     const btnSwap = document.getElementById('btn-swap-routes');
     if (btnSwap) btnSwap.addEventListener('click', intercambiarRutas);
 
+    // Delegación de eventos global (cancelar reserva y abordaje individual por identidad inmutable)
     document.addEventListener('click', (e) => {
+      const boardQueueBtn = e.target.closest('[data-action="abordar-pasajero-cola"]');
+      if (boardQueueBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        abordarTicketEnFilaPorIdentidad({
+          vueloCodigo: boardQueueBtn.getAttribute('data-vuelo') || '',
+          documento: boardQueueBtn.getAttribute('data-documento') || '',
+          asiento: boardQueueBtn.getAttribute('data-asiento') || ''
+        });
+        return;
+      }
+
+      const boardPortalBtn = e.target.closest('[data-action="abordar-pasajero-portal"]');
+      if (boardPortalBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        abordarVueloPasajeroPorIdentidad({
+          vueloCodigo: boardPortalBtn.getAttribute('data-vuelo') || '',
+          documento: boardPortalBtn.getAttribute('data-documento') || '',
+          asiento: boardPortalBtn.getAttribute('data-asiento') || ''
+        });
+        return;
+      }
+
+      const cancelBtn = e.target.closest('[data-action="cancelar-reserva-pasajero"]');
+      if (cancelBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        solicitarCancelacionReserva({
+          codigoVuelo: cancelBtn.getAttribute('data-vuelo') || '',
+          documento: cancelBtn.getAttribute('data-documento') || '',
+          nombre: cancelBtn.getAttribute('data-nombre') || 'Pasajero',
+          asiento: cancelBtn.getAttribute('data-asiento') || '',
+          pnr: cancelBtn.getAttribute('data-pnr') || ''
+        });
+        return;
+      }
+
       const calendar = document.getElementById('fare-calendar-popover');
       const boxSalida = document.getElementById('search-field-salida');
       const boxRegreso = document.getElementById('search-field-regreso');
@@ -2319,6 +3689,11 @@
     procesarPagoReserva,
     abrirModalMisReservas,
     cerrarModalMisReservas,
+    solicitarCancelacionReserva,
+    cerrarModalCancelarReserva,
+    confirmarCancelacionReserva,
+    syncAllViews,
+    cargarReservasServidor,
     actualizarPortalPasajero,
     inicializarConsolaAbordaje,
     cambiarVueloConsolaAbordaje,

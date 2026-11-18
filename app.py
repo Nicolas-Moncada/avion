@@ -133,6 +133,42 @@ def asegurar_estructuras_vuelo(codigo: str):
         colas_embarque[codigo] = ColaFIFO()
 
 
+def ejecutar_mantenimiento_diario_en_memoria():
+    """
+    Sincroniza el mantenimiento diario de vuelos de SQLite con las estructuras
+    en memoria viva (TablaHashVuelos, ListaEnlazadaManifiesto, Colas FIFO y AVL).
+    """
+    with ESTADO_MUTEX:
+        res = db.mantenimiento_diario_vuelos()
+        eliminados = set(res.get("codigos_eliminados", []))
+        if eliminados:
+            for cod in eliminados:
+                tabla_vuelos.eliminar(cod)
+                manifiestos.pop(cod, None)
+                colas_standby.pop(cod, None)
+                colas_embarque.pop(cod, None)
+            for p_info in arbol_pasajeros.recorrido_inorden():
+                v_asig = str(p_info.get("vuelo_asignado") or "").strip().upper()
+                if v_asig in eliminados:
+                    arbol_pasajeros.actualizar_vuelo(p_info["documento"], None)
+
+        for v_sync in res.get("vuelos_sincronizados", []):
+            v_mem, _ = tabla_vuelos.buscar(v_sync["codigo"])
+            if v_mem:
+                v_mem["capacidad_maxima"] = v_sync["capacidad_maxima"]
+
+        for v_nuevo in res.get("vuelos_creados", []):
+            tabla_vuelos.insertar(v_nuevo["codigo"], v_nuevo)
+            asegurar_estructuras_vuelo(v_nuevo["codigo"])
+
+        if eliminados or res.get("vuelos_creados") or res.get("vuelos_sincronizados"):
+            bump_state()
+
+
+# Ejecutar mantenimiento diario inmediatamente después de la hidratación inicial
+ejecutar_mantenimiento_diario_en_memoria()
+
+
 def resolver_codigo_vuelo(codigo: str) -> str:
     if not codigo:
         return ""
@@ -631,6 +667,7 @@ DESTINOS_METADATA = {
 
 @app.route("/api/vuelos", methods=["GET"])
 def listar_vuelos():
+    ejecutar_mantenimiento_diario_en_memoria()
     vuelos_raw = tabla_vuelos.obtener_todos()
     en_curso = []
     proximos = []
@@ -1015,6 +1052,64 @@ def eliminar_pasajero_endpoint(documento):
 # =====================================================================
 # MÓDULO 3: COMPRA DE BOLETO, MAPA VECTORIAL DE AVIÓN Y CHECK-IN
 # =====================================================================
+@app.route("/api/vuelos/<codigo>/manifiesto", methods=["GET"])
+def obtener_manifiesto_vuelo(codigo):
+    codigo = resolver_codigo_vuelo(codigo)
+    vuelo, _ = tabla_vuelos.buscar(codigo)
+    if not vuelo:
+        return jsonify({"error": "Vuelo no encontrado"}), 404
+
+    asegurar_estructuras_vuelo(codigo)
+    lista = manifiestos[codigo]
+    nodos = lista.obtener_todos()
+    docs_abordados = db.obtener_documentos_embarcados_vuelo(codigo)
+
+    pagos_raw = db.obtener_pasajeros_recientes_pagos()
+    pagos_por_doc = {}
+    for r in pagos_raw:
+        if str(r.get("vuelo_id", "")).strip().upper() == codigo:
+            st = str(r.get("estado_embarque", "")).strip().upper()
+            if st != "CANCELADO":
+                pagos_por_doc[str(r.get("documento", "")).strip()] = r
+
+    pasajeros_manif = []
+    for idx, p in enumerate(nodos, start=1):
+        doc = str(p.get("pasajero_doc", "")).strip()
+        pago = pagos_por_doc.get(doc, {})
+        estado_emb = pago.get("estado_embarque") or (
+            "ABORDADO" if doc in docs_abordados else "Confirmado"
+        )
+        pasajeros_manif.append(
+            {
+                "orden": idx,
+                "vuelo_codigo": codigo,
+                "documento": doc,
+                "nombre_completo": p.get("pasajero_nombre") or pago.get("nombre_completo") or "Pasajero",
+                "asiento": p.get("asiento") or pago.get("asiento") or "",
+                "categoria": p.get("categoria") or "Estándar",
+                "clase_cabina": p.get("clase_cabina") or "Estándar",
+                "tarifa_pagada_cop": int(round(float(p.get("tarifa_pagada") or pago.get("monto_cop") or 288454))),
+                "referencia_pago": pago.get("referencia_pago") or f"AF-{codigo}-{idx:04d}",
+                "metodo_pago": pago.get("metodo_pago") or "Tarjeta",
+                "estado_embarque": estado_emb,
+                "abordado": str(estado_emb).strip().upper() in ("ABORDADO", "EMBARCADO", "A BORDO")
+                or doc in docs_abordados,
+                "hora_checkin": p.get("hora_checkin") or "08:00 AM",
+            }
+        )
+
+    abordados_cnt = sum(1 for item in pasajeros_manif if item["abordado"])
+    return jsonify(
+        {
+            "vuelo_codigo": codigo,
+            "estado_vuelo": vuelo.get("estado", "Check-in abierto"),
+            "total": len(pasajeros_manif),
+            "abordados": abordados_cnt,
+            "pasajeros": pasajeros_manif,
+        }
+    )
+
+
 @app.route("/api/avion/<codigo>/mapa", methods=["GET"])
 def obtener_mapa_avion(codigo):
     codigo = resolver_codigo_vuelo(codigo)
@@ -1115,16 +1210,31 @@ def emitir_boleto_checkin():
             400,
         )
 
+    _FLOTA_COMERCIAL_ACTIVA = {
+        "AF1001", "AF2022", "AF2024", "AF2025", "AF4055",
+        "AF2030", "AF2028", "AF2020", "AF3022", "AF5088",
+    }
     fecha_vuelo = str(vuelo.get("fecha_salida", "")).split(" ")[0]
+    estado_vuelo_actual = str(vuelo.get("estado", "")).strip()
     if fecha_vuelo and fecha_vuelo < hoy_iso():
-        return (
-            jsonify(
-                {
-                    "error": f"El vuelo {codigo_vuelo} corresponde a una fecha pasada ({fecha_vuelo}) y no admite reservas."
-                }
-            ),
-            400,
-        )
+        if codigo_vuelo in _FLOTA_COMERCIAL_ACTIVA and estado_vuelo_actual in (
+            "Check-in abierto",
+            "Programado",
+            "Embarcando",
+            "Última llamada",
+        ):
+            nueva_fecha = (datetime.now().date() + timedelta(days=1)).isoformat()
+            vuelo["fecha_salida"] = nueva_fecha
+            db.persistir_vuelo(vuelo)
+        else:
+            return (
+                jsonify(
+                    {
+                        "error": f"El vuelo {codigo_vuelo} corresponde a una fecha pasada ({fecha_vuelo}) y no admite reservas."
+                    }
+                ),
+                400,
+            )
 
     nodo_p, _, _ = arbol_pasajeros.buscar(documento)
     if not nodo_p:
@@ -1351,117 +1461,263 @@ def emitir_boleto_checkin():
 def cancelar_checkin():
     data = request.get_json(silent=True) or {}
     _codigo_bruto = str(data.get("codigo_vuelo", "")).strip().upper()
-    documento = str(data.get("documento", "")).strip()
+    documento_raw = str(data.get("documento", "")).strip()
 
-    if not _codigo_bruto or not documento:
+    if not _codigo_bruto or not documento_raw:
         return jsonify({"error": "Código de vuelo y documento son obligatorios"}), 400
-    if not validation._RE_DOCUMENTO.match(documento):
+    if not validation._RE_DOCUMENTO.match(documento_raw):
         return jsonify({"error": "El documento del pasajero no es válido."}), 400
 
-    codigo_vuelo = resolver_codigo_vuelo(_codigo_bruto)
+    with ESTADO_MUTEX:
+        codigo_vuelo = resolver_codigo_vuelo(_codigo_bruto)
 
-    vuelo, _ = tabla_vuelos.buscar(codigo_vuelo)
-    if not vuelo:
-        return jsonify({"error": "Vuelo no encontrado"}), 404
+        vuelo, _ = tabla_vuelos.buscar(codigo_vuelo)
+        if not vuelo:
+            return jsonify({"error": "Vuelo no encontrado"}), 404
 
-    asegurar_estructuras_vuelo(codigo_vuelo)
-    lista = manifiestos[codigo_vuelo]
-    standby = colas_standby[codigo_vuelo]
+        estado_vuelo = str(vuelo.get("estado", "")).strip().upper()
+        if estado_vuelo in ("DESPEGADO", "EN VUELO", "ATERRIZADO", "CERRADO"):
+            return (
+                jsonify(
+                    {
+                        "error": f"No se puede cancelar la reserva porque el vuelo {codigo_vuelo} ya se encuentra en estado {vuelo.get('estado')}."
+                    }
+                ),
+                400,
+            )
 
-    nodo_eliminado = lista.eliminar(documento)
-    if not nodo_eliminado:
-        return (
-            jsonify(
-                {"error": f"Pasajero {documento} no se encuentra en el manifiesto"}
-            ),
-            404,
-        )
+        asegurar_estructuras_vuelo(codigo_vuelo)
+        lista = manifiestos[codigo_vuelo]
+        standby = colas_standby[codigo_vuelo]
+        cola_emb = colas_embarque[codigo_vuelo]
 
-    asiento_liberado = nodo_eliminado.asiento
-    clase_liberada = nodo_eliminado.clase_cabina
-    tarifa_liberada = nodo_eliminado.tarifa_pagada
+        # Normalizar documento si viene con prefijo (ej. CC-101829384) y no hay coincidencia exacta
+        documento = documento_raw
+        if not lista.buscar(documento) and "-" in documento:
+            posible_doc = documento.split("-", 1)[1].strip()
+            if lista.buscar(posible_doc):
+                documento = posible_doc
 
-    arbol_pasajeros.actualizar_vuelo(documento, None)
-    db.eliminar_checkin_persistido(codigo_vuelo, documento)
+        # Verificar que el pasajero no haya abordado ya (en SQLite)
+        docs_embarcados = db.obtener_documentos_embarcados_vuelo(codigo_vuelo)
+        if documento in docs_embarcados:
+            return (
+                jsonify(
+                    {
+                        "error": f"No se puede cancelar la reserva porque el pasajero {documento} ya abordó la aeronave."
+                    }
+                ),
+                400,
+            )
 
-    ascenso_info = None
+        nodo_actual = lista.buscar(documento)
+        if not nodo_actual:
+            return (
+                jsonify(
+                    {"error": f"Pasajero {documento} no se encuentra en el manifiesto"}
+                ),
+                404,
+            )
 
-    # TRIGGER CRÍTICO: Reasignación automática de asiento desde Cola FIFO Standby
-    if not standby.esta_vacia():
-        primer_standby = standby.desencolar()
-        db.eliminar_standby_persistido(codigo_vuelo, primer_standby.pasajero_doc)
+        # Control de acceso por rol cuando el cliente identifica su sesión
+        rol_header = (request.headers.get("X-User-Role") or data.get("usuario_rol") or "").lower().strip()
+        doc_header = (request.headers.get("X-User-Doc") or "").strip()
+        nombre_header = (request.headers.get("X-User-Name") or "").strip()
+        if rol_header in ("pasajero", "cliente"):
+            es_propio = False
+            if doc_header and (doc_header == documento or doc_header.split("-")[-1].strip() == documento):
+                es_propio = True
+            elif nombre_header and nodo_actual.pasajero_nombre:
+                tokens_u = [t for t in nombre_header.lower().split() if len(t) >= 2]
+                nom_p = nodo_actual.pasajero_nombre.lower()
+                if tokens_u and all(t in nom_p for t in tokens_u):
+                    es_propio = True
+            if not es_propio:
+                return (
+                    jsonify(
+                        {
+                            "error": "Acceso denegado: como pasajero solo puedes cancelar tus propias reservas."
+                        }
+                    ),
+                    403,
+                )
 
-        ahora = ahora_12h()
-        lista.insertar_al_final(
-            pasajero_doc=primer_standby.pasajero_doc,
-            pasajero_nombre=primer_standby.pasajero_nombre,
-            asiento=asiento_liberado,
-            hora_checkin=ahora,
-            categoria=primer_standby.categoria,
-            clase_cabina=clase_liberada,
-            tarifa_pagada=tarifa_liberada,
-        )
-        arbol_pasajeros.actualizar_vuelo(primer_standby.pasajero_doc, codigo_vuelo)
-        db.persistir_checkin(
-            codigo_vuelo,
-            {
+        nodo_eliminado = lista.eliminar(documento)
+        cola_emb.eliminar(documento)
+        standby.eliminar(documento)
+
+        asiento_liberado = nodo_eliminado.asiento
+        clase_liberada = nodo_eliminado.clase_cabina
+        tarifa_liberada = nodo_eliminado.tarifa_pagada
+
+        arbol_pasajeros.actualizar_vuelo(documento, None)
+        db.eliminar_checkin_persistido(codigo_vuelo, documento)
+
+        ascenso_info = None
+
+        # TRIGGER CRÍTICO: Reasignación automática de asiento desde Cola FIFO Standby
+        if not standby.esta_vacia():
+            primer_standby = standby.desencolar()
+            db.eliminar_standby_persistido(codigo_vuelo, primer_standby.pasajero_doc)
+
+            ahora = ahora_12h()
+            lista.insertar_al_final(
+                pasajero_doc=primer_standby.pasajero_doc,
+                pasajero_nombre=primer_standby.pasajero_nombre,
+                asiento=asiento_liberado,
+                hora_checkin=ahora,
+                categoria=primer_standby.categoria,
+                clase_cabina=clase_liberada,
+                tarifa_pagada=tarifa_liberada,
+            )
+            if vuelo.get("estado") in ("Embarcando", "Última llamada"):
+                cola_emb.encolar(
+                    pasajero_doc=primer_standby.pasajero_doc,
+                    pasajero_nombre=primer_standby.pasajero_nombre,
+                    categoria=primer_standby.categoria,
+                    hora_ingreso=ahora,
+                )
+            arbol_pasajeros.actualizar_vuelo(primer_standby.pasajero_doc, codigo_vuelo)
+            db.persistir_checkin(
+                codigo_vuelo,
+                {
+                    "pasajero_doc": primer_standby.pasajero_doc,
+                    "pasajero_nombre": primer_standby.pasajero_nombre,
+                    "asiento": asiento_liberado,
+                    "hora_checkin_12h": ahora,
+                    "categoria": primer_standby.categoria,
+                    "clase_cabina": clase_liberada,
+                    "tarifa_pagada_cop": tarifa_liberada,
+                },
+            )
+
+            db.persistir_pago_reciente(
+                {
+                    "documento": primer_standby.pasajero_doc,
+                    "nombre_completo": primer_standby.pasajero_nombre,
+                    "nacionalidad": "Colombia",
+                    "categoria": primer_standby.categoria,
+                    "vuelo_id": codigo_vuelo,
+                    "origen_destino": f"{vuelo['origen'].split('-')[0].strip()} -> {vuelo['destino'].split('-')[0].strip()}",
+                    "asiento": asiento_liberado,
+                    "metodo_pago": "Asignación Automática Lista Prioritaria",
+                    "monto_cop": tarifa_liberada,
+                    "referencia_pago": f"AF-{codigo_vuelo}-{(int(time.time() * 1000)) % 8999 + 1000}",
+                    "estado_embarque": "Confirmado",
+                    "fecha_hora_registro": f"{vuelo.get('fecha_salida', '2026-10-22')} • {ahora}",
+                }
+            )
+
+            ascenso_info = {
                 "pasajero_doc": primer_standby.pasajero_doc,
                 "pasajero_nombre": primer_standby.pasajero_nombre,
-                "asiento": asiento_liberado,
-                "hora_checkin_12h": ahora,
-                "categoria": primer_standby.categoria,
+                "asiento_asignado": asiento_liberado,
                 "clase_cabina": clase_liberada,
-                "tarifa_pagada_cop": tarifa_liberada,
-            },
-        )
+                "mensaje": f"¡Ascenso Automático FIFO! {primer_standby.pasajero_nombre} salió de Standby y obtuvo el asiento {asiento_liberado} ({clase_liberada}).",
+            }
 
-        db.persistir_pago_reciente(
+        # Asegurar referencia sincronizada en TablaHashVuelos
+        tabla_vuelos.actualizar_estado(codigo_vuelo, vuelo.get("estado", "Check-in abierto"))
+        bump_state()
+
+        return jsonify(
             {
-                "documento": primer_standby.pasajero_doc,
-                "nombre_completo": primer_standby.pasajero_nombre,
-                "nacionalidad": "Colombia",
-                "categoria": primer_standby.categoria,
-                "vuelo_id": codigo_vuelo,
-                "origen_destino": f"{vuelo['origen'].split('-')[0].strip()} -> {vuelo['destino'].split('-')[0].strip()}",
-                "asiento": asiento_liberado,
-                "metodo_pago": "Asignación Automática Lista Prioritaria",
-                "monto_cop": tarifa_liberada,
-                "referencia_pago": f"AF-{codigo_vuelo}-{(int(time.time() * 1000)) % 8999 + 1000}",
-                "estado_embarque": "Confirmado",
-                "fecha_hora_registro": f"{vuelo.get('fecha_salida', '2026-10-22')} • {ahora}",
+                "exito": True,
+                "mensaje": f"Tiquete cancelado para {nodo_eliminado.pasajero_nombre}. Asiento {asiento_liberado} liberado.",
+                "nodo_eliminado": {
+                    "documento": nodo_eliminado.pasajero_doc,
+                    "nombre": nodo_eliminado.pasajero_nombre,
+                    "asiento": asiento_liberado,
+                    "codigo_vuelo": codigo_vuelo,
+                },
+                "ascenso_standby": ascenso_info,
+                "ocupacion": f"{lista.tamano}/{vuelo['capacidad_maxima']}",
+                "cadena_nodos": lista.representacion_cadena(),
             }
         )
-
-        ascenso_info = {
-            "pasajero_doc": primer_standby.pasajero_doc,
-            "pasajero_nombre": primer_standby.pasajero_nombre,
-            "asiento_asignado": asiento_liberado,
-            "clase_cabina": clase_liberada,
-            "mensaje": f"¡Ascenso Automático FIFO! {primer_standby.pasajero_nombre} salió de Standby y obtuvo el asiento {asiento_liberado} ({clase_liberada}).",
-        }
-
-    bump_state()
-
-    return jsonify(
-        {
-            "mensaje": f"Tiquete cancelado para {nodo_eliminado.pasajero_nombre}. Asiento {asiento_liberado} liberado.",
-            "nodo_eliminado": {
-                "documento": nodo_eliminado.pasajero_doc,
-                "nombre": nodo_eliminado.pasajero_nombre,
-                "asiento": asiento_liberado,
-            },
-            "ascenso_standby": ascenso_info,
-            "ocupacion": f"{lista.tamano}/{vuelo['capacidad_maxima']}",
-            "cadena_nodos": lista.representacion_cadena(),
-        }
-    )
 
 
 # =====================================================================
 # MÓDULO 4: PUERTA DE EMBARQUE & BOARDING PASS
 # =====================================================================
+def _rechazar_si_rol_pasajero_en_embarque():
+    rol = (
+        request.headers.get("X-User-Role")
+        or (request.get_json(silent=True) or {}).get("usuario_rol")
+        or ""
+    ).lower().strip()
+    if rol in ("pasajero", "cliente"):
+        return (
+            jsonify(
+                {
+                    "error": "Acceso denegado: la operación de abordaje en puerta es exclusiva del operario o administrador."
+                }
+            ),
+            403,
+        )
+    return None
+
+
+def _es_vuelo_terminal(estado: str) -> bool:
+    est = str(estado or "").strip().upper()
+    return est in ("DESPEGADO", "CERRADO", "ARCHIVADO") or "CANCELADO" in est or "EXPIRADO" in est
+
+
+def _buscar_siguiente_vuelo_disponible(codigo_excluyendo: str = "") -> str | None:
+    cod_excl = str(codigo_excluyendo or "").strip().upper()
+    vuelos_todos = tabla_vuelos.obtener_todos()
+    candidatos_con_pendientes = []
+    candidatos_activos = []
+
+    for v in vuelos_todos:
+        cod = str(v.get("codigo", "")).strip().upper()
+        if not cod or cod == cod_excl:
+            continue
+        if _es_vuelo_terminal(v.get("estado", "")):
+            continue
+        fecha_v = str(v.get("fecha_salida", "")).split(" ")[0]
+        if fecha_v and fecha_v < hoy_iso():
+            continue
+
+        asegurar_estructuras_vuelo(cod)
+        total_m = manifiestos[cod].tamano
+        ya_emb = len(db.obtener_documentos_embarcados_vuelo(cod))
+        if total_m > ya_emb:
+            candidatos_con_pendientes.append(cod)
+        else:
+            candidatos_activos.append(cod)
+
+    if candidatos_con_pendientes:
+        return candidatos_con_pendientes[0]
+    if candidatos_activos:
+        return candidatos_activos[0]
+    return None
+
+
+def _finalizar_despegue_vuelo(codigo: str, vuelo: dict):
+    """Marca atómicamente el vuelo como DESPEGADO en memoria y SQLite y sugiere el siguiente vuelo."""
+    codigo = str(codigo).strip().upper()
+    tabla_vuelos.actualizar_estado(codigo, "DESPEGADO")
+    vuelo["estado"] = "DESPEGADO"
+    db.marcar_vuelo_despegado(codigo)
+
+    cola_emb = colas_embarque.get(codigo)
+    if cola_emb:
+        while not cola_emb.esta_vacia():
+            cola_emb.desencolar()
+
+    nuevo = generar_reemplazo_vuelo_interno(codigo)
+    nuevo_vuelo_cod = nuevo["codigo"] if nuevo else None
+    siguiente_cod = _buscar_siguiente_vuelo_disponible(codigo)
+    bump_state()
+    return nuevo_vuelo_cod, siguiente_cod
+
+
 @app.route("/api/embarque/<codigo>/iniciar", methods=["POST"])
 def iniciar_proceso_embarque(codigo):
+    bloqueo = _rechazar_si_rol_pasajero_en_embarque()
+    if bloqueo:
+        return bloqueo
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
@@ -1471,7 +1727,10 @@ def iniciar_proceso_embarque(codigo):
         return (
             jsonify(
                 {
-                    "error": "El vuelo ya ha sido despachado y la puerta se encuentra cerrada"
+                    "error": "El vuelo ya ha sido despachado y la puerta se encuentra cerrada",
+                    "vuelo_despegado": True,
+                    "estado_vuelo": "DESPEGADO",
+                    "siguiente_vuelo_disponible": _buscar_siguiente_vuelo_disponible(codigo),
                 }
             ),
             400,
@@ -1490,10 +1749,6 @@ def iniciar_proceso_embarque(codigo):
     # Los pasajeros que ya abordaron NO deben re-encolarse si el embarque
     # se reinicia a mitad del proceso (persistido en tabla embarque).
     ya_a_bordo = db.obtener_documentos_embarcados_vuelo(codigo)
-
-    tabla_vuelos.actualizar_estado(codigo, "Embarcando")
-    vuelo["estado"] = "Embarcando"
-    db.persistir_vuelo(vuelo)
 
     while not cola_emb.esta_vacia():
         cola_emb.desencolar()
@@ -1515,16 +1770,24 @@ def iniciar_proceso_embarque(codigo):
         )
 
     if cola_emb.esta_vacia():
+        nuevo_cod, sig_cod = _finalizar_despegue_vuelo(codigo, vuelo)
         return jsonify(
             {
                 "mensaje": f"Todos los pasajeros del vuelo {codigo} ya se encuentran a bordo.",
                 "completado": True,
+                "despachado": True,
+                "vuelo_despegado": True,
+                "nuevo_vuelo": nuevo_cod,
+                "siguiente_vuelo_disponible": sig_cod,
                 "total_por_abordar": 0,
                 "cola_embarque": [],
-                "estado_vuelo": vuelo["estado"],
+                "estado_vuelo": "DESPEGADO",
             }
         )
 
+    tabla_vuelos.actualizar_estado(codigo, "Embarcando")
+    vuelo["estado"] = "Embarcando"
+    db.persistir_vuelo(vuelo)
     bump_state()
 
     return jsonify(
@@ -1533,12 +1796,16 @@ def iniciar_proceso_embarque(codigo):
             "total_por_abordar": cola_emb.tamano,
             "cola_embarque": cola_emb.obtener_todos(),
             "estado_vuelo": "Embarcando",
+            "vuelo_despegado": False,
         }
     )
 
 
 @app.route("/api/embarque/<codigo>/abordar-siguiente", methods=["POST"])
 def abordar_siguiente(codigo):
+    bloqueo = _rechazar_si_rol_pasajero_en_embarque()
+    if bloqueo:
+        return bloqueo
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
@@ -1567,6 +1834,9 @@ def abordar_siguiente(codigo):
             {
                 "completado": True,
                 "despachado": True,
+                "vuelo_despegado": True,
+                "estado_vuelo": "DESPEGADO",
+                "siguiente_vuelo_disponible": _buscar_siguiente_vuelo_disponible(codigo),
                 "mensaje": f"El vuelo {codigo} ya ha despegado y la puerta está cerrada.",
                 "progreso": {
                     "abordados": total_confirmados,
@@ -1607,11 +1877,16 @@ def abordar_siguiente(codigo):
                 vuelo["estado"] = "Embarcando"
                 db.persistir_vuelo(vuelo)
         elif len(ya_abordados) >= total_confirmados:
+            nuevo_cod, sig_cod = _finalizar_despegue_vuelo(codigo, vuelo)
             return (
                 jsonify(
                     {
                         "completado": True,
                         "despachado": True,
+                        "vuelo_despegado": True,
+                        "estado_vuelo": "DESPEGADO",
+                        "nuevo_vuelo": nuevo_cod,
+                        "siguiente_vuelo_disponible": sig_cod,
                         "mensaje": f"Todos los pasajeros del vuelo {codigo} ya han abordado.",
                         "progreso": {
                             "abordados": total_confirmados,
@@ -1624,18 +1899,16 @@ def abordar_siguiente(codigo):
             )
 
     if cola_emb.esta_vacia():
-        tabla_vuelos.actualizar_estado(codigo, "DESPEGADO")
-        vuelo["estado"] = "DESPEGADO"
-        db.persistir_vuelo(vuelo)
-        db.actualizar_todos_embarcados_vuelo(codigo, "ABORDADO")
-        nuevo_vuelo = generar_reemplazo_vuelo_interno(codigo)
-        bump_state()
+        nuevo_cod, sig_cod = _finalizar_despegue_vuelo(codigo, vuelo)
         return jsonify(
             {
                 "completado": True,
                 "despachado": True,
+                "vuelo_despegado": True,
+                "estado_vuelo": "DESPEGADO",
                 "mensaje": f"Todos los pasajeros confirmados han completado el abordaje. Vuelo {codigo} DESPEGADO.",
-                "nuevo_vuelo": nuevo_vuelo["codigo"] if nuevo_vuelo else None,
+                "nuevo_vuelo": nuevo_cod,
+                "siguiente_vuelo_disponible": sig_cod,
                 "progreso": {
                     "abordados": total_confirmados,
                     "total": total_confirmados,
@@ -1661,24 +1934,21 @@ def abordar_siguiente(codigo):
         round((abordados / total_confirmados) * 100) if total_confirmados > 0 else 100
     )
 
+    # Persistir primero el pasajero actual en pagos recientes y manifiesto
+    db.actualizar_estado_embarque_pago(codigo, pasajero_nodo.pasajero_doc, "ABORDADO")
+
     nuevo_vuelo_cod = None
-    if restantes == 0:
-        tabla_vuelos.actualizar_estado(codigo, "DESPEGADO")
-        vuelo["estado"] = "DESPEGADO"
-        db.persistir_vuelo(vuelo)
-        db.actualizar_todos_embarcados_vuelo(codigo, "ABORDADO")
-        nuevo = generar_reemplazo_vuelo_interno(codigo)
-        if nuevo:
-            nuevo_vuelo_cod = nuevo["codigo"]
+    siguiente_cod = None
+    vuelo_despegado = restantes == 0
+    if vuelo_despegado:
+        nuevo_vuelo_cod, siguiente_cod = _finalizar_despegue_vuelo(codigo, vuelo)
     elif restantes == 1:
         tabla_vuelos.actualizar_estado(codigo, "Última llamada")
         vuelo["estado"] = "Última llamada"
         db.persistir_vuelo(vuelo)
-
-    # Actualizar estado de embarque en tabla persistente de pagos recientes a ABORDADO
-    db.actualizar_estado_embarque_pago(codigo, pasajero_nodo.pasajero_doc, "ABORDADO")
-
-    bump_state()
+        bump_state()
+    else:
+        bump_state()
 
     boarding_pass = {
         "vuelo_codigo": codigo,
@@ -1705,9 +1975,12 @@ def abordar_siguiente(codigo):
 
     return jsonify(
         {
-            "completado": restantes == 0,
-            "despachado": restantes == 0,
+            "completado": vuelo_despegado,
+            "despachado": vuelo_despegado,
+            "vuelo_despegado": vuelo_despegado,
+            "estado_vuelo": vuelo["estado"],
             "nuevo_vuelo": nuevo_vuelo_cod,
+            "siguiente_vuelo_disponible": siguiente_cod,
             "boarding_pass": boarding_pass,
             "pasajero_abordado": {
                 "documento": pasajero_nodo.pasajero_doc,
@@ -1733,6 +2006,9 @@ def abordar_individual(codigo):
 
 @app.route("/api/embarque/<codigo>/cancelar", methods=["POST"])
 def cancelar_proceso_embarque(codigo):
+    bloqueo = _rechazar_si_rol_pasajero_en_embarque()
+    if bloqueo:
+        return bloqueo
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
@@ -1770,10 +2046,26 @@ def cancelar_proceso_embarque(codigo):
 
 @app.route("/api/embarque/<codigo>/abordar-pasajero", methods=["POST"])
 def abordar_pasajero_especifico(codigo):
+    bloqueo = _rechazar_si_rol_pasajero_en_embarque()
+    if bloqueo:
+        return bloqueo
     codigo = resolver_codigo_vuelo(codigo)
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
         return jsonify({"error": "Vuelo no encontrado"}), 404
+
+    if vuelo.get("estado") in ["DESPEGADO", "Despegado", "Cerrado"]:
+        return (
+            jsonify(
+                {
+                    "error": f"El vuelo {codigo} ya ha despegado y la puerta está cerrada.",
+                    "vuelo_despegado": True,
+                    "estado_vuelo": "DESPEGADO",
+                    "siguiente_vuelo_disponible": _buscar_siguiente_vuelo_disponible(codigo),
+                }
+            ),
+            400,
+        )
 
     data = request.get_json(silent=True) or {}
     documento = str(data.get("documento", "")).strip()
@@ -1781,20 +2073,35 @@ def abordar_pasajero_especifico(codigo):
     asiento = str(data.get("asiento", "")).strip()
 
     asegurar_estructuras_vuelo(codigo)
+    lista = manifiestos[codigo]
     cola_emb = colas_embarque[codigo]
 
-    # Encolar en FIFO
-    cola_emb.encolar(
-        pasajero_doc=documento,
-        pasajero_nombre=nombre,
-        categoria="Estándar",
-        hora_ingreso=ahora_12h(),
-    )
-
     if documento:
-        db.actualizar_estado_embarque_pago(codigo, documento, "Abordado")
+        db.actualizar_estado_embarque_pago(codigo, documento, "ABORDADO")
+        if hasattr(cola_emb, "eliminar_por_documento"):
+            cola_emb.eliminar_por_documento(documento)
 
-    bump_state()
+    # Verificar si con este abordaje se completó el 100% del manifiesto (o si el cliente reportó último pasajero)
+    manifiesto_docs = [p["pasajero_doc"] for p in lista.obtener_todos()]
+    ya_abordados = db.obtener_documentos_embarcados_vuelo(codigo) if manifiesto_docs else set()
+    todos_manifiesto_abordados = bool(manifiesto_docs) and all(
+        doc in ya_abordados for doc in manifiesto_docs
+    )
+    completado_cliente = bool(data.get("completado")) or bool(data.get("ultimo_pasajero"))
+
+    vuelo_despegado = False
+    nuevo_vuelo_cod = None
+    siguiente_cod = None
+    if todos_manifiesto_abordados or completado_cliente:
+        vuelo_despegado = True
+        nuevo_vuelo_cod, siguiente_cod = _finalizar_despegue_vuelo(codigo, vuelo)
+    else:
+        if vuelo.get("estado") in ("Check-in abierto", "Programado"):
+            tabla_vuelos.actualizar_estado(codigo, "Embarcando")
+            vuelo["estado"] = "Embarcando"
+            db.persistir_vuelo(vuelo)
+        bump_state()
+
     return (
         jsonify(
             {
@@ -1805,6 +2112,13 @@ def abordar_pasajero_especifico(codigo):
                 "vuelo_codigo": codigo,
                 "posicion_cola": cola_emb.tamano,
                 "estado": "Abordado",
+                "estado_embarque": "ABORDADO",
+                "abordado": True,
+                "completado": vuelo_despegado,
+                "vuelo_despegado": vuelo_despegado,
+                "estado_vuelo": vuelo["estado"],
+                "nuevo_vuelo": nuevo_vuelo_cod,
+                "siguiente_vuelo_disponible": siguiente_cod,
             }
         ),
         200,
@@ -2062,8 +2376,26 @@ def api_admin_eliminar_vuelo(codigo):
 
 @app.route("/api/pasajeros-recientes", methods=["GET"])
 def listar_pasajeros_recientes():
-    registros = db.obtener_pasajeros_recientes_pagos()
-    return jsonify({"total": len(registros), "registros": registros})
+    registros_raw = db.obtener_pasajeros_recientes_pagos()
+    activos = []
+    for r in registros_raw:
+        estado_emb = str(r.get("estado_embarque", "")).strip().upper()
+        if estado_emb == "CANCELADO":
+            continue
+        v_cod = str(r.get("vuelo_id", "")).strip().upper()
+        doc = str(r.get("documento", "")).strip()
+        vuelo, _ = tabla_vuelos.buscar(v_cod)
+        if vuelo:
+            estado_v = str(vuelo.get("estado", "")).strip().upper()
+            if "CANCELADO" in estado_v:
+                continue
+            if estado_v not in ("DESPEGADO", "CERRADO", "ARCHIVADO"):
+                en_manifiesto = v_cod in manifiestos and manifiestos[v_cod].buscar(doc) is not None
+                en_standby = v_cod in colas_standby and colas_standby[v_cod].contiene(doc)
+                if not en_manifiesto and not en_standby:
+                    continue
+        activos.append(r)
+    return jsonify({"total": len(activos), "registros": activos})
 
 
 @app.route("/api/vuelo/cancelar/<codigo>", methods=["POST", "DELETE"])

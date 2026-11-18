@@ -126,11 +126,18 @@ CATALOGO_AERONAVES = {
 
 # Alias de compatibilidad hacia atrás
 CATALOGO_AERONAVES["Embraer Praetor 600"] = CATALOGO_AERONAVES["Embraer Praetor 600 Regional"]
+CATALOGO_AERONAVES["Boeing 787-8 Dreamliner"] = CATALOGO_AERONAVES["Boeing 787-9 Dreamliner"]
 
 def obtener_configuracion_aeronave(tipo_aeronave: str) -> dict:
     if not tipo_aeronave:
         return CATALOGO_AERONAVES["Airbus A319 Corporate"]
-    return CATALOGO_AERONAVES.get(tipo_aeronave, CATALOGO_AERONAVES["Airbus A319 Corporate"])
+    if tipo_aeronave in CATALOGO_AERONAVES:
+        return CATALOGO_AERONAVES[tipo_aeronave]
+    tipo_norm = str(tipo_aeronave).strip().lower()
+    for nombre, cfg in CATALOGO_AERONAVES.items():
+        if nombre.lower() == tipo_norm or tipo_norm in nombre.lower() or nombre.lower() in tipo_norm:
+            return cfg
+    return CATALOGO_AERONAVES["Airbus A319 Corporate"]
 
 def calcular_desglose_cop(
     tarifa_base_cop: int,
