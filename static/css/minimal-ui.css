@@ -3424,22 +3424,76 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: #0F172A;
-  color: #38BDF8;
-  border: 1px solid #334155;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  color: var(--text-primary, #0F172A);
+  border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 9999px;
   text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
   flex-shrink: 0;
 }
 .btn-download-windows-header:hover {
-  background: #1E293B;
-  border-color: #38BDF8;
-  color: #7DD3FC;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.28);
   transform: translateY(-1px);
+}
+.btn-download-windows-header:active {
+  transform: scale(0.96);
+}
+body.dark-mode .btn-download-windows-header {
+  color: #38BDF8;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+body.dark-mode .btn-download-windows-header:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38BDF8;
+}
+
+/* Botón Iniciar Sesión Rediseñado (CTA Oficial Píldora) */
+.btn-header-login-pill {
+  background: #0F172A;
+  color: #FFFFFF;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  height: 40px;
+  padding: 0 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  letter-spacing: -0.01em;
+}
+.btn-header-login-pill:hover {
+  background: #1E293B;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
+}
+.btn-header-login-pill:active {
+  transform: scale(0.97);
+}
+.btn-header-login-pill:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+.btn-login-user-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+body.dark-mode .btn-header-login-pill {
+  background: #2563EB;
+  color: #FFFFFF;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+}
+body.dark-mode .btn-header-login-pill:hover {
+  background: #1D4ED8;
 }
 
 .windows-download-hero-card {
@@ -3919,70 +3973,279 @@ body {
 }
 
 /* ==========================================================================
-   20. BOTÓN FLOTANTE DE SOPORTE POR WHATSAPP (+57 3155667152)
+   20. BOTÓN FLOTANTE DE SOPORTE POR WHATSAPP (+57 3155667152) - ESQUINA INFERIOR DERECHA
    ========================================================================== */
 .floating-whatsapp-btn {
   position: fixed;
   bottom: 24px;
-  left: 24px;
-  width: 56px;
-  height: 56px;
+  right: 24px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background-color: #25D366;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 990;
-  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.38), 0 2px 6px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+  user-select: none;
 }
+
+/* Pulso radar en reposo (vida sutil 2.8s) */
+.floating-whatsapp-btn::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid #25D366;
+  opacity: 0.45;
+  animation: whatsapp-pulse 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes whatsapp-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.48);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.48);
+    opacity: 0;
+  }
+}
+
 .floating-whatsapp-btn:hover {
-  background-color: #1EBE5D;
-  transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 12px 28px rgba(37, 211, 102, 0.45), 0 4px 10px rgba(0, 0, 0, 0.22);
+  transform: translateY(-3px) scale(1.07);
+  box-shadow: 0 14px 32px rgba(37, 211, 102, 0.5), 0 4px 12px rgba(0, 0, 0, 0.22);
 }
+
+.floating-whatsapp-btn:hover .whatsapp-icon-svg {
+  transform: rotate(-12deg) scale(1.08);
+}
+
 .floating-whatsapp-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.90);
 }
+
 .whatsapp-icon-svg {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   fill: #FFFFFF;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* Tooltip desplegándose suavemente hacia la IZQUIERDA */
 .whatsapp-tooltip-text {
   position: absolute;
-  left: calc(100% + 12px);
+  right: calc(100% + 14px);
+  left: auto;
   top: 50%;
-  transform: translateY(-50%) translateX(-8px);
-  background: rgba(15, 23, 42, 0.92);
+  transform: translateY(-50%) translateX(8px);
+  background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #FFFFFF;
   font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 0.8125rem;
   font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 9999px;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   pointer-events: none;
   opacity: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
 .floating-whatsapp-btn:hover .whatsapp-tooltip-text {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
+
+/* Efecto Ripple al hacer clic */
+.whatsapp-ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transform: scale(0);
+  animation: whatsapp-ripple-anim 0.45s ease-out;
+  pointer-events: none;
+}
+
+@keyframes whatsapp-ripple-anim {
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .floating-whatsapp-btn {
+    bottom: 18px;
+    right: 18px;
+    width: 52px;
+    height: 52px;
+  }
+  .whatsapp-icon-svg {
+    width: 28px;
+    height: 28px;
+  }
+  .whatsapp-tooltip-text {
+    display: none;
+  }
+}
+
 @media print {
   .floating-whatsapp-btn,
   #btn-whatsapp-support {
     display: none !important;
   }
+}
+
+/* ==========================================================================
+   21. ANIMACIÓN GLOBAL DE CARGA: AVIÓN EN ÓRBITA (AEROLOADER)
+   ========================================================================== */
+.aero-loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(248, 250, 252, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
+}
+
+.aero-loader-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+body.dark-mode .aero-loader-overlay {
+  background: rgba(11, 15, 23, 0.84);
+}
+
+.aero-loader-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 24px;
+  padding: 32px 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0 20px 48px -8px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  transform: translateY(8px);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  min-width: 260px;
+  text-align: center;
+}
+
+.aero-loader-overlay.active .aero-loader-card {
+  transform: translateY(0);
+}
+
+body.dark-mode .aero-loader-card {
+  background: #111827;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px -8px rgba(0, 0, 0, 0.6);
+}
+
+.aero-loader-orbit-wrap {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aero-orbit-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 90px;
+  height: 90px;
+}
+
+.aero-orbit-track {
+  stroke: rgba(148, 163, 184, 0.25);
+}
+
+.aero-orbit-dash {
+  stroke: #3B82F6;
+  stroke-dasharray: 8 12;
+  animation: aero-dash-spin 4s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes aero-dash-spin {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 100; }
+}
+
+.aero-plane-rotator {
+  position: absolute;
+  inset: 0;
+  width: 90px;
+  height: 90px;
+  animation: aero-orbit 1.4s linear infinite;
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+@keyframes aero-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.aero-plane-carrier {
+  position: absolute;
+  top: 7px;
+  left: calc(50% - 10px);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(90deg);
+}
+
+.aero-plane-icon {
+  color: #2563EB;
+  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.45));
+}
+
+body.dark-mode .aero-plane-icon {
+  color: #38BDF8;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.7));
+}
+
+.aero-loader-label {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #0F172A);
+  letter-spacing: -0.01em;
+}
+
+body.dark-mode .aero-loader-label {
+  color: #F8FAFC;
 }
 
 /* Accessibility: Reduced Motion Support */
@@ -3999,7 +4262,15 @@ body {
     transition: none !important;
     transform: none !important;
   }
+  .floating-whatsapp-btn::before {
+    animation: none !important;
+    display: none !important;
+  }
   .whatsapp-tooltip-text {
     transition: none !important;
+  }
+  .aero-plane-rotator,
+  .aero-orbit-dash {
+    animation: none !important;
   }
 }

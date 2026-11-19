@@ -573,10 +573,14 @@
 
     if (nombreSeccion === 'viajes') {
       actualizarPortalPasajero();
-      cargarReservasServidor().then(() => actualizarPortalPasajero());
+      if (window.AeroLoader) window.AeroLoader.show('Cargando tus reservas...');
+      cargarReservasServidor()
+        .then(() => actualizarPortalPasajero())
+        .finally(() => { if (window.AeroLoader) window.AeroLoader.hide(); });
     } else if (nombreSeccion === 'abordar') {
       const epochInicial = uiState.boardingMutationEpoch;
       inicializarConsolaAbordaje();
+      if (window.AeroLoader) window.AeroLoader.show('Sincronizando sala de abordaje...');
       Promise.all([cargarVuelosCatalogo(), cargarReservasServidor()]).then(() => {
         if (
           uiState.activeSection === 'abordar' &&
@@ -586,7 +590,10 @@
         ) {
           inicializarConsolaAbordaje();
         }
-      });
+      }).finally(() => { if (window.AeroLoader) window.AeroLoader.hide(); });
+    } else if (nombreSeccion === 'explorar') {
+      if (window.AeroLoader) window.AeroLoader.show('Cargando ofertas...');
+      cargarVuelosCatalogo().finally(() => { if (window.AeroLoader) window.AeroLoader.hide(); });
     }
   }
 
@@ -938,6 +945,39 @@
     }
   }
 
+  const IATA_CIUDAD_MAP = {
+    'BOG': 'Bogotá',
+    'MDE': 'Medellín',
+    'CLO': 'Cali',
+    'CTG': 'Cartagena',
+    'SMR': 'Santa Marta',
+    'BAQ': 'Barranquilla',
+    'MTR': 'Montería',
+    'MIA': 'Miami',
+    'JFK': 'Nueva York',
+    'MEX': 'Ciudad de México',
+    'MAD': 'Madrid',
+    'LHR': 'Londres',
+    'SCL': 'Santiago',
+    'PEI': 'Pereira'
+  };
+
+  function resolverCiudadCompleta(codigoIata, rawTexto = '') {
+    const iata = String(codigoIata || '').trim().toUpperCase();
+    if (IATA_CIUDAD_MAP[iata]) return IATA_CIUDAD_MAP[iata];
+    if (rawTexto) {
+      for (const [cod, nom] of Object.entries(IATA_CIUDAD_MAP)) {
+        if (rawTexto.toUpperCase().includes(cod) || rawTexto.toUpperCase().includes(nom.toUpperCase())) {
+          return nom;
+        }
+      }
+      const parts = rawTexto.split('-');
+      if (parts.length > 1) return parts[1].trim();
+      return rawTexto.trim();
+    }
+    return iata || 'Destino';
+  }
+
   function renderizarCatalogoOfertas() {
     const container = document.getElementById('offers-cards-grid');
     if (!container) return;
@@ -978,12 +1018,15 @@
       card.onclick = () => interceptarAccionVuelo(v.codigo);
 
       const destinoParts = (v.destino || '').split('-');
-      const iata = destinoParts[0] ? destinoParts[0].trim() : 'BOG';
-      const ciudadNombre = destinoParts[1] ? destinoParts[1].trim().split(' ')[0] : v.destino;
+      const iata = destinoParts[0] ? destinoParts[0].trim().toUpperCase() : 'BOG';
+      const ciudadNombre = resolverCiudadCompleta(iata, v.ciudad_destino || (destinoParts[1] ? destinoParts[1].trim() : v.destino));
       const fechaCorta = (v.fecha_salida || '2026-12-01').split('-').reverse().join('/');
       const precioExacto = formatoCOP(v.precio_base_cop || 71810);
       const tagText = v.tag_destacado || 'Recomendado para ti';
-      const imgSrc = v.imagen_url || '/static/img/oferta-cali.jpg';
+      let imgSrc = v.imagen_url;
+      if (!imgSrc || imgSrc.includes('oferta-')) {
+        imgSrc = `/api/destinos/${iata}/imagen`;
+      }
 
       card.innerHTML = `
         <div class="offer-card-media">
@@ -1035,8 +1078,8 @@
         <line x1="12" y1="8" x2="12" y2="16"></line>
         <line x1="12" y1="16" x2="12.01" y2="16"></line>
       </svg>
-      <h4 class="closing-cta-title">¿Todavia no encuentras tu destino preferido?</h4>
-      <p class="closing-cta-sub">Explora mas rutas con tarifas dinamicas en pesos colombianos.</p>
+      <h4 class="closing-cta-title">¿Todavía no encuentras tu destino preferido?</h4>
+      <p class="closing-cta-sub">Explora más rutas con tarifas dinámicas en pesos colombianos.</p>
       <button type="button" class="btn-closing-cta btn-secondary-glass" onclick="AeroMinimalUI.buscarVuelosHero()">
         <span>Ver todas las rutas</span>
       </button>
@@ -1045,10 +1088,14 @@
   }
 
   function buscarVuelosHero() {
+    if (window.AeroLoader) window.AeroLoader.show('Buscando vuelos disponibles...');
     mostrarSeccion('explorar');
     const elGrid = document.getElementById('catalog-offers-section');
     if (elGrid) elGrid.scrollIntoView({ behavior: 'smooth' });
     showToast('Mostrando las mejores tarifas disponibles');
+    setTimeout(() => {
+      if (window.AeroLoader) window.AeroLoader.hide();
+    }, 380);
   }
 
   // =========================================================================
@@ -1522,8 +1569,10 @@
   // 10. CHECKOUT MULTIPASO (SILLA -> DATOS -> PAGOS -> TICKET)
   // =========================================================================
   async function abrirMapaCabina(codigoVuelo) {
+    if (window.AeroLoader) window.AeroLoader.show('Preparando mapa de asientos...');
     const vuelo = uiState.vuelosCargados.find(v => v.codigo === codigoVuelo);
     if (!vuelo) {
+      if (window.AeroLoader) window.AeroLoader.hide();
       showToast('Vuelo no encontrado', true);
       return;
     }
@@ -1597,6 +1646,8 @@
       if (rowsContainer) {
         rowsContainer.innerHTML = '<div style="padding:24px;text-align:center;color:#DC2626;font-size:0.875rem;font-weight:600;">No se pudo cargar el mapa oficial del avión.</div>';
       }
+    } finally {
+      if (window.AeroLoader) window.AeroLoader.hide();
     }
   }
 
@@ -1756,8 +1807,10 @@
 
     const destinoRaw = vuelo.destino || 'CLO - Cali';
     const origenRaw = vuelo.origen || 'MDE - Medellín';
-    const destCiudad = destinoRaw.split('-')[1]?.trim().split(' ')[0] || destinoRaw;
-    const origCiudad = origenRaw.split('-')[1]?.trim().split(' ')[0] || origenRaw;
+    const destIata = (destinoRaw.split('-')[0] || '').trim().toUpperCase();
+    const origIata = (origenRaw.split('-')[0] || '').trim().toUpperCase();
+    const destCiudad = resolverCiudadCompleta(destIata, destinoRaw);
+    const origCiudad = resolverCiudadCompleta(origIata, origenRaw);
 
     const elRouteCities = document.getElementById('cabin-route-cities');
     const elRouteDate = document.getElementById('cabin-route-date');
@@ -2253,6 +2306,7 @@
     }
 
     try {
+      if (window.AeroLoader) window.AeroLoader.show('Procesando pago seguro...');
       const docType = document.getElementById('pax-doc-type')?.value || 'CC';
       const docNumber = document.getElementById('passenger-doc-input')?.value.trim() || '101829384';
       const fullName = document.getElementById('passenger-name-input')?.value.trim() || 'Carlos Alberto Mendoza';
@@ -2363,6 +2417,7 @@
       }
       mostrarSeccion('viajes');
     } finally {
+      if (window.AeroLoader) window.AeroLoader.hide();
       if (payBtn) payBtn.disabled = false;
     }
   }
@@ -2371,16 +2426,15 @@
   // 12. GENERADOR DEL PASE DE ABORDAR DE DOBLE TALÓN TROQUELADO (FOTOGRAFÍA + AVATAR)
   // =========================================================================
   function obtenerFotoDestino(reserva) {
-    if (reserva.imagen_url) return reserva.imagen_url;
-    const d = ((reserva.destino || '') + ' ' + (reserva.origen || '')).toUpperCase();
-    if (d.includes('MDE') || d.includes('MEDELL')) return '/static/img/oferta-medellin.jpg';
-    if (d.includes('CLO') || d.includes('CALI')) return '/static/img/oferta-cali.jpg';
-    if (d.includes('MTR') || d.includes('MONTER')) return '/static/img/oferta-monteria.jpg';
-    if (d.includes('CTG') || d.includes('CARTAGENA')) return '/static/img/oferta-cartagena.jpg';
-    if (d.includes('SMR') || d.includes('SANTA MARTA')) return '/static/img/oferta-santamarta.jpg';
-    if (d.includes('BAQ') || d.includes('BARRANQUILLA')) return '/static/img/oferta-barranquilla.jpg';
-    if (d.includes('MIA') || d.includes('MIAMI')) return '/static/img/oferta-miami.jpg';
-    return '/static/img/oferta-cartagena.jpg';
+    if (reserva.imagen_url && !reserva.imagen_url.includes('oferta-')) return reserva.imagen_url;
+    const dest = String(reserva.destino || '').toUpperCase();
+    const orig = String(reserva.origen || '').toUpperCase();
+    const iataDest = dest.split('-')[0].trim();
+    if (iataDest && iataDest.length === 3) return `/api/destinos/${iataDest}/imagen`;
+    for (const code of ['BOG', 'MDE', 'CLO', 'CTG', 'SMR', 'BAQ', 'MTR', 'MIA', 'JFK', 'MEX', 'MAD', 'LHR', 'SCL', 'PEI']) {
+      if (dest.includes(code) || orig.includes(code)) return `/api/destinos/${code}/imagen`;
+    }
+    return '/api/destinos/BOG/imagen';
   }
 
   function generarHTMLPaseDobleTalon(reserva, idx, puedeEscanearEnRampa = true, scope = '') {
@@ -4198,8 +4252,97 @@
     }, 100);
   }
 
+  // =========================================================================
+  // AEROLOADER: CONTROLADOR GLOBAL DE CARGA CON AVIÓN EN ÓRBITA
+  // =========================================================================
+  window.AeroLoader = {
+    overlay: null,
+    labelEl: null,
+    showTimer: null,
+    minDisplayTimer: null,
+    safetyTimer: null,
+    isVisible: false,
+    showTimestamp: 0,
+
+    init() {
+      this.overlay = document.getElementById('aero-global-loader');
+      this.labelEl = document.getElementById('aero-loader-text');
+    },
+
+    show(mensaje = 'Cargando...') {
+      if (!this.overlay) this.init();
+      if (!this.overlay) return;
+      if (this.labelEl) this.labelEl.textContent = mensaje;
+
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = setTimeout(() => { this.hide(true); }, 15000);
+
+      if (this.isVisible) return;
+
+      clearTimeout(this.showTimer);
+      // Anti-parpadeo: si la acción demora menos de 120ms, no muestra el overlay
+      this.showTimer = setTimeout(() => {
+        this.isVisible = true;
+        this.showTimestamp = Date.now();
+        if (this.overlay) {
+          this.overlay.classList.add('active');
+          this.overlay.setAttribute('aria-hidden', 'false');
+        }
+      }, 120);
+    },
+
+    hide(forzar = false) {
+      clearTimeout(this.showTimer);
+      clearTimeout(this.safetyTimer);
+      if (!this.overlay) return;
+
+      if (!this.isVisible) {
+        this.overlay.classList.remove('active');
+        this.overlay.setAttribute('aria-hidden', 'true');
+        return;
+      }
+
+      const elapsed = Date.now() - this.showTimestamp;
+      const remaining = forzar ? 0 : Math.max(0, 320 - elapsed);
+
+      clearTimeout(this.minDisplayTimer);
+      this.minDisplayTimer = setTimeout(() => {
+        if (this.overlay) {
+          this.overlay.classList.remove('active');
+          this.overlay.setAttribute('aria-hidden', 'true');
+        }
+        this.isVisible = false;
+      }, remaining);
+    },
+
+    async wrap(promesa, mensaje = 'Cargando...') {
+      this.show(mensaje);
+      try {
+        return await promesa;
+      } finally {
+        this.hide();
+      }
+    }
+  };
+
   function abrirWhatsAppSoporte(e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+    // Micro-animación: Onda expansiva (ripple) circular sobre el botón pulsado
+    const btn = document.getElementById('btn-whatsapp-support');
+    if (btn) {
+      const ripple = document.createElement('span');
+      ripple.className = 'whatsapp-ripple-wave';
+      const rect = btn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = '0px';
+      ripple.style.top = '0px';
+      btn.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 450);
+    }
+
     const base = "https://wa.me/573155667152?text=";
     let msg = "Hola soporte de Aero Flow Airlines, necesito ayuda con un problema en la plataforma.";
     const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === 'function')
@@ -4219,8 +4362,29 @@
     }
 
     const fullUrl = base + encodeURIComponent(msg);
+
+    // Compatibilidad con el ejecutable nativo Windows (.exe / Electron)
+    if (window.require) {
+      try {
+        const { shell } = window.require('electron');
+        if (shell && typeof shell.openExternal === 'function') {
+          if (fullUrl.startsWith('https://wa.me/573155667152')) {
+            shell.openExternal(fullUrl);
+            return;
+          }
+        }
+      } catch (err) {}
+    }
+
     window.open(fullUrl, '_blank', 'noopener,noreferrer');
   }
+
+  document.addEventListener('visibilitychange', () => {
+    const btn = document.getElementById('btn-whatsapp-support');
+    if (btn) {
+      btn.style.animationPlayState = document.visibilityState === 'hidden' ? 'paused' : 'running';
+    }
+  });
 
   function limpiarReservasSesion() {
     uiState.misReservas = [];

@@ -338,7 +338,13 @@
     if (!sesion) {
       // Estado desautenticado (Público)
       headerActions.innerHTML = `
-        <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
+        <button type="button" class="btn-header-login-pill" id="btn-header-login-main" onclick="AeroAuth.abrirLoginModal()">
+          <svg class="btn-login-user-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span>Iniciar sesión</span>
+        </button>
       `;
       if (window.AeroMinimalUI && typeof window.AeroMinimalUI.sincronizarModoAdmin === "function") {
         window.AeroMinimalUI.sincronizarModoAdmin(false);

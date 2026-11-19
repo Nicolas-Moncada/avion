@@ -94,13 +94,25 @@ def _crear_indices(cursor):
             ("MIA", "Miami", "Estados Unidos"),
             ("JFK", "Nueva York", "Estados Unidos"),
             ("MAD", "Madrid", "España"),
-            ("MEX", "Ciudad de México", "México")
+            ("MEX", "Ciudad de México", "México"),
+            ("LHR", "Londres", "Reino Unido"),
+            ("SCL", "Santiago", "Chile"),
+            ("PEI", "Pereira", "Colombia")
         ]
         for iata, ciudad, pais in destinos_demo:
+            blob = None
+            mime = "image/webp"
+            hd_path = os.path.join(os.path.dirname(__file__), "static", "img", "destinos_hd", f"{iata}.webp")
+            if os.path.exists(hd_path):
+                try:
+                    with open(hd_path, "rb") as f:
+                        blob = f.read()
+                except Exception:
+                    pass
             cursor.execute("""
-                INSERT OR IGNORE INTO destino_imagenes (codigo_iata, ciudad, pais, updated_at)
-                VALUES (?, ?, ?, datetime('now'))
-            """, (iata, ciudad, pais))
+                INSERT OR IGNORE INTO destino_imagenes (codigo_iata, ciudad, pais, imagen_blob, mime_type, updated_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """, (iata, ciudad, pais, blob, mime))
     cursor.execute("""
         DELETE FROM manifiesto WHERE id NOT IN (
             SELECT MIN(id) FROM manifiesto GROUP BY vuelo_codigo, pasajero_doc
@@ -1075,7 +1087,7 @@ def reiniciar_semilla_limpia():
                     "B-01",
                     26,
                     "Check-in abierto",
-                    "/static/img/oferta-medellin.jpg",
+                    "/api/destinos/MAD/imagen",
                     2850000,
                     "ciudad",
                     "Transatlántico"
@@ -1093,7 +1105,7 @@ def reiniciar_semilla_limpia():
                     "B-03",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-cali.jpg",
+                    "/api/destinos/CLO/imagen",
                     71810,
                     "nocturna",
                     "Recomendado para ti"
@@ -1111,7 +1123,7 @@ def reiniciar_semilla_limpia():
                     "C-02",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-monteria.jpg",
+                    "/api/destinos/MTR/imagen",
                     75970,
                     "naturaleza",
                     "Vuelo directo"
@@ -1129,7 +1141,7 @@ def reiniciar_semilla_limpia():
                     "B-02",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-medellin.jpg",
+                    "/api/destinos/MDE/imagen",
                     82010,
                     "ciudad",
                     "Mejor precio"
@@ -1147,7 +1159,7 @@ def reiniciar_semilla_limpia():
                     "C-01",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-cartagena.jpg",
+                    "/api/destinos/CTG/imagen",
                     115000,
                     "playa",
                     "Playa favorita"
@@ -1165,7 +1177,7 @@ def reiniciar_semilla_limpia():
                     "C-03",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-santamarta.jpg",
+                    "/api/destinos/SMR/imagen",
                     108500,
                     "playa",
                     "Reserva anticipada"
@@ -1183,7 +1195,7 @@ def reiniciar_semilla_limpia():
                     "B-05",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-barranquilla.jpg",
+                    "/api/destinos/BAQ/imagen",
                     98000,
                     "playa",
                     "Vuelo directo"
@@ -1201,7 +1213,7 @@ def reiniciar_semilla_limpia():
                     "B-04",
                     36,
                     "Check-in abierto",
-                    "/static/img/oferta-miami.jpg",
+                    "/api/destinos/MIA/imagen",
                     890000,
                     "playa",
                     "Internacional"
@@ -1219,7 +1231,7 @@ def reiniciar_semilla_limpia():
                     "A-02",
                     64,
                     "Check-in abierto",
-                    "/static/img/oferta-medellin.jpg",
+                    "/api/destinos/JFK/imagen",
                     1250000,
                     "ciudad",
                     "Nueva York"
@@ -1237,9 +1249,45 @@ def reiniciar_semilla_limpia():
                     "B-06",
                     26,
                     "Check-in abierto",
-                    "/static/img/oferta-cali.jpg",
+                    "/api/destinos/MEX/imagen",
                     980000,
                     "ciudad",
+                    "Directo"
+                ),
+                (
+                    "AF9689",
+                    "BOG - Bogotá El Dorado",
+                    "LHR - Londres Heathrow",
+                    "Boeing 787-8 Dreamliner",
+                    "10h 33m",
+                    8502,
+                    fecha_manana_semilla,
+                    "08:00 PM",
+                    "01:33 PM",
+                    "A-01",
+                    64,
+                    "Check-in abierto",
+                    "/api/destinos/LHR/imagen",
+                    2850000,
+                    "internacional",
+                    "Transatlántico"
+                ),
+                (
+                    "AF7854",
+                    "BOG - Bogotá El Dorado",
+                    "SCL - Santiago de Chile",
+                    "Boeing 787-8 Dreamliner",
+                    "05h 16m",
+                    4250,
+                    fecha_manana_semilla,
+                    "10:15 AM",
+                    "05:31 PM",
+                    "B-01",
+                    64,
+                    "Check-in abierto",
+                    "/api/destinos/SCL/imagen",
+                    1150000,
+                    "internacional",
                     "Directo"
                 )
             ]

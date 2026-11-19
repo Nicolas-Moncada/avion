@@ -564,7 +564,7 @@ def api_admin_crear_destino():
                 raw_img = raw_img.convert("RGB")
             fitted = ImageOps.fit(raw_img, (1280, 800), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             buf = io.BytesIO()
-            fitted.save(buf, format="JPEG", quality=88, optimize=True)
+            fitted.save(buf, format="WEBP", quality=90, method=6)
             blob = buf.getvalue()
         except Exception as e:
             return jsonify({"error": f"Error procesando imagen: {e}"}), 400
@@ -574,10 +574,10 @@ def api_admin_crear_destino():
         draw = ImageDraw.Draw(img)
         draw.text((640, 400), f"{ciudad} ({codigo_iata})", fill=(255, 255, 255), anchor="mm")
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=88)
+        img.save(buf, format="WEBP", quality=90, method=6)
         blob = buf.getvalue()
 
-    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/jpeg")
+    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/webp")
     bump_state()
     return jsonify(resultado), 201
 
@@ -599,7 +599,7 @@ def api_admin_actualizar_imagen_destino(codigo_iata):
             raw_img = raw_img.convert("RGB")
         fitted = ImageOps.fit(raw_img, (1280, 800), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
         buf = io.BytesIO()
-        fitted.save(buf, format="JPEG", quality=88, optimize=True)
+        fitted.save(buf, format="WEBP", quality=90, method=6)
         blob = buf.getvalue()
     except Exception as e:
         return jsonify({"error": f"Error procesando imagen: {e}"}), 400
@@ -614,7 +614,7 @@ def api_admin_actualizar_imagen_destino(codigo_iata):
     finally:
         conn.close()
 
-    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/jpeg")
+    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/webp")
     bump_state()
     return jsonify(resultado), 200
 
@@ -924,65 +924,89 @@ def api_admin_usuarios():
 # MÓDULO 1: VUELOS Y TABLERO FIDS (Hash Map O(1))
 # =====================================================================
 DESTINOS_METADATA = {
+    "BOG": {
+        "imagen_url": "/api/destinos/BOG/imagen",
+        "precio_base_cop": 82000,
+        "categoria": "ciudad",
+        "tag_destacado": "Sede Principal",
+    },
     "CLO": {
-        "imagen_url": "/static/img/oferta-cali.jpg",
+        "imagen_url": "/api/destinos/CLO/imagen",
         "precio_base_cop": 71810,
         "categoria": "nocturna",
         "tag_destacado": "Recomendado para ti",
     },
     "MTR": {
-        "imagen_url": "/static/img/oferta-monteria.jpg",
+        "imagen_url": "/api/destinos/MTR/imagen",
         "precio_base_cop": 75970,
         "categoria": "naturaleza",
         "tag_destacado": "Vuelo directo",
     },
     "MDE": {
-        "imagen_url": "/static/img/oferta-medellin.jpg",
+        "imagen_url": "/api/destinos/MDE/imagen",
         "precio_base_cop": 82010,
         "categoria": "ciudad",
         "tag_destacado": "Mejor precio",
     },
     "CTG": {
-        "imagen_url": "/static/img/oferta-cartagena.jpg",
+        "imagen_url": "/api/destinos/CTG/imagen",
         "precio_base_cop": 115000,
         "categoria": "playa",
         "tag_destacado": "Playa favorita",
     },
     "SMR": {
-        "imagen_url": "/static/img/oferta-santamarta.jpg",
+        "imagen_url": "/api/destinos/SMR/imagen",
         "precio_base_cop": 108500,
         "categoria": "playa",
         "tag_destacado": "Reserva anticipada",
     },
     "BAQ": {
-        "imagen_url": "/static/img/oferta-barranquilla.jpg",
+        "imagen_url": "/api/destinos/BAQ/imagen",
         "precio_base_cop": 98000,
         "categoria": "playa",
         "tag_destacado": "Vuelo directo",
     },
     "MIA": {
-        "imagen_url": "/static/img/oferta-miami.jpg",
+        "imagen_url": "/api/destinos/MIA/imagen",
         "precio_base_cop": 890000,
         "categoria": "playa",
         "tag_destacado": "Internacional",
     },
     "MAD": {
-        "imagen_url": "/static/img/oferta-medellin.jpg",
+        "imagen_url": "/api/destinos/MAD/imagen",
         "precio_base_cop": 2850000,
         "categoria": "ciudad",
         "tag_destacado": "Transatlántico",
     },
     "JFK": {
-        "imagen_url": "/static/img/oferta-medellin.jpg",
+        "imagen_url": "/api/destinos/JFK/imagen",
         "precio_base_cop": 1250000,
         "categoria": "ciudad",
         "tag_destacado": "Nueva York",
     },
     "MEX": {
-        "imagen_url": "/static/img/oferta-cali.jpg",
+        "imagen_url": "/api/destinos/MEX/imagen",
         "precio_base_cop": 980000,
         "categoria": "ciudad",
         "tag_destacado": "Directo",
+    },
+    "LHR": {
+        "imagen_url": "/api/destinos/LHR/imagen",
+        "precio_base_cop": 2850000,
+        "categoria": "internacional",
+        "tag_destacado": "Transatlántico",
+    },
+    "SCL": {
+        "imagen_url": "/api/destinos/SCL/imagen",
+        "precio_base_cop": 1150000,
+        "categoria": "internacional",
+        "tag_destacado": "Directo",
+    },
+    "PEI": {
+        "imagen_url": "/api/destinos/PEI/imagen",
+        "precio_base_cop": 79000,
+        "categoria": "naturaleza",
+        "tag_destacado": "Eje Cafetero",
     },
 }
 
@@ -1022,25 +1046,30 @@ def listar_vuelos():
 
         # Metadatos visuales y ofertas
         destino_upper = str(v.get("destino", "")).upper()
+        dest_iata = extraer_iata_normalizado(destino_upper)
         imagen_url = v.get("imagen_url") or ""
+        if "oferta-" in imagen_url or not imagen_url:
+            imagen_url = ""
         precio_base_cop = int(v.get("precio_base_cop") or 0)
         categoria = v.get("categoria") or ""
         tag_destacado = v.get("tag_destacado") or ""
 
-        for iata, meta in DESTINOS_METADATA.items():
-            if iata in destino_upper:
-                if not imagen_url:
-                    imagen_url = meta["imagen_url"]
-                if not precio_base_cop:
-                    precio_base_cop = meta["precio_base_cop"]
-                if not categoria:
-                    categoria = meta["categoria"]
-                if not tag_destacado:
-                    tag_destacado = meta["tag_destacado"]
-                break
+        if dest_iata in DESTINOS_METADATA:
+            meta = DESTINOS_METADATA[dest_iata]
+            if not imagen_url:
+                imagen_url = meta["imagen_url"]
+            if not precio_base_cop:
+                precio_base_cop = meta["precio_base_cop"]
+            if not categoria:
+                categoria = meta["categoria"]
+            if not tag_destacado:
+                tag_destacado = meta["tag_destacado"]
+        elif dest_iata:
+            if not imagen_url:
+                imagen_url = f"/api/destinos/{dest_iata}/imagen"
 
         if not imagen_url:
-            imagen_url = "/static/img/oferta-cali.jpg"
+            imagen_url = f"/api/destinos/{dest_iata or 'BOG'}/imagen"
         if not precio_base_cop:
             precio_base_cop = 82000
         if not categoria:
@@ -2553,7 +2582,7 @@ def api_admin_crear_vuelo():
         procesada = procesar_y_redimensionar_imagen_16_10(raw_img, f"vuelo_{codigo}")
         if procesada:
             raw_img = procesada
-    elif not raw_img or raw_img == "/static/img/oferta-cali.jpg":
+    elif not raw_img or "oferta-" in raw_img:
         dest_iata = extraer_iata_normalizado(destino)
         if dest_iata:
             raw_img = f"/api/destinos/{dest_iata}/imagen"
@@ -2571,7 +2600,7 @@ def api_admin_crear_vuelo():
         "puerta": str(data.get("puerta", "B-01")),
         "capacidad_maxima": capacidad,
         "estado": str(data.get("estado", "Programado")),
-        "imagen_url": raw_img or "/static/img/oferta-cali.jpg",
+        "imagen_url": raw_img or (f"/api/destinos/{extraer_iata_normalizado(destino) or 'BOG'}/imagen"),
         "precio_base_cop": int(data.get("precio_base_cop", 82000)),
         "categoria": str(data.get("categoria", "ciudad")),
         "tag_destacado": str(data.get("tag_destacado", "Recomendado para ti")),
