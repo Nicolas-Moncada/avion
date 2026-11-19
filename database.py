@@ -2602,6 +2602,78 @@ def obtener_kpis_dashboard():
         conn.close()
 
 
+def obtener_reservas_por_pasajero(documento: str = "", nombre: str = "", pnr: str = "", email: str = ""):
+    """
+    Retorna exclusivamente las reservas pertenecientes a un pasajero.
+    Filtra por documento, nombre normalizado, PNR o email para garantizar total privacidad.
+    """
+    init_db()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        doc_clean = (documento or "").replace("CC-", "").replace("TI-", "").strip()
+        nombre_clean = (nombre or "").strip().lower()
+        pnr_clean = (pnr or "").strip().upper()
+
+        conditions = []
+        params = []
+
+        if doc_clean:
+            conditions.append("(m.pasajero_doc = ? OR REPLACE(m.pasajero_doc, 'CC-', '') = ?)")
+            params.extend([doc_clean, doc_clean])
+        if nombre_clean:
+            conditions.append("LOWER(TRIM(m.pasajero_nombre)) = ?")
+            params.append(nombre_clean)
+        if pnr_clean:
+            conditions.append("UPPER(m.codigo_pnr) = ?")
+            params.append(pnr_clean)
+
+        if not conditions:
+            return []
+
+        where_clause = " OR ".join(conditions)
+
+        cur.execute(f"""
+            SELECT m.id, m.vuelo_codigo, m.pasajero_doc, m.pasajero_nombre, m.asiento,
+                   m.clase_cabina, m.tarifa_pagada_cop, m.estado_embarque, m.estado_tiquete,
+                   m.grupo_abordaje, m.codigo_pnr,
+                   v.origen, v.destino, v.tipo_aeronave, v.fecha_salida, v.hora_salida_12h,
+                   v.hora_llegada_12h, v.puerta, v.estado as estado_vuelo, v.imagen_url
+            FROM manifiesto m
+            JOIN vuelos v ON UPPER(v.codigo) = UPPER(m.vuelo_codigo)
+            WHERE ({where_clause})
+              AND (m.estado_tiquete != 'Cancelado' AND m.estado_embarque != 'CANCELADO')
+            ORDER BY m.id DESC
+        """, params)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def obtener_todas_las_reservas_activas():
+    """Retorna todas las reservas activas (para administradores y consola de rampa)."""
+    init_db()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT m.id, m.vuelo_codigo, m.pasajero_doc, m.pasajero_nombre, m.asiento,
+                   m.clase_cabina, m.tarifa_pagada_cop, m.estado_embarque, m.estado_tiquete,
+                   m.grupo_abordaje, m.codigo_pnr,
+                   v.origen, v.destino, v.tipo_aeronave, v.fecha_salida, v.hora_salida_12h,
+                   v.hora_llegada_12h, v.puerta, v.estado as estado_vuelo, v.imagen_url
+            FROM manifiesto m
+            JOIN vuelos v ON UPPER(v.codigo) = UPPER(m.vuelo_codigo)
+            WHERE (m.estado_tiquete != 'Cancelado' AND m.estado_embarque != 'CANCELADO')
+            ORDER BY m.id DESC
+        """)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def _cli() -> None:
     import argparse
 

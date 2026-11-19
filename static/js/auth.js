@@ -114,6 +114,9 @@
     if (typeof window.cerrarModales === "function") {
       window.cerrarModales();
     }
+    if (window.AeroMinimalUI && typeof window.AeroMinimalUI.limpiarReservasSesion === "function") {
+      window.AeroMinimalUI.limpiarReservasSesion();
+    }
     mostrarNotificacion("Sesion cerrada correctamente.");
   }
 
@@ -379,6 +382,9 @@
 
     if (window.AeroMinimalUI && typeof window.AeroMinimalUI.sincronizarModoAdmin === "function") {
       window.AeroMinimalUI.sincronizarModoAdmin(Boolean(sesion && (sesion.rol === "admin" || sesion.rol === "integral")));
+    }
+    if (window.AeroMinimalUI && typeof window.AeroMinimalUI.limpiarReservasSesion === "function") {
+      window.AeroMinimalUI.limpiarReservasSesion();
     }
   }
 

@@ -135,3 +135,29 @@ def test_pnr_lookup_and_checkin_and_duplicate_scan(client):
     })
     assert res_scan2.status_code == 409
     assert 'ya abordó' in res_scan2.get_json()['error'].lower() or 'duplicado' in res_scan2.get_json()['error'].lower()
+
+def test_api_mis_reservas_isolation(client):
+    # 1. Pasajero nuevo sin documento: NUNCA debe ver reservas de otros
+    res_nuevo = client.get('/api/mis-reservas')
+    assert res_nuevo.status_code == 200
+    data_nuevo = res_nuevo.get_json()
+    assert data_nuevo['exito'] is True
+    assert data_nuevo['total'] == 0
+    assert len(data_nuevo['reservas']) == 0
+
+    # 2. Pasajero específico (Gabriel Restrepo 20200201): debe ver ÚNICAMENTE sus propios vuelos
+    res_gabriel = client.get('/api/mis-reservas?documento=20200201')
+    assert res_gabriel.status_code == 200
+    data_gabriel = res_gabriel.get_json()
+    assert data_gabriel['exito'] is True
+    assert data_gabriel['total'] >= 1
+    for r in data_gabriel['reservas']:
+        assert r['pasajero_doc'] == '20200201' or '20200201' in str(r['pasajero_doc'])
+        assert 'Gabriel Restrepo' in r['pasajero_nombre']
+
+    # 3. Pasajero nuevo con cédula inexistente (ej. 999888777): 0 vuelos ajenos
+    res_inexistente = client.get('/api/mis-reservas?documento=999888777')
+    assert res_inexistente.status_code == 200
+    data_inex = res_inexistente.get_json()
+    assert data_inex['exito'] is True
+    assert data_inex['total'] == 0

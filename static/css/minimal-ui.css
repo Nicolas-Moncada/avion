@@ -3423,20 +3423,22 @@ body {
 .btn-download-windows-header {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   background: #0F172A;
-  color: #FFFFFF;
+  color: #38BDF8;
   border: 1px solid #334155;
   border-radius: 9999px;
-  padding: 6px 14px;
-  font-size: 0.75rem;
-  font-weight: 600;
   text-decoration: none;
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  flex-shrink: 0;
 }
 .btn-download-windows-header:hover {
   background: #1E293B;
-  border-color: #64748B;
+  border-color: #38BDF8;
+  color: #7DD3FC;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
   transform: translateY(-1px);
 }
 
@@ -3916,6 +3918,73 @@ body {
   border-color: #38BDF8;
 }
 
+/* ==========================================================================
+   20. BOTÓN FLOTANTE DE SOPORTE POR WHATSAPP (+57 3155667152)
+   ========================================================================== */
+.floating-whatsapp-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #25D366;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 990;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.floating-whatsapp-btn:hover {
+  background-color: #1EBE5D;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 12px 28px rgba(37, 211, 102, 0.45), 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+.floating-whatsapp-btn:active {
+  transform: scale(0.96);
+}
+.whatsapp-icon-svg {
+  width: 30px;
+  height: 30px;
+  fill: #FFFFFF;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+.whatsapp-tooltip-text {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #FFFFFF;
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.floating-whatsapp-btn:hover .whatsapp-tooltip-text {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+@media print {
+  .floating-whatsapp-btn,
+  #btn-whatsapp-support {
+    display: none !important;
+  }
+}
+
 /* Accessibility: Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3925,5 +3994,12 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .floating-whatsapp-btn {
+    transition: none !important;
+    transform: none !important;
+  }
+  .whatsapp-tooltip-text {
+    transition: none !important;
   }
 }

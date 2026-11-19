@@ -244,36 +244,54 @@
 
   function esReservaPropia(reserva, ctx) {
     if (!reserva) return false;
+    // Si es demo offline y no es la cuenta demo de Carlos Mendoza, nunca mostrar
+    if (reserva.esDemoOffline && ctx?.emailSesion !== 'pasajero@aeroflow.com') {
+      return false;
+    }
+
     const docReserva = String(reserva.documentoReal || reserva.pasajeroDoc || '').replace(/^[A-Za-z]+-/, '').trim();
+    const docSesion = String(ctx?.docSesion || '').replace(/^[A-Za-z]+-/, '').trim();
 
+    // 1. Visitante sin sesión
     if (!ctx || !ctx.sesion) {
-      return Boolean(reserva.compradaEnSesion);
+      return Boolean(reserva.compradaEnSesion) && !reserva.esDemoOffline;
     }
 
-    if (ctx.docSesion && docReserva && docReserva === ctx.docSesion) {
+    // 2. Coincidencia por documento de identidad de sesión
+    if (docSesion && docReserva && docReserva === docSesion) {
       return true;
     }
 
+    // 3. Coincidencia por documento comprado en esta sesión activa por este pasajero
     if (docReserva && uiState.misDocumentosComprados.has(docReserva)) {
-      return true;
+      if (ctx.nombreSesion && reserva.pasajeroNombre) {
+        const nomR = normalizarTexto(reserva.pasajeroNombre);
+        const nomU = normalizarTexto(ctx.nombreSesion);
+        if (nomR === nomU || nomR.includes(nomU) || nomU.includes(nomR)) {
+          return true;
+        }
+      } else {
+        return true;
+      }
     }
 
-    // Usuario demo estándar (Carlos Mendoza / pasajero@aeroflow.com)
+    // 4. Usuario demo oficial
     if (ctx.emailSesion === 'pasajero@aeroflow.com' && docReserva === '101829384') {
       return true;
     }
 
+    // 5. Coincidencia por nombre exacto o tokens de nombre
     if (ctx.nombreSesion && reserva.pasajeroNombre) {
       const nomReserva = normalizarTexto(reserva.pasajeroNombre);
       const nomUsuario = normalizarTexto(ctx.nombreSesion);
       if (nomReserva === nomUsuario) return true;
-      const tokensUsuario = nomUsuario.split(/\s+/).filter(t => t.length >= 2);
+      const tokensUsuario = nomUsuario.split(/\s+/).filter(t => t.length >= 3);
       if (tokensUsuario.length >= 2 && tokensUsuario.every(t => nomReserva.includes(t))) {
         return true;
       }
     }
 
-    return Boolean(reserva.compradaEnSesion);
+    return false;
   }
 
   function obtenerReservasVisibles() {
@@ -284,8 +302,8 @@
     if (ctx.esPasajero) {
       return uiState.misReservas.filter(r => esReservaPropia(r, ctx));
     }
-    // Visitante no autenticado: solo reservas creadas en esta sesión (si las hay)
-    return uiState.misReservas.filter(r => Boolean(r.compradaEnSesion));
+    // Visitante no autenticado: estrictamente sus propias reservas compradas en esta sesión
+    return uiState.misReservas.filter(r => Boolean(r.compradaEnSesion) && !r.esDemoOffline);
   }
 
   function formatoCOP(numero) {
@@ -782,10 +800,41 @@
 
   async function cargarReservasServidor() {
     try {
-      const res = await fetch('/api/pasajeros-recientes', { cache: 'no-store' });
+      const ctx = obtenerContextoUsuario();
+      let url = '/api/mis-reservas';
+      const params = new URLSearchParams();
+
+      if (ctx.esOperadorOAdmin) {
+        // En modo administrador, puede consultar todas las activas
+      } else if (ctx.esPasajero) {
+        if (ctx.docSesion) params.append('documento', ctx.docSesion);
+        if (ctx.nombreSesion) params.append('nombre', ctx.nombreSesion);
+        if (ctx.emailSesion) params.append('email', ctx.emailSesion);
+      } else {
+        // Visitante / Pasajero no autenticado: si ha comprado en esta sesión, filtrar estrictamente
+        if (uiState.misDocumentosComprados.size > 0) {
+          params.append('documento', Array.from(uiState.misDocumentosComprados).join(','));
+        } else {
+          // Visitante nuevo sin compras: NO cargar vuelos de otros pasajeros
+          uiState.misReservas = [];
+          uiState.reservasServidorCargadas = true;
+          return;
+        }
+      }
+
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
+
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'X-User-Role': ctx.rolRaw || 'pasajero'
+        }
+      });
       if (!res.ok) throw new Error('Error al consultar reservas');
       const data = await res.json();
-      const registros = Array.isArray(data.registros) ? data.registros : [];
+      const registros = Array.isArray(data.reservas) ? data.reservas : (Array.isArray(data.registros) ? data.registros : []);
 
       const localesCompradas = uiState.misReservas.filter(
         r => r && !r.esServidor && !r.esDemoOffline && r.compradaEnSesion &&
@@ -793,36 +842,35 @@
       );
       const delServidor = registros
         .filter(r => {
-          const st = String(r.estado_embarque || '').trim().toUpperCase();
-          const clave = `${String(r.vuelo_id || '').trim().toUpperCase()}::${String(r.documento || '').trim()}`;
+          const st = String(r.estado_embarque || r.estado_tiquete || '').trim().toUpperCase();
+          const clave = `${String(r.vuelo_codigo || r.vuelo_id || '').trim().toUpperCase()}::${String(r.pasajero_doc || r.documento || '').trim()}`;
           return st !== 'CANCELADO' && !uiState.canceladasEnSesion.has(clave);
         })
         .map(r => {
-          const vueloInfo = uiState.vuelosCargados.find(v => v.codigo === r.vuelo_id);
-          const partesOD = String(r.origen_destino || 'BOG -> MDE').split('->');
-          const origenStr = vueloInfo?.origen || (partesOD[0] || 'BOG').trim();
-          const destinoStr = vueloInfo?.destino || (partesOD[1] || 'MDE').trim();
-          const esVip = String(r.categoria || '').toUpperCase().includes('VIP');
+          const codVuelo = r.vuelo_codigo || r.vuelo_id;
+          const vueloInfo = uiState.vuelosCargados.find(v => v.codigo === codVuelo);
+          const esVip = String(r.clase_cabina || r.categoria || '').toUpperCase().includes('VIP');
           const reservaMapped = {
-            pnr: r.referencia_pago || `AF-${r.vuelo_id}-${r.id}`,
+            pnr: r.codigo_pnr || r.pnr || r.referencia_pago || `AF-${codVuelo}-${r.id}`,
             recibo: `REC-BOG-${1000 + (Number(r.id) || 0)}`,
-            vueloCodigo: r.vuelo_id,
-            origen: origenStr,
-            destino: destinoStr,
-            fecha: vueloInfo?.fecha_salida || '2026-12-02',
-            hora: vueloInfo?.hora_salida_12h || '08:30 AM',
-            puerta: vueloInfo?.puerta || 'B-03',
-            tipoAeronave: vueloInfo?.tipo_aeronave || 'Airbus A320neo',
+            vueloCodigo: codVuelo,
+            origen: r.origen || vueloInfo?.origen || 'BOG - Bogotá',
+            destino: r.destino || vueloInfo?.destino || 'MDE - Medellín',
+            fecha: r.fecha_salida || vueloInfo?.fecha_salida || '2026-11-20',
+            hora: r.hora_salida_12h || vueloInfo?.hora_salida_12h || '08:30 AM',
+            puerta: r.puerta || vueloInfo?.puerta || 'B-03',
+            tipoAeronave: r.tipo_aeronave || vueloInfo?.tipo_aeronave || 'Airbus A320neo',
             asiento: r.asiento || '1A',
             clase: esVip ? 'VIP Executive' : 'Economy',
-            pasajeroDoc: r.documento,
-            documentoReal: r.documento,
-            pasajeroNombre: r.nombre_completo,
+            pasajeroDoc: r.pasajero_doc || r.documento,
+            documentoReal: r.pasajero_doc || r.documento,
+            pasajeroNombre: r.pasajero_nombre || r.nombre_completo,
             metodoPago: r.metodo_pago || 'Tarjeta',
-            tarifaTotalCOP: Number(r.monto_cop) || 288454,
-            estado: r.estado_embarque || 'Confirmado',
+            tarifaTotalCOP: Number(r.tarifa_pagada_cop || r.monto_cop) || 288454,
+            estado: r.estado_tiquete || r.estado_embarque || 'Confirmado',
             estado_embarque: r.estado_embarque || 'Confirmado',
-            imagen_url: vueloInfo?.imagen_url || '',
+            grupo_abordaje: r.grupo_abordaje || (esVip ? 'Grupo 1 VIP' : 'Grupo 2 Ventana'),
+            imagen_url: r.imagen_url || vueloInfo?.imagen_url || '',
             esServidor: true
           };
           if (estaPasajeroAbordado(reservaMapped)) {
@@ -2578,29 +2626,32 @@
   // 13. ACTUALIZACIÓN DEL PORTAL DEL PASAJERO ("MIS VIAJES")
   // =========================================================================
   function asegurarReservaDemo() {
-    if (uiState.misReservas.length === 0) {
-      uiState.misReservas.push({
-        pnr: 'AF7K9B',
-        recibo: 'REC-BOG-8921',
-        vueloCodigo: 'AF2025',
-        origen: 'BOG - Bogotá El Dorado',
-        destino: 'MDE - Medellín',
-        fecha: '2026-12-02',
-        hora: '07:15 AM',
-        puerta: 'B-03',
-        tipoAeronave: 'Airbus A320neo',
-        asiento: '1A',
-        clase: 'VIP Executive',
-        pasajeroDoc: 'CC-101829384',
-        documentoReal: '101829384',
-        pasajeroNombre: 'Carlos Alberto Mendoza',
-        pasajeroEmail: 'carlos.mendoza@aeroflow.com',
-        pasajeroPhone: '+57 310 987 6543',
-        metodoPago: 'Tarjeta Bancaria',
-        tarifaTotalCOP: 331500,
-        estado: 'Confirmado',
-        esDemoOffline: true
-      });
+    const ctx = obtenerContextoUsuario();
+    if (ctx && ctx.emailSesion === 'pasajero@aeroflow.com') {
+      if (uiState.misReservas.length === 0) {
+        uiState.misReservas.push({
+          pnr: 'AF7K9B',
+          recibo: 'REC-BOG-8921',
+          vueloCodigo: 'AF2025',
+          origen: 'BOG - Bogotá El Dorado',
+          destino: 'MDE - Medellín',
+          fecha: '2026-12-02',
+          hora: '07:15 AM',
+          puerta: 'B-03',
+          tipoAeronave: 'Airbus A320neo',
+          asiento: '1A',
+          clase: 'VIP Executive',
+          pasajeroDoc: 'CC-101829384',
+          documentoReal: '101829384',
+          pasajeroNombre: 'Carlos Alberto Mendoza',
+          pasajeroEmail: 'carlos.mendoza@aeroflow.com',
+          pasajeroPhone: '+57 310 987 6543',
+          metodoPago: 'Tarjeta Bancaria',
+          tarifaTotalCOP: 331500,
+          estado: 'Confirmado',
+          esDemoOffline: true
+        });
+      }
     }
   }
 
@@ -4147,6 +4198,47 @@
     }, 100);
   }
 
+  function abrirWhatsAppSoporte(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const base = "https://wa.me/573155667152?text=";
+    let msg = "Hola soporte de Aero Flow Airlines, necesito ayuda con un problema en la plataforma.";
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === 'function')
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const pnrEl = document.getElementById('input-buscar-pnr');
+    const pnrInput = pnrEl ? pnrEl.value.trim().toUpperCase() : '';
+    const pnrReserva = (uiState.misReservas && uiState.misReservas[0] && uiState.misReservas[0].pnr) || '';
+    const activePnr = pnrInput || pnrReserva || '';
+
+    if (sesion && sesion.nombre) {
+      msg += ` (Pasajero: ${sesion.nombre}`;
+      if (activePnr) msg += `, Reserva PNR: ${activePnr}`;
+      msg += `)`;
+    } else if (activePnr) {
+      msg += ` (Reserva PNR: ${activePnr})`;
+    }
+
+    const fullUrl = base + encodeURIComponent(msg);
+    window.open(fullUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  function limpiarReservasSesion() {
+    uiState.misReservas = [];
+    uiState.misDocumentosComprados.clear();
+    uiState.reservasServidorCargadas = false;
+    cargarReservasServidor().then(() => {
+      renderizarContenidoModalMisReservas();
+      if (uiState.activeSection === 'viajes') {
+        actualizarPortalPasajero();
+      }
+    });
+  }
+
+  function obtenerPnrActivo() {
+    const pnrEl = document.getElementById('input-buscar-pnr');
+    return (pnrEl && pnrEl.value.trim().toUpperCase()) || (uiState.misReservas && uiState.misReservas[0]?.pnr) || '';
+  }
+
   // API Pública
   window.AeroMinimalUI = {
     mostrarSeccion,
@@ -4213,7 +4305,10 @@
     escanearTiqueteManual,
     buscarReservaPorPnrInput,
     realizarWebCheckinPnr,
-    validarAlgoritmoLuhn
+    validarAlgoritmoLuhn,
+    abrirWhatsAppSoporte,
+    limpiarReservasSesion,
+    obtenerPnrActivo
   };
 
   document.addEventListener('DOMContentLoaded', init);

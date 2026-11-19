@@ -63,11 +63,10 @@
       </nav>
 
       <div class="header-right-zone">
-        <a href="/api/descargar/windows" class="btn-download-windows-header" download="AeroFlowAirlines.exe" title="Descargar ejecutable nativo para Windows (.exe) - 33.5 MB">
+        <a href="/api/descargar/windows" class="btn-download-windows-header" download="AeroFlowAirlines.exe" title="Descargar ejecutable nativo para Windows (.exe) - 33.5 MB" aria-label="Descargar App Windows">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
           </svg>
-          <span>Descargar para Windows (.exe)</span>
         </a>
 
         <a href="/api/descargar/android" class="btn-download-android-header" download="AeroFlowAirlines.apk" title="Descargar App Oficial para Android (.apk) - 1.05 MB" aria-label="Descargar App Android">
@@ -1628,6 +1627,22 @@
       </div>
     </div>
   </div>
+
+  <!-- ================================================================ -->
+  <!-- BOTÓN FLOTANTE DE SOPORTE POR WHATSAPP (+57 3155667152)           -->
+  <!-- ================================================================ -->
+  <a href="https://wa.me/573155667152?text=Hola%20soporte%20de%20Aero%20Flow%20Airlines%2C%20necesito%20ayuda%20con%20un%20problema%20en%20la%20plataforma."
+     class="floating-whatsapp-btn"
+     id="btn-whatsapp-support"
+     target="_blank"
+     rel="noopener noreferrer"
+     aria-label="Contactar soporte por WhatsApp"
+     onclick="AeroMinimalUI.abrirWhatsAppSoporte(event)">
+    <svg class="whatsapp-icon-svg" width="30" height="30" viewBox="0 0 24 24" fill="#FFFFFF">
+      <path d="M17.472 14.382c-.301-.15-1.782-.879-2.058-.979-.276-.101-.477-.15-.678.15-.201.3-.778.979-.954 1.18-.176.2-.352.226-.653.075-.301-.15-1.272-.469-2.423-1.496-.896-.799-1.501-1.787-1.677-2.088-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.176.201-.301.301-.502.101-.201.05-.377-.025-.527-.075-.15-.678-1.633-.929-2.235-.245-.586-.494-.506-.678-.515-.176-.009-.377-.009-.578-.009s-.527.075-.803.377c-.276.301-1.055 1.03-1.055 2.512s1.08 2.914 1.231 3.115c.15.201 2.125 3.245 5.148 4.552.719.311 1.281.497 1.719.636.723.23 1.381.197 1.901.12.58-.087 1.782-.728 2.033-1.431.251-.703.251-1.306.176-1.431-.075-.126-.276-.201-.577-.351zM12.042 21.84c-1.77 0-3.504-.46-5.027-1.332l-.36-.207-3.738.981.998-3.644-.234-.372A9.774 9.774 0 0 1 2.25 12.04c0-5.4 4.394-9.794 9.792-9.794 2.617 0 5.076 1.02 6.927 2.871a9.74 9.74 0 0 1 2.871 6.924c0 5.4-4.394 9.799-9.798 9.799zm8.313-18.106A11.71 11.71 0 0 0 12.042.25C5.539.25.25 5.539.25 12.042c0 2.079.544 4.108 1.579 5.902L0 23.75l5.981-1.569a11.77 11.77 0 0 0 6.061 1.659h.005c6.503 0 11.792-5.289 11.792-11.798 0-3.15-1.226-6.111-3.484-8.368z"/>
+    </svg>
+    <span class="whatsapp-tooltip-text" role="tooltip">¿Necesitas ayuda? Escríbenos</span>
+  </a>
 
   <!-- Scripts -->
   <script src="/static/js/config.js?v=3.6"></script>

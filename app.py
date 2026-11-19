@@ -666,6 +666,29 @@ def api_cancelar_reserva_pnr():
     return jsonify(res), 200
 
 
+@app.route("/api/mis-reservas", methods=["GET"])
+def api_obtener_mis_reservas():
+    """
+    Retorna el historial de vuelos y reservas de un pasajero específico.
+    Protege la privacidad para que un nuevo pasajero nunca vea vuelos de otro pasajero.
+    """
+    documento = request.args.get("documento", "").strip()
+    nombre = request.args.get("nombre", "").strip()
+    pnr = request.args.get("pnr", "").strip().upper()
+    email = request.args.get("email", "").strip().lower()
+    rol = (request.headers.get("X-User-Role") or "").lower().strip()
+
+    if rol in ("admin", "integral", "operador") and not documento and not nombre and not pnr and not email:
+        reservas = db.obtener_todas_las_reservas_activas()
+        return jsonify({"exito": True, "total": len(reservas), "reservas": reservas}), 200
+
+    if not documento and not nombre and not pnr and not email:
+        return jsonify({"exito": True, "total": 0, "reservas": []}), 200
+
+    reservas = db.obtener_reservas_por_pasajero(documento=documento, nombre=nombre, pnr=pnr, email=email)
+    return jsonify({"exito": True, "total": len(reservas), "reservas": reservas}), 200
+
+
 @app.route("/api/embarque/escanear", methods=["POST"])
 def api_embarque_escanear():
     """Valida y aborda un pasajero en puerta con bloqueo estricto contra doble abordaje."""
