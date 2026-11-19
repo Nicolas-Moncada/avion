@@ -67,6 +67,12 @@ def test_api_admin_crear_destino(client):
     res_list = client.get('/api/destinos')
     assert any(d['codigo_iata'] == 'PEI' for d in res_list.get_json()['destinos'])
 
+    # Teardown limpio: eliminar TST para no contaminar pruebas de fotos HD
+    con = db.get_connection()
+    with con:
+        con.execute("DELETE FROM destino_imagenes WHERE codigo_iata = 'TST'")
+    con.close()
+
 def test_validacion_origen_destino_iguales(client):
     # Intentar crear vuelo con mismo origen y destino -> 400
     payload = {
@@ -263,4 +269,59 @@ def test_admin_eliminar_usuario_protection_and_cleanup(client):
     res_after = client.get('/api/admin/usuarios', headers={'X-User-Role': 'admin'})
     after_ids = [u['id'] for u in res_after.get_json()['usuarios']]
     assert temp_user_id not in after_ids
+
+def test_dos_vuelos_llenos_100_por_ciento(client):
+    """Verifica que AF4055 (CTG) y AF2020 (MIA) estén llenos al 100% con 36 sillas ocupadas cada uno."""
+    for cod in ('AF4055', 'AF2020'):
+        res = client.get(f'/api/avion/{cod}/mapa')
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data['lleno'] is True
+        assert data['ocupacion'] == 36
+        assert data['capacidad_maxima'] == 36
+
+        asientos = data['configuracion_aeronave']['asientos']
+        assert len(asientos) == 36
+        for s in asientos:
+            assert s['ocupado'] is True, f"Asiento {s['id']} en {cod} debería estar ocupado"
+            assert s['pasajero'] is not None, f"Pasajero faltante en {s['id']}"
+            assert s['pasajero']['documento'], f"Documento faltante en {s['id']}"
+
+        # Verificar manifiesto
+        res_m = client.get(f'/api/vuelos/{cod}/manifiesto')
+        assert res_m.status_code == 200
+        data_m = res_m.get_json()
+        assert data_m['total'] == 36
+        assert data_m['abordados'] == 0
+        assert data_m['estado_vuelo'] == 'Embarcando'
+
+def test_admin_reiniciar_vuelos_demo(client):
+    """Verifica el endpoint de reinicio rápido de vuelos demo."""
+    # 403 sin admin
+    res_anon = client.post('/api/admin/vuelos/demo/reiniciar')
+    assert res_anon.status_code == 403
+
+    # 200 con admin
+    res_adm = client.post('/api/admin/vuelos/demo/reiniciar', headers={'X-User-Role': 'admin'})
+    assert res_adm.status_code == 200
+    data = res_adm.get_json()
+    assert data['exito'] is True
+
+    # Comprobar que ambos vuelos están en estado Embarcando y 0 abordados
+    for cod in ('AF4055', 'AF2020'):
+        res_m = client.get(f'/api/vuelos/{cod}/manifiesto')
+        assert res_m.status_code == 200
+        assert res_m.get_json()['abordados'] == 0
+        assert res_m.get_json()['estado_vuelo'] == 'Embarcando'
+
+def test_coherencia_categorias_destinos(client):
+    """Verifica que Londres y Santiago estén en categoría ciudad y tengan fotos válidas."""
+    res = client.get('/api/vuelos')
+    assert res.status_code == 200
+    vuelos = res.get_json()['vuelos']
+    lhr = next(v for v in vuelos if 'LHR' in v['destino'])
+    scl = next(v for v in vuelos if 'SCL' in v['destino'])
+    assert lhr['categoria'] == 'ciudad'
+    assert scl['categoria'] == 'ciudad'
+
 

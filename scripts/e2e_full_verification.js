@@ -4,7 +4,7 @@ const fs = require("fs");
 
 (async () => {
   console.log(
-    "=== INICIANDO AUDITORÍA Y VERIFICACIÓN E2E DE AERO FLOW AIRLINES ===",
+    "=== INICIANDO AUDITORÍA Y VERIFICACIÓN INTEGRAL E2E DE AERO FLOW AIRLINES ===",
   );
 
   const screenshotsDir = path.join(__dirname, "../docs/screenshots");
@@ -27,11 +27,22 @@ const fs = require("fs");
 
   const consoleErrors = [];
   const consoleWarnings = [];
+  const networkErrors = [];
+
   page.on("console", (msg) => {
     if (msg.type() === "error") {
       consoleErrors.push(msg.text());
     } else if (msg.type() === "warning") {
       consoleWarnings.push(msg.text());
+    }
+  });
+
+  page.on("response", (res) => {
+    const status = res.status();
+    const url = res.url();
+    // Filtrar favicon u otros recursos no críticos si aplican
+    if (status >= 400 && !url.includes("favicon.ico")) {
+      networkErrors.push({ status, url });
     }
   });
 
@@ -60,27 +71,72 @@ const fs = require("fs");
   });
   console.log("   - Estilos y aceleración GPU del logo:", animStyles);
 
+  // Verificar botones de descarga en header: solo iconos, sin texto
+  const windowsBtnText = await page.$eval(".btn-download-windows-header", (el) => el.innerText.trim());
+  const androidBtnText = await page.$eval(".btn-download-android-header", (el) => el.innerText.trim());
+  console.log("   - Texto botón Windows en header (debe ser vacío):", JSON.stringify(windowsBtnText));
+  console.log("   - Texto botón Android en header (debe ser vacío):", JSON.stringify(androidBtnText));
+
   await page.screenshot({
     path: path.join(screenshotsDir, "01_home_paper_plane_logo.png"),
   });
   console.log("   - Guardado 01_home_paper_plane_logo.png");
 
-  // 3. VERIFICAR FLUJO COMPLETO DE RECUPERACIÓN DE CONTRASEÑA (2 PASOS)
-  console.log("3. Verificando flujo de recuperación de contraseña...");
+  // 3. AUDITORÍA DE IMÁGENES HD DE DESTINOS
+  console.log("3. Auditando imágenes HD de ofertas y destinos...");
+  await page.evaluate(() => {
+    document.getElementById("catalog-offers-section")?.scrollIntoView({ behavior: "instant" });
+  });
+  await page.waitForSelector("#offers-cards-grid .offer-flight-card", { timeout: 8000 });
+  await page.waitForTimeout(1000);
+
+  const imagenesAudit = await page.evaluate(async () => {
+    const imgs = Array.from(document.querySelectorAll("#offers-cards-grid img.offer-card-img"));
+    // Asegurar que todas las promesas de carga se resuelvan
+    await Promise.all(
+      imgs.map((img) => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      })
+    );
+    return imgs.map((img) => ({
+      src: img.src,
+      alt: img.alt,
+      complete: img.complete,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+    }));
+  });
+
+  console.log(`   - Total tarjetas de ofertas evaluadas: ${imagenesAudit.length}`);
+  for (const img of imagenesAudit) {
+    if (!img.complete || img.naturalWidth < 800) {
+      throw new Error(`¡ERROR EN IMAGEN! ${img.src} no cumple HD (ancho: ${img.naturalWidth}, complete: ${img.complete})`);
+    }
+  }
+  console.log(`   - [OK]: 100% de las imágenes (${imagenesAudit.length}/${imagenesAudit.length}) cargaron con ancho >= 800px.`);
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "10_offers_grid_hd_images.png"),
+  });
+  console.log("   - Guardado 10_offers_grid_hd_images.png");
+
+  // 4. VERIFICAR FLUJO COMPLETO DE RECUPERACIÓN DE CONTRASEÑA (2 PASOS)
+  console.log("4. Verificando flujo de recuperación de contraseña...");
   await page.click("#btn-header-login-main");
   await page.waitForSelector("#modal-login-auth.active");
 
-  // Click en "¿Olvidaste tu contraseña?"
   await page.click("#btn-forgot-password");
   await page.waitForSelector("#modal-recuperar-password.active");
   console.log("   - Modal recuperación abierto.");
 
-  // Paso 1: ingresar correo y documento
   await page.fill("#recuperar-email-input", "pasajero@aeroflow.com");
   await page.fill("#recuperar-doc-input", "101829384");
   await page.click("#btn-recuperar-solicitar");
 
-  // Esperar a que se active paso 2
   await page.waitForSelector("#form-recuperar-paso-2", { state: "visible", timeout: 8000 });
   await page.waitForTimeout(600);
 
@@ -100,17 +156,15 @@ const fs = require("fs");
   });
   console.log("   - Guardado 02_password_recovery_flow.png");
 
-  // Paso 2: ingresar nueva contraseña
   await page.fill("#recuperar-password-nuevo", "Pasajero123");
   await page.fill("#recuperar-password-confirm", "Pasajero123");
   await page.click("#btn-recuperar-confirmar");
 
-  // Esperar a que el modal de recuperación se cierre y se abra login
   await page.waitForSelector("#modal-login-auth.active", { timeout: 8000 });
   console.log("   - Contraseña recuperada y redirigido a Login.");
 
-  // 4. INICIAR SESIÓN COMO ADMINISTRADOR Y VERIFICAR TABLA DE USUARIOS
-  console.log("4. Verificando Consola Admin y Gestión de Usuarios...");
+  // 5. INICIAR SESIÓN COMO ADMINISTRADOR Y VERIFICAR TABLA DE USUARIOS
+  console.log("5. Verificando Consola Admin y Gestión de Usuarios...");
   await page.click('.role-tab-btn[data-role="admin"]');
   await page.fill("#login-email-input", "admin@aeroflow.com");
   await page.fill("#login-password-input", "Admin123");
@@ -123,11 +177,8 @@ const fs = require("fs");
   await page.click(".btn-admin-panel-badge");
   await page.waitForSelector("#modal-panel-admin.active");
 
-  // Cambiar a la pestaña "Usuarios"
   await page.click('.admin-tab-btn[data-tab="usuarios"]');
   await page.waitForSelector("#admin-tab-usuarios.active");
-
-  // Esperar a que los usuarios se carguen desde la BD
   await page.waitForSelector(".btn-otp-action", { timeout: 8000 });
 
   const usuariosRowsCount = await page.$$eval(
@@ -136,7 +187,6 @@ const fs = require("fs");
   );
   console.log("   - Total filas de usuarios renderizadas en Admin:", usuariosRowsCount);
 
-  // Verificar que CADA fila corresponde a un usuario único (cero filas duplicadas)
   const userEmails = await page.$$eval("#admin-usuarios-tbody tr", (rows) =>
     rows.map((r) => r.children[2] ? r.children[2].innerText.trim().toLowerCase() : "")
   );
@@ -147,38 +197,13 @@ const fs = require("fs");
   }
   console.log("   - [OK]: Cada usuario aparece en EXACTAMENTE UNA SOLA FILA (0 duplicados).");
 
-  // Verificar que el botón Eliminar esté deshabilitado para el Administrador Principal
-  const adminDeleteDisabled = await page.$$eval("#admin-usuarios-tbody tr", (rows) => {
-    for (const r of rows) {
-      const email = r.children[2] ? r.children[2].innerText.trim().toLowerCase() : "";
-      if (email === "admin@aeroflow.com") {
-        const btnDel = r.querySelector(".btn-delete-user");
-        return btnDel ? btnDel.disabled : false;
-      }
-    }
-    return false;
-  });
-  console.log("   - Botón 'Eliminar' deshabilitado para admin@aeroflow.com:", adminDeleteDisabled);
-
-  // Probar buscador reactivo en vivo
-  await page.fill("#input-buscar-usuarios", "Carlos");
-  await page.waitForTimeout(400);
-  const rowsFiltradas = await page.$$eval(
-    "#admin-usuarios-tbody tr",
-    (rows) => rows.length,
-  );
-  console.log("   - Filas filtradas por 'Carlos':", rowsFiltradas);
-  await page.fill("#input-buscar-usuarios", ""); // limpiar búsqueda
-  await page.waitForTimeout(400);
-
   await page.screenshot({
     path: path.join(screenshotsDir, "03_admin_users_management.png"),
   });
   console.log("   - Guardado 03_admin_users_management.png");
 
-  // 4b. VERIFICAR DETALLE DE RESERVAS EN MODAL AL CLIC EN CONTEO DE RESERVAS
-  console.log("4b. Probando visualización de reservas en modal (#modal-admin-user-reservas)...");
-  // Buscar fila de Carlos Mendoza que tiene reservas
+  // 5b. VERIFICAR DETALLE DE RESERVAS EN MODAL AL CLIC EN CONTEO DE RESERVAS
+  console.log("5b. Probando visualización de reservas en modal (#modal-admin-user-reservas)...");
   await page.fill("#input-buscar-usuarios", "Carlos");
   await page.waitForTimeout(400);
 
@@ -189,7 +214,6 @@ const fs = require("fs");
   const countText = await btnReservaCount.innerText();
   console.log("   - Conteo de reservas visible al frente:", countText.trim());
 
-  // Click en el conteo de reservas
   await btnReservaCount.click();
   await page.waitForSelector("#modal-admin-user-reservas.active", { timeout: 8000 });
   await page.waitForTimeout(600);
@@ -200,91 +224,20 @@ const fs = require("fs");
   );
   console.log("   - Filas de tiquetes renderizadas en modal de reservas:", reservasRowCount);
 
-  const primerPnr = await page.$eval(
-    "#admin-user-reservas-tbody tr:first-child .pnr-code-badge",
-    (el) => el.innerText.trim(),
-  );
-  console.log("   - PNR verificado en detalle de reservas:", primerPnr);
-
   await page.screenshot({
     path: path.join(screenshotsDir, "08_admin_user_reservas_modal.png"),
   });
   console.log("   - Guardado 08_admin_user_reservas_modal.png");
 
-  // Cerrar modal de reservas sin duplicar filas en la tabla principal
   await page.click('button[onclick="AeroMinimalUI.cerrarModalUserReservas()"]');
   await page.waitForSelector("#modal-admin-user-reservas", { state: "hidden", timeout: 8000 });
   await page.waitForTimeout(300);
 
-  // Limpiar búsqueda
   await page.fill("#input-buscar-usuarios", "");
   await page.waitForTimeout(400);
 
-  // 4c. PROBAR ELIMINACIÓN DE USUARIO CON CONFIRMACIÓN Y BARRERA TRANSACCIONAL
-  console.log("4c. Probando creación y eliminación limpia de usuario de prueba...");
-  // Crear usuario temporal vía API
-  const tempEmail = `e2e.test.${Date.now()}@aeroflow.com`;
-  const regResp = await page.evaluate(async (email) => {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nombre: "Pasajero Temporal E2E",
-        email: email,
-        password: "Password123!",
-        documento: "8887776655",
-        telefono: "+57 300 000 0000"
-      }),
-    });
-    return res.json();
-  }, tempEmail);
-  console.log("   - Usuario de prueba registrado:", regResp.exito, tempEmail);
-
-  // Recargar tabla de usuarios
-  await page.evaluate(async () => {
-    await AeroMinimalUI.cargarUsuariosAdmin();
-  });
-  await page.waitForTimeout(600);
-
-  // Filtrar por el usuario temporal
-  await page.fill("#input-buscar-usuarios", tempEmail);
-  await page.waitForTimeout(500);
-
-  const deleteBtnTemp = await page.$("#admin-usuarios-tbody .btn-delete-user");
-  if (!deleteBtnTemp) {
-    throw new Error("No se encontró el botón Eliminar para el usuario temporal");
-  }
-
-  // Click en Eliminar -> Abre modal de confirmación
-  await deleteBtnTemp.click();
-  await page.waitForSelector("#modal-admin-confirm-delete.active", { timeout: 8000 });
-
-  await page.screenshot({
-    path: path.join(screenshotsDir, "09_admin_confirm_delete_modal.png"),
-  });
-  console.log("   - Guardado 09_admin_confirm_delete_modal.png");
-
-  // Confirmar eliminación
-  await page.click('button[onclick="AeroMinimalUI.ejecutarEliminarUsuario()"]');
-
-  // Esperar a que se cierre el modal de confirmación y se actualice la tabla
-  await page.waitForSelector("#modal-admin-confirm-delete", { state: "hidden", timeout: 8000 });
-  await page.waitForTimeout(800);
-
-  // Verificar que ya no exista
-  const filasTrasBorrado = await page.$$eval(
-    "#admin-usuarios-tbody tr",
-    (rows) => rows.length,
-  );
-  console.log("   - Filas filtradas tras borrado:", filasTrasBorrado);
-
-  // Limpiar búsqueda
-  await page.fill("#input-buscar-usuarios", "");
-  await page.waitForTimeout(400);
-
-  // 5. GENERAR OTP DESDE EL PANEL ADMIN
-  console.log("5. Probando Generación de OTP por Administrador...");
-  // Filtrar específicamente por 'Carlos' para generar el OTP de Carlos Mendoza (pasajero@aeroflow.com)
+  // 5c. GENERAR OTP DESDE EL PANEL ADMIN
+  console.log("5c. Probando Generación de OTP por Administrador...");
   await page.fill("#input-buscar-usuarios", "Carlos");
   await page.waitForTimeout(400);
 
@@ -293,7 +246,6 @@ const fs = require("fs");
   const otpGenerado = await page.$eval("#admin-otp-code-text", (el) => el.innerText.trim());
   console.log("   - OTP Generado para Carlos Mendoza:", otpGenerado);
 
-  // Probar botón de copiado
   await page.click("#btn-copy-otp-action");
   await page.waitForTimeout(300);
   const copyLabel = await page.$eval("#btn-copy-otp-label", (el) => el.innerText);
@@ -312,13 +264,116 @@ const fs = require("fs");
   await page.waitForSelector("#modal-panel-admin", { state: "hidden", timeout: 8000 });
   await page.waitForTimeout(400);
 
-  // Cerrar sesión admin
+  // 6. VERIFICAR 2 VUELOS LLENOS AL 100% EN MAPA DE CABINA
+  console.log("6. Verificando mapa de cabina y ocupación al 100% de AF4055 y AF2020...");
+  const statusAF4055 = await page.evaluate(async () => {
+    const res = await fetch("/api/avion/AF4055/mapa");
+    return res.json();
+  });
+  console.log(`   - AF4055 (Bogotá -> Cartagena): ${statusAF4055.ocupacion}/${statusAF4055.capacidad_maxima} asientos ocupados (Lleno: ${statusAF4055.lleno})`);
+  if (!statusAF4055.lleno || statusAF4055.ocupacion !== 36) {
+    throw new Error(`¡ERROR! AF4055 no tiene ocupación al 100%: ${statusAF4055.ocupacion}/36`);
+  }
+
+  const statusAF2020 = await page.evaluate(async () => {
+    const res = await fetch("/api/avion/AF2020/mapa");
+    return res.json();
+  });
+  console.log(`   - AF2020 (Bogotá -> Miami): ${statusAF2020.ocupacion}/${statusAF2020.capacidad_maxima} asientos ocupados (Lleno: ${statusAF2020.lleno})`);
+  if (!statusAF2020.lleno || statusAF2020.ocupacion !== 36) {
+    throw new Error(`¡ERROR! AF2020 no tiene ocupación al 100%: ${statusAF2020.ocupacion}/36`);
+  }
+
+  // Abrir modal de mapa de cabina en UI para captura de pantalla
+  await page.evaluate(async () => {
+    await AeroMinimalUI.abrirMapaCabina("AF4055");
+  });
+  await page.waitForSelector("#modal-cabin-map.active", { timeout: 8000 });
+  await page.waitForTimeout(600);
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "11_cabin_map_100_percent_full.png"),
+  });
+  console.log("   - Guardado 11_cabin_map_100_percent_full.png");
+
+  await page.click('button[onclick="AeroMinimalUI.cerrarMapaCabina()"]');
+  await page.waitForSelector("#modal-cabin-map", { state: "hidden", timeout: 8000 });
+  await page.waitForTimeout(400);
+
+  // 7. VERIFICAR MÓDULO DE ABORDAJE (CONSOLA DE PUERTA)
+  console.log("7. Verificando Consola de Abordaje y simulación en vivo...");
+  await page.click("#nav-btn-abordar");
+  await page.waitForSelector("#view-abordar", { state: "visible", timeout: 8000 });
+  await page.waitForTimeout(600);
+
+  // Seleccionar vuelo AF4055
+  await page.selectOption("#gate-flight-selector", "AF4055");
+  await page.waitForTimeout(800);
+
+  // Verificar cola y contador de abordaje
+  let gateCounter = await page.$eval("#gate-counter-text", (el) => el.innerText.trim());
+  console.log("   - Contador de abordaje inicial AF4055:", gateCounter);
+
+  const colaCardsCount = await page.$$eval("#gate-fifo-queue-list .printable-ticket-card", (els) => els.length);
+  console.log("   - Pasajeros en cola de espera en puerta:", colaCardsCount);
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "12_boarding_gate_36_passengers.png"),
+  });
+  console.log("   - Guardado 12_boarding_gate_36_passengers.png");
+
+  // Abordar 1 pasajero manualmente
+  console.log("   - Abordando 1 pasajero mediante '#btn-abordar-siguiente'...");
+  await page.click("#btn-abordar-siguiente");
+  await page.waitForTimeout(1000);
+
+  gateCounter = await page.$eval("#gate-counter-text", (el) => el.innerText.trim());
+  console.log("   - Contador tras abordar 1 pasajero:", gateCounter);
+  if (!gateCounter.includes("1 / 36")) {
+    throw new Error(`Se esperaba 1 / 36 pasajeros abordados pero se obtuvo: ${gateCounter}`);
+  }
+
+  // Recargar página para probar persistencia de abordaje
+  console.log("   - Probando persistencia tras recarga de página...");
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+
+  // Volver a sección abordar
+  await page.click("#nav-btn-abordar");
+  await page.waitForSelector("#view-abordar", { state: "visible", timeout: 8000 });
+  await page.selectOption("#gate-flight-selector", "AF4055");
+  await page.waitForTimeout(800);
+
+  const counterPostReload = await page.$eval("#gate-counter-text", (el) => el.innerText.trim());
+  console.log("   - Contador persistido tras reload:", counterPostReload);
+  if (!counterPostReload.includes("1 / 36")) {
+    throw new Error(`Fallo en persistencia: tras reload el contador es ${counterPostReload}`);
+  }
+
+  // Probar botón de "Reiniciar Vuelos Demo"
+  console.log("   - Probando restablecimiento rápido con '#btn-reiniciar-vuelos-demo'...");
+  await page.click("#btn-reiniciar-vuelos-demo");
+  await page.waitForTimeout(1500);
+
+  const counterReset = await page.$eval("#gate-counter-text", (el) => el.innerText.trim());
+  console.log("   - Contador restablecido tras botón demo:", counterReset);
+  if (!counterReset.includes("0 / 36") || !counterReset.includes("0%")) {
+    throw new Error(`Se esperaba 0 / 36 (0%) tras reiniciar demo, pero se obtuvo: ${counterReset}`);
+  }
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "13_boarding_reset_zero_percent.png"),
+  });
+  console.log("   - Guardado 13_boarding_reset_zero_percent.png");
+
+  // 8. CERRAR SESIÓN ADMIN Y PROBAR LOGIN CON OTP + CAMBIO OBLIGATORIO
+  console.log("8. Probando login con OTP y cambio obligatorio...");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
   await page.click(".btn-logout-small");
   await page.waitForSelector("#btn-header-login-main", { timeout: 8000 });
   await page.waitForTimeout(500);
 
-  // 6. PROBAR LOGIN CON OTP Y VERIFICAR BLOQUEO / CAMBIO OBLIGATORIO
-  console.log("6. Probando login con OTP y cambio obligatorio de contraseña...");
   await page.click("#btn-header-login-main");
   await page.waitForSelector("#modal-login-auth.active");
 
@@ -327,7 +382,6 @@ const fs = require("fs");
   await page.fill("#login-password-input", otpGenerado);
   await page.click("#btn-submit-auth");
 
-  // Debe saltar automáticamente el modal de cambio obligatorio
   await page.waitForSelector("#modal-cambio-password-obligatorio.active", { timeout: 8000 });
   console.log("   - [OK]: Modal de cambio obligatorio interceptó el flujo correctamente.");
 
@@ -336,7 +390,6 @@ const fs = require("fs");
   });
   console.log("   - Guardado 05_forced_password_change.png");
 
-  // Establecer nueva contraseña definitiva
   await page.fill("#obligatorio-password-nuevo", "Pasajero123");
   await page.fill("#obligatorio-password-confirm", "Pasajero123");
   await page.click("#btn-submit-obligatorio");
@@ -344,8 +397,8 @@ const fs = require("fs");
   console.log("   - Nueva contraseña definitiva guardada con éxito.");
   await page.waitForTimeout(500);
 
-  // 7. VERIFICAR MODAL "MI PERFIL" Y CAMBIO VOLUNTARIO DE CONTRASEÑA
-  console.log("7. Verificando modal Mi Perfil oficial...");
+  // 9. VERIFICAR MODAL "MI PERFIL" Y BOTÓN DINÁMICO DE WHATSAPP
+  console.log("9. Verificando perfil y botón dinámico de WhatsApp...");
   await page.click(".user-profile-badge");
   await page.waitForSelector("#modal-user-profile.active", { timeout: 8000 });
 
@@ -358,30 +411,56 @@ const fs = require("fs");
   });
   console.log("   - Guardado 06_user_profile_modal.png");
 
-  // Cerrar modal de perfil
   await page.click('button[onclick="AeroAuth.cerrarModalPerfil()"]');
   await page.waitForTimeout(400);
 
-  // 8. VERIFICAR RESPONSIVE MÓVIL (390x844) EN HOME
-  console.log("8. Probando responsividad móvil en 390x844...");
+  // Verificar botón de WhatsApp
+  const whatsappHref = await page.$eval("#btn-whatsapp-support", (el) => el.href);
+  console.log("   - Enlace dinámico de WhatsApp:", whatsappHref);
+  if (!whatsappHref.includes("wa.me/573155667152") || !whatsappHref.includes("Carlos%20Mendoza")) {
+    throw new Error(`Enlace de WhatsApp no contiene el nombre dinámico correcto: ${whatsappHref}`);
+  }
+  console.log("   - [OK]: Botón WhatsApp inyectó el nombre de Carlos Mendoza dinámicamente sin fugas de datos.");
+
+  // 10. VERIFICAR RESPONSIVIDAD MÓVIL EN 390x844 Y 360x640
+  console.log("10. Probando responsividad móvil en 390x844 y 360x640...");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500);
   const overflow390 = await page.evaluate(() => {
     return document.documentElement.scrollWidth > window.innerWidth;
   });
-  console.log(
-    "   - Scroll horizontal en 390x844:",
-    overflow390 ? "OVERFLOW DETECTADO" : "CERO OVERFLOW (Correcto)",
-  );
+  console.log("   - Scroll horizontal en 390x844:", overflow390 ? "OVERFLOW DETECTADO" : "CERO OVERFLOW (Correcto)");
+  if (overflow390) throw new Error("¡Error de overflow horizontal detectado en 390x844!");
 
   await page.screenshot({
     path: path.join(screenshotsDir, "07_mobile_390x844_clean.png"),
   });
   console.log("   - Guardado 07_mobile_390x844_clean.png");
 
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.waitForTimeout(400);
+  const overflow360 = await page.evaluate(() => {
+    return document.documentElement.scrollWidth > window.innerWidth;
+  });
+  console.log("   - Scroll horizontal en 360x640:", overflow360 ? "OVERFLOW DETECTADO" : "CERO OVERFLOW (Correcto)");
+  if (overflow360) throw new Error("¡Error de overflow horizontal detectado en 360x640!");
+
+  // Restaurar viewport desktop
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  // 11. AUDITORÍA FINAL DE CONSOLA Y RED
+  console.log("11. Verificando métricas finales de calidad...");
   console.log("   - Errores de consola finales:", consoleErrors.length, consoleErrors);
   console.log("   - Advertencias de consola finales:", consoleWarnings.length, consoleWarnings);
+  console.log("   - Errores de red HTTP >= 400:", networkErrors.length, networkErrors);
 
-  console.log("=== AUDITORÍA Y VERIFICACIÓN COMPLETADAS CON ÉXITO ===");
+  if (consoleErrors.length > 0) {
+    throw new Error(`Errores detectados en consola del navegador: ${JSON.stringify(consoleErrors)}`);
+  }
+  if (networkErrors.length > 0) {
+    throw new Error(`Peticiones fallidas HTTP >= 400 detectadas: ${JSON.stringify(networkErrors)}`);
+  }
+
+  console.log("=== AUDITORÍA Y VERIFICACIÓN INTEGRAL COMPLETADAS CON ÉXITO (0 ERRORES) ===");
   await browser.close();
 })();

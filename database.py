@@ -976,6 +976,169 @@ def archivar_vuelo_operativo(codigo: str):
             conn.commit()
     finally:
         conn.close()
+
+NOMBRES_POOL_COL = [
+    "Alejandro Gómez", "Valentina Rodríguez", "Mateo Restrepo", "Camila Morales",
+    "Sebastián Herrera", "Mariana Vargas", "Santiago Castro", "Daniela Cárdenas",
+    "Nicolás Torres", "Luciana Pérez", "Samuel Jiménez", "Sofía Ríos",
+    "Gabriel Giraldo", "Isabella Molina", "Andrés Sánchez", "Gabriela Gutiérrez",
+    "Felipe Ramírez", "Juliana Ospina", "David Navarro", "Paula Duque",
+    "Esteban Londoño", "Valeria Bedoya", "Julián Cardona", "Manuela Valencia",
+    "Camilo Mejía", "Catalina Montoya", "Diego Jaramillo", "Carolina Henao",
+    "Juan Pablo Zapata", "Natalia Correa", "Tomás Rendón", "Laura Ochoa",
+    "Lucas Vélez", "Andrea Quintero", "Simón Tamayo", "Sara Echeverri"
+]
+
+NOMBRES_POOL_INT = [
+    "Michael Brown", "Emma Wilson", "Alexander Smith", "Olivia Davis",
+    "Daniel Johnson", "Sophia Miller", "William Taylor", "Ava Anderson",
+    "James Thomas", "Mia Martinez", "Benjamin White", "Charlotte Harris",
+    "Lucas Clark", "Amelia Lewis", "Henry Robinson", "Harper Walker",
+    "Alexander Hall", "Evelyn Allen", "Sebastian Young", "Abigail King",
+    "Matthew Wright", "Emily Scott", "Samuel Green", "Elizabeth Baker",
+    "David Adams", "Sofia Nelson", "Joseph Carter", "Avery Mitchell",
+    "Carter Perez", "Ella Roberts", "Luke Turner", "Scarlett Phillips",
+    "Gabriel Campbell", "Chloe Parker", "Anthony Evans", "Victoria Edwards"
+]
+
+ASIENTOS_A320_CATALOGO = [
+    {"asiento": "1A", "fila": 1, "col": "A", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "1B", "fila": 1, "col": "B", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "2A", "fila": 2, "col": "A", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "2B", "fila": 2, "col": "B", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "3A", "fila": 3, "col": "A", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "3B", "fila": 3, "col": "B", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "4A", "fila": 4, "col": "A", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "4B", "fila": 4, "col": "B", "clase": "VIP", "cat": "VIP", "grupo": "Grupo 1 Prioritario"},
+    {"asiento": "5A", "fila": 5, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "5B", "fila": 5, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "5C", "fila": 5, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "5D", "fila": 5, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "6A", "fila": 6, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "6B", "fila": 6, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "6C", "fila": 6, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "6D", "fila": 6, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "7A", "fila": 7, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "7B", "fila": 7, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "7C", "fila": 7, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "7D", "fila": 7, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "8A", "fila": 8, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "8B", "fila": 8, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "8C", "fila": 8, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "8D", "fila": 8, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "9A", "fila": 9, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "9B", "fila": 9, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "9C", "fila": 9, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "9D", "fila": 9, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "10A", "fila": 10, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "10B", "fila": 10, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "10C", "fila": 10, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "10D", "fila": 10, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "11A", "fila": 11, "col": "A", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+    {"asiento": "11B", "fila": 11, "col": "B", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "11C", "fila": 11, "col": "C", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 3 Pasillo"},
+    {"asiento": "11D", "fila": 11, "col": "D", "clase": "Estándar", "cat": "Estándar", "grupo": "Grupo 2 Ventana"},
+]
+
+def _sembrar_vuelos_llenos_36(cursor, fecha_salida: str = None):
+    """Siembra exactamente 36 pasajeros confirmados (100% ocupación) en AF4055 y AF2020."""
+    if not fecha_salida:
+        fecha_salida = (datetime.now().date() + timedelta(days=1)).isoformat()
+
+    vuelos_seed = [
+        ("AF4055", "BOG - Bogotá El Dorado", "CTG - Cartagena Rafael Núñez", 115000, "C-01", "05:00 PM", NOMBRES_POOL_COL, 1030000000),
+        ("AF2020", "BOG - Bogotá El Dorado", "MIA - Miami International", 890000, "B-04", "01:30 PM", NOMBRES_POOL_INT, 1040000000),
+    ]
+
+    for cod, orig, dest, p_base, puerta, hora, nombres, doc_base in vuelos_seed:
+        cursor.execute("""
+            UPDATE vuelos
+            SET estado = 'Embarcando', puerta = ?, fecha_salida = ?, hora_salida_12h = ?, capacidad_maxima = 36
+            WHERE codigo = ?
+        """, (puerta, fecha_salida, hora, cod))
+
+        cursor.execute("DELETE FROM manifiesto WHERE vuelo_codigo = ?", (cod,))
+        cursor.execute("DELETE FROM cola_standby WHERE vuelo_codigo = ?", (cod,))
+        cursor.execute("DELETE FROM pasajeros_recientes_pagos WHERE vuelo_id = ?", (cod,))
+
+        for idx, seat in enumerate(ASIENTOS_A320_CATALOGO):
+            doc_pax = str(doc_base + idx + 1)
+            nombre_pax = nombres[idx % len(nombres)]
+            pnr = f"AF{cod[2:]}{idx+10:02d}"
+            es_vip = (seat["clase"] == "VIP")
+            tarifa_base = 2450000 if es_vip else p_base
+            tarifa_total = tarifa_base + (158000 + 45000 + int(tarifa_base * 0.19))
+            usuario_id = None
+            pax_email = None
+
+            if cod == "AF4055" and seat["asiento"] == "1A":
+                doc_pax = "101829384"
+                nombre_pax = "Carlos Mendoza"
+                usuario_id = "usr-pax-001"
+                pax_email = "pasajero@aeroflow.com"
+                pnr = "AFZFQS"
+            elif cod == "AF4055" and seat["asiento"] == "1B":
+                doc_pax = "20200201"
+                nombre_pax = "Gabriel Restrepo Mejía"
+                pnr = "AFSOUL"
+
+            cursor.execute("""
+                INSERT OR REPLACE INTO pasajeros (documento, nombre, nacionalidad, categoria_viajero, vuelo_asignado)
+                VALUES (?, ?, ?, ?, ?)
+            """, (doc_pax, nombre_pax, "Colombiana" if cod == "AF4055" else "Extranjera", seat["cat"], cod))
+
+            cursor.execute("""
+                INSERT INTO manifiesto (
+                    vuelo_codigo, pasajero_doc, pasajero_nombre, asiento,
+                    hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop,
+                    estado_embarque, estado_tiquete, codigo_pnr, grupo_abordaje,
+                    usuario_id, pasajero_email
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Check-in Realizado', 'Confirmado', ?, ?, ?, ?)
+            """, (
+                cod, doc_pax, nombre_pax, seat["asiento"],
+                "07:30 AM", seat["cat"], seat["clase"], tarifa_total,
+                pnr, seat["grupo"], usuario_id, pax_email
+            ))
+
+            cursor.execute("""
+                INSERT INTO pasajeros_recientes_pagos (
+                    documento, nombre_completo, nacionalidad, categoria,
+                    vuelo_id, origen_destino, asiento,
+                    metodo_pago, monto_cop, referencia_pago,
+                    estado_embarque, fecha_hora_registro
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Tarjeta de Crédito', ?, ?, 'Check-in Realizado', ?)
+            """, (
+                doc_pax, nombre_pax, "Colombiana" if cod == "AF4055" else "Extranjera", seat["cat"],
+                cod, f"{orig} -> {dest}", seat["asiento"],
+                tarifa_total, pnr, f"{fecha_salida} • 07:30 AM"
+            ))
+
+            ahora_ts = int(time.time())
+            iva = int(tarifa_base * 0.19)
+            orden_id = f"ord_{cod}_{seat['asiento']}"
+            cursor.execute("""
+                INSERT OR REPLACE INTO ordenes (
+                    id, pnr, vuelo_codigo, documento_pasajero, nombre_pasajero,
+                    asiento_id, tarifa_base_cop, tarifa_admin_cop, tasa_aeroportuaria_cop,
+                    iva_cop, total_cop, estado, bloqueado_hasta, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 45000, 158000, ?, ?, 'PAGADO', ?, ?, ?)
+            """, (
+                orden_id, pnr, cod, doc_pax, nombre_pax,
+                seat["asiento"], tarifa_base, iva, tarifa_total,
+                ahora_ts + 7200, ahora_ts, ahora_ts
+            ))
+
+def reiniciar_vuelos_demo() -> dict:
+    """Devuelve atómicamente los 2 vuelos demo (AF4055 y AF2020) a estado 'Embarcando' con 0% de abordados."""
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            _sembrar_vuelos_llenos_36(cursor)
+            conn.commit()
+            return {"exito": True, "mensaje": "Vuelos demo AF4055 y AF2020 reiniciados exitosamente al 100% de capacidad y 0% abordado."}
+    finally:
+        conn.close()
 # 26 Pasajeros Oficiales de Semilla (Exactamente 26 Asientos para Airbus A319 Corporate)
 # 6 VIP en Asientos 1A a 3B (5 de categoría VIP exclusiva, 1 estándar)
 # 20 Estándar en Asientos 4A a 8D
@@ -1220,16 +1383,16 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 25m",
                     650,
-                    fecha_hoy_semilla,
+                    fecha_manana_semilla,
                     "05:00 PM",
                     "06:25 PM",
                     "C-01",
                     36,
-                    "Check-in abierto",
+                    "Embarcando",
                     "/api/destinos/CTG/imagen",
                     115000,
                     "playa",
-                    "Playa favorita"
+                    "Playa favorita (100% Ocupado)"
                 ),
                 (
                     "AF2030",
@@ -1274,16 +1437,16 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "04h 10m",
                     2435,
-                    fecha_hoy_semilla,
+                    fecha_manana_semilla,
                     "01:30 PM",
                     "05:40 PM",
                     "B-04",
                     36,
-                    "Check-in abierto",
+                    "Embarcando",
                     "/api/destinos/MIA/imagen",
                     890000,
                     "playa",
-                    "Internacional"
+                    "Internacional (100% Ocupado)"
                 ),
                 (
                     "AF3022",
@@ -1336,7 +1499,7 @@ def reiniciar_semilla_limpia():
                     "Check-in abierto",
                     "/api/destinos/LHR/imagen",
                     2850000,
-                    "internacional",
+                    "ciudad",
                     "Transatlántico"
                 ),
                 (
@@ -1354,7 +1517,7 @@ def reiniciar_semilla_limpia():
                     "Check-in abierto",
                     "/api/destinos/SCL/imagen",
                     1150000,
-                    "internacional",
+                    "ciudad",
                     "Directo"
                 )
             ]
@@ -1420,17 +1583,6 @@ def reiniciar_semilla_limpia():
                     ("20100103", "Andrés Felipe Ospina", "Colombia", "Estándar", "5A", "Nequi / QR", 288454, "06:50 AM"),
                     ("20100104", "Mariana Duque Salazar", "Colombia", "Estándar", "5B", "Tarjeta Bancaria", 288454, "06:55 AM"),
                 ]),
-                ("AF4055", "Airbus A320neo", "BOG -> CTG", [
-                    ("20200201", "Gabriel Restrepo Mejía", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 365000, "04:10 PM"),
-                    ("20200202", "Camila Vargas Patiño", "Colombia", "VIP", "1B", "PSE Bancolombia", 365000, "04:15 PM"),
-                    ("20200203", "Nicolás Herrera Vélez", "Colombia", "Estándar", "5A", "Tarjeta Bancaria", 310000, "04:20 PM"),
-                    ("20200204", "Sofía Castro Londoño", "Colombia", "Estándar", "5B", "Nequi / QR", 310000, "04:25 PM"),
-                ]),
-                ("AF2020", "Airbus A320neo", "BOG -> MIA", [
-                    ("20400401", "Alejandro Mendoza León", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 1120000, "12:30 PM"),
-                    ("20400402", "Laura Daniela Nieto", "Colombia", "VIP", "1B", "PSE Bancolombia", 1120000, "12:35 PM"),
-                    ("20400403", "Tomás Arango Quintero", "Colombia", "Estándar", "5A", "Tarjeta Bancaria", 890000, "12:40 PM"),
-                ]),
                 ("AF2022", "Airbus A320neo", "BOG -> CLO", [
                     ("20300301", "Isabella Torres Bermúdez", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 295000, "07:40 AM"),
                     ("20300302", "Sebastián Cárdenas Gil", "Colombia", "VIP", "1B", "Nequi / QR", 295000, "07:45 AM"),
@@ -1444,6 +1596,9 @@ def reiniciar_semilla_limpia():
                         doc, nom, nac, cat, asi, met, mnt, hck,
                         f"AF-{v_cod[2:]}-{1100 + idx_p}"
                     )
+
+            # Sembrar AF4055 y AF2020 al 100% de capacidad real (36 asientos cada uno)
+            _sembrar_vuelos_llenos_36(cursor, fecha_manana_semilla)
 
             conn.commit()
     finally:

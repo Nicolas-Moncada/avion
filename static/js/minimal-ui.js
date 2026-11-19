@@ -3893,6 +3893,74 @@
     showToast("Fila de abordaje reiniciada para pruebas.");
   }
 
+  async function reiniciarVuelosDemo() {
+    if (!esUsuarioAdmin()) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Acción exclusiva del Administrador.", true);
+      }
+      return;
+    }
+
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+
+    const accion = async () => {
+      const resp = await fetch("/api/admin/vuelos/demo/reiniciar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Role": rol,
+        },
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    const onCommit = async () => {
+      detenerAbordajeAutomatico();
+      uiState.boardingMutationEpoch += 1;
+      uiState.abordadosEnSesion.clear();
+      await syncAllViews();
+      inicializarConsolaAbordaje();
+      if (document.getElementById("admin-tab-usuarios")?.classList.contains("active")) {
+        await cargarUsuariosAdmin();
+      }
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Reiniciando vuelos demo al 100% en base de datos...",
+        accion,
+        onCommit,
+        (res) => {
+          if (!res.ok) {
+            if (typeof window.showToast === "function") {
+              window.showToast(res.data?.error || "Error al reiniciar vuelos demo.", true);
+            }
+            return;
+          }
+          if (typeof window.showToast === "function") {
+            window.showToast("Vuelos demo AF4055 y AF2020 reiniciados al 0% abordado (100% capacidad).", false);
+          }
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (typeof window.showToast === "function") {
+          window.showToast(res.data?.error || "Error al reiniciar vuelos demo.", true);
+        }
+        return;
+      }
+      await onCommit();
+      if (typeof window.showToast === "function") {
+        window.showToast("Vuelos demo AF4055 y AF2020 reiniciados al 0% abordado (100% capacidad).", false);
+      }
+    }
+  }
+
   function dispararSecuenciaDespegueVuelo(vueloObj, siguienteSugeridoRef) {
     const codUpper = String(vueloObj?.codigo || uiState.activeGateFlight || "")
       .trim()
@@ -5941,6 +6009,7 @@
     iniciarAbordajeAutomatico,
     detenerAbordajeAutomatico,
     reiniciarFilaAbordaje,
+    reiniciarVuelosDemo,
     abordarSiguienteManual,
     abordarTicketEnFila,
     abordarVueloPasajero,

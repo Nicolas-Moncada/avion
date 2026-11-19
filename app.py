@@ -1081,6 +1081,28 @@ def api_admin_eliminar_usuario(user_id):
         return jsonify({"exito": False, "error": str(e)}), 500
 
 
+@app.route("/api/admin/vuelos/demo/reiniciar", methods=["POST"])
+def api_admin_reiniciar_vuelos_demo():
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    try:
+        with ESTADO_MUTEX:
+            res = db.reiniciar_vuelos_demo()
+            for cod in ("AF4055", "AF2020"):
+                tabla_vuelos.actualizar_estado(cod, "Embarcando")
+                v_mem, _ = tabla_vuelos.buscar(cod)
+                if v_mem:
+                    v_mem["estado"] = "Embarcando"
+                if cod in colas_embarque:
+                    while not colas_embarque[cod].esta_vacia():
+                        colas_embarque[cod].desencolar()
+            bump_state()
+            return jsonify(res), 200
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
 # =====================================================================
 # MÓDULO 1: VUELOS Y TABLERO FIDS (Hash Map O(1))
 # =====================================================================

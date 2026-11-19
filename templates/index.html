@@ -466,6 +466,15 @@
               </svg>
               <span>Reiniciar Fila</span>
             </button>
+            <button type="button" class="btn-secondary-glass" id="btn-reiniciar-vuelos-demo" onclick="AeroMinimalUI.reiniciarVuelosDemo()" style="color:#F59E0B;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);" title="Restablecer los 2 vuelos demo al 100% de capacidad y 0% abordado">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                <path d="M21 3v5h-5"></path>
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                <path d="M3 21v-5h5"></path>
+              </svg>
+              <span>Reiniciar Vuelos Demo</span>
+            </button>
           </div>
 
           <div id="gate-readonly-notice" style="margin-top:16px;padding:10px 14px;border-radius:10px;background:rgba(15,23,42,0.45);border:1px solid rgba(148,163,184,0.25);color:#CBD5E1;font-size:0.8125rem;display:flex;align-items:center;gap:8px;">
@@ -1574,8 +1583,17 @@
         </svg>
       </button>
 
-      <div class="admin-header-row">
+      <div class="admin-header-row" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
         <h2 class="admin-title-h2" id="admin-modal-title">Consola de Administracion General</h2>
+        <button type="button" class="btn-admin-subaction" id="btn-admin-reiniciar-demo" onclick="AeroMinimalUI.reiniciarVuelosDemo()" style="background:#FFFBEB;border-color:#FDE68A;color:#B45309;" title="Restablecer los 2 vuelos demo al 100% de capacidad y 0% de abordados">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+            <path d="M21 3v5h-5"></path>
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+            <path d="M3 21v-5h5"></path>
+          </svg>
+          <span>Reiniciar Vuelos Demo (100%)</span>
+        </button>
       </div>
 
       <div class="admin-tabs-nav" role="tablist">
