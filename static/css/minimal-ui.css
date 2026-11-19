@@ -88,19 +88,22 @@ body {
 }
 
 .brand-icon-svg {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   stroke: var(--text-primary, #0F172A);
   flex-shrink: 0;
+  transition: stroke 0.2s ease, transform 0.2s ease;
 }
 
-.brand-official-logo {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  border-radius: 8px;
-  flex-shrink: 0;
-  display: block;
+body.dark-mode .brand-icon-svg,
+[data-theme="dark"] .brand-icon-svg {
+  stroke: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.light-mode) .brand-icon-svg {
+    stroke: #FFFFFF;
+  }
 }
 
 .brand-title-text {
@@ -4148,14 +4151,14 @@ body.dark-mode .btn-header-login-pill:hover {
 }
 
 /* ==========================================================================
-   21. ANIMACIÓN GLOBAL DE CARGA: TURBINA METÁLICA VECTORIAL (AEROLOADER)
+   21. ANIMACIÓN GLOBAL DE CARGA: SPINNER MINIMALISTA MODERNO (AEROLOADER)
    ========================================================================== */
 .aero-loader-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(13, 27, 42, 0.96) 0%, rgba(5, 11, 20, 0.98) 70%, rgba(2, 5, 10, 0.99) 100%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(248, 250, 252, 0.80);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4163,7 +4166,18 @@ body.dark-mode .btn-header-login-pill:hover {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.24s;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), visibility 180ms;
+}
+
+body.dark-mode .aero-loader-overlay,
+[data-theme="dark"] .aero-loader-overlay {
+  background: rgba(11, 15, 23, 0.82);
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.light-mode) .aero-loader-overlay {
+    background: rgba(11, 15, 23, 0.82);
+  }
 }
 
 .aero-loader-overlay.active {
@@ -4172,199 +4186,78 @@ body.dark-mode .btn-header-login-pill:hover {
   pointer-events: auto;
 }
 
-.aero-loader-container {
+.aero-loader-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 16px;
   text-align: center;
-  max-width: 90vw;
   padding: 24px;
 }
 
-/* Emblema central: Turbina y halo */
-.aero-turbine-wrapper {
-  position: relative;
-  width: 112px;
-  height: 112px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.aero-turbine-ambient-glow {
-  position: absolute;
-  inset: -14px;
+.aero-spinner {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.24) 0%, rgba(30, 58, 138, 0.12) 48%, transparent 72%);
-  pointer-events: none;
-  filter: blur(6px);
-  animation: aero-turbine-glow 2.4s ease-in-out infinite alternate;
-}
-
-@keyframes aero-turbine-glow {
-  from {
-    transform: scale(0.92);
-    opacity: 0.70;
-  }
-  to {
-    transform: scale(1.08);
-    opacity: 1.0;
-  }
-}
-
-.aero-turbine-svg {
-  width: 112px;
-  height: 112px;
-  display: block;
-  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.75));
-}
-
-.aero-turbine-blades {
-  transform-origin: 60px 60px;
-  animation: aero-turbine-spin 1.15s linear infinite;
+  border: 3.5px solid rgba(15, 23, 42, 0.10);
+  border-top-color: #0F172A;
+  box-sizing: border-box;
+  animation: spin 0.85s linear infinite;
   will-change: transform;
 }
 
-@keyframes aero-turbine-spin {
-  from {
-    transform: rotate(0deg);
+body.dark-mode .aero-spinner,
+[data-theme="dark"] .aero-spinner {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-top-color: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not(.light-mode) .aero-spinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: #FFFFFF;
   }
+}
+
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* Fila CARGANDO */
-.aero-loader-meta-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+.aero-loader-text {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0F172A;
+  letter-spacing: 0.01em;
+  animation: aero-text-pulse 1.8s ease-in-out infinite;
 }
 
-.aero-cargando-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  width: min(440px, 86vw);
-  position: relative;
+body.dark-mode .aero-loader-text,
+[data-theme="dark"] .aero-loader-text {
+  color: #F8FAFC;
 }
 
-.aero-cargando-line {
-  flex: 1;
-  height: 1.5px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
-  animation: aero-line-pulse 2s ease-in-out infinite;
-}
-
-@keyframes aero-line-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 0.95; }
-}
-
-.aero-cargando-title-wrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.aero-cargando-text {
-  color: #FFFFFF;
-  font-size: 1.25rem;
-  font-weight: 300;
-  letter-spacing: 0.44em;
-  text-indent: 0.44em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  text-shadow: 0 0 16px rgba(255, 255, 255, 0.45);
-  animation: aero-text-pulse 1.6s ease-in-out infinite alternate;
+@media (prefers-color-scheme: dark) {
+  body:not(.light-mode) .aero-loader-text {
+    color: #F8FAFC;
+  }
 }
 
 @keyframes aero-text-pulse {
-  from {
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-    opacity: 0.92;
+  0%, 100% {
+    opacity: 0.78;
   }
-  to {
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.7), 0 0 35px rgba(56, 189, 248, 0.4);
+  50% {
     opacity: 1;
   }
 }
 
-.aero-cargando-reflection {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%) scaleY(-1);
-  opacity: 0.22;
-  filter: blur(0.7px);
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 75%);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 75%);
-  pointer-events: none;
-  color: #FFFFFF;
-  font-size: 1.25rem;
-  font-weight: 300;
-  letter-spacing: 0.44em;
-  text-indent: 0.44em;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.aero-loader-brand {
-  color: #64748B;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.38em;
-  text-indent: 0.38em;
-  text-transform: uppercase;
-  margin-top: 6px;
-}
-
-.aero-loader-label {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #94A3B8;
-  letter-spacing: 0.02em;
-  margin-top: 4px;
-}
-
 .aero-loader-msg {
   display: inline-block;
-}
-
-/* Responsividad móvil del AeroLoader */
-@media (max-width: 640px) {
-  .aero-turbine-wrapper {
-    width: 88px;
-    height: 88px;
-  }
-  .aero-turbine-svg {
-    width: 88px;
-    height: 88px;
-  }
-  .aero-cargando-row {
-    width: min(320px, 88vw);
-    gap: 12px;
-  }
-  .aero-cargando-text,
-  .aero-cargando-reflection {
-    font-size: 1.05rem;
-    letter-spacing: 0.34em;
-    text-indent: 0.34em;
-  }
-  .aero-loader-brand {
-    font-size: 9.5px;
-    letter-spacing: 0.28em;
-    text-indent: 0.28em;
-  }
-  .aero-loader-label {
-    font-size: 0.8125rem;
-  }
 }
 
 /* Accessibility: Reduced Motion Support */
@@ -4388,12 +4281,10 @@ body.dark-mode .btn-header-login-pill:hover {
   .whatsapp-tooltip-text {
     transition: none !important;
   }
-  .aero-plane-rotator,
-  .aero-orbit-dash,
-  .aero-turbine-blades,
-  .aero-turbine-ambient-glow,
-  .aero-cargando-line,
-  .aero-cargando-text {
+  .aero-spinner {
+    animation: none !important;
+  }
+  .aero-loader-text {
     animation: none !important;
   }
 }

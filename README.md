@@ -41,7 +41,7 @@ A continuación se documenta el flujo operacional del sistema mediante capturas 
 
 ### 2.1. Portada Principal y Buscador Inteligente
 ![Portada Principal y Buscador](docs/screenshots/01_home_hero_official_logo.png)
-*Pantalla de bienvenida para clientes públicos. Destaca el logotipo oficial vectorial de Aero Flow (`/icons/icon-192.svg`), botones circulares uniformes para descarga de la versión nativa de Windows (`.exe`) y Android (`.apk`), acceso directo a "Iniciar sesión" en formato píldora, selector de itinerarios con origen predeterminado en Bogotá (BOG), fechas de viaje vigentes y el botón flotante oficial de soporte vía WhatsApp (`+57 3155667152`) anclado en la esquina inferior izquierda con contexto dinámico de pasajero.*
+*Pantalla de bienvenida para clientes públicos. Destaca el logotipo vectorial original del avión de papel minimalista (`stroke: 1.5`, 26x26px), botones circulares uniformes para descarga de la versión nativa de Windows (`.exe`) y Android (`.apk`), acceso directo a "Iniciar sesión" en formato píldora, selector de itinerarios con origen predeterminado en Bogotá (BOG), fechas de viaje vigentes y el botón flotante oficial de soporte vía WhatsApp (`+57 3155667152`) anclado en la esquina inferior izquierda con contexto dinámico de pasajero.*
 
 ---
 
@@ -87,9 +87,9 @@ A continuación se documenta el flujo operacional del sistema mediante capturas 
 
 ---
 
-### 2.9. Pantalla de Carga Vectorial AeroLoader a 60 FPS (Turbina de 10 Álabes)
-![Pantalla de Carga Vectorial AeroLoader](docs/screenshots/02_aeroloader_turbine_active.png)
-*Pantalla de carga global construida 100% en SVG vectorial inline y CSS acelerado por hardware GPU (`will-change: transform; transform: rotate`). Presenta un rotor aerodinámico de 10 álabes metálicos curvados con progresión tonal plateada (del blanco plata al pizarra profundo), domo estático de cristal con destello especular cenital, halo pulsante atmosférico de respiración (2.4s) y tipografía `CARGANDO` con trazos lineales y reflejo especular invertido con degradado y desenfoque.*
+### 2.9. Pantalla de Carga Minimalista Moderna AeroLoader a 60 FPS
+![Pantalla de Carga Minimalista AeroLoader](docs/screenshots/02_aeroloader_turbine_active.png)
+*Pantalla de carga global con overlay translúcido ligero (`rgba(248, 250, 252, 0.80)` en tema claro y `rgba(11, 15, 23, 0.82)` en tema oscuro con `backdrop-filter: blur(5px)` y transición de 180 ms). Integra un spinner circular limpio de 48px con arco activo en el color de la marca girando a 60 FPS con aceleración GPU (`0.85s linear infinite`), acompañado de tipografía Sans-Serif limpia (`14px`, peso 500) con pulso sutil de opacidad.*
 
 ---
 

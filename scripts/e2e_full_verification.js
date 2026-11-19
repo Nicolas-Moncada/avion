@@ -45,10 +45,10 @@ const fs = require('fs');
   console.log("   - Errores de consola:", consoleErrors.length, consoleErrors);
   console.log("   - Advertencias de consola:", consoleWarnings.length, consoleWarnings);
 
-  // 3. VERIFICAR LOGOTIPO OFICIAL Y BOTONES DE ENCABEZADO
+  // 3. VERIFICAR LOGOTIPO DEL AVIÓN DE PAPEL Y BOTONES DE ENCABEZADO
   console.log("3. Verificando Header...");
-  const logoSrc = await page.$eval('.brand-official-logo', el => el.getAttribute('src'));
-  console.log("   - Logotipo oficial src:", logoSrc);
+  const brandIconSvg = await page.$('.brand-icon-svg');
+  console.log("   - Logotipo avión de papel SVG presente:", Boolean(brandIconSvg));
   const btnAndroid = await page.$('.btn-download-android-header');
   const btnWindows = await page.$('.btn-download-windows-header');
   console.log("   - Botón Descarga Android presente:", Boolean(btnAndroid));
