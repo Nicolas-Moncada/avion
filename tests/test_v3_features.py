@@ -21,6 +21,12 @@ def test_descargar_windows_exe(client):
     assert 'portable-executable' in res.content_type
     assert len(res.data) > 10_000_000
 
+def test_descargar_android_apk(client):
+    res = client.get('/api/descargar/android')
+    assert res.status_code == 200
+    assert 'android.package-archive' in res.content_type
+    assert len(res.data) > 1_000_000
+
 def test_api_destinos_list_and_image(client):
     res = client.get('/api/destinos')
     assert res.status_code == 200

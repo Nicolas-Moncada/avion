@@ -483,6 +483,26 @@ def descargar_windows():
     }), 200
 
 
+@app.route("/api/descargar/android")
+@app.route("/descargar-apk")
+def descargar_android():
+    """Descarga el paquete oficial APK para dispositivos Android."""
+    apk_dir = os.path.join(config.BUNDLE_DIR, "static", "apk")
+    apk_filename = "AeroFlowAirlines.apk"
+    apk_path = os.path.join(apk_dir, apk_filename)
+    if os.path.exists(apk_path):
+        return send_from_directory(
+            apk_dir,
+            apk_filename,
+            as_attachment=True,
+            mimetype="application/vnd.android.package-archive",
+        )
+    return jsonify({
+        "disponible": False,
+        "mensaje": "El paquete AeroFlowAirlines.apk no se encuentra en el servidor"
+    }), 404
+
+
 # =====================================================================
 # DESTINOS Y FOTOGRAFÍAS EN BASE DE DATOS
 # =====================================================================

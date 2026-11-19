@@ -70,6 +70,12 @@
           <span>Descargar para Windows (.exe)</span>
         </a>
 
+        <a href="/api/descargar/android" class="btn-download-android-header" download="AeroFlowAirlines.apk" title="Descargar App Oficial para Android (.apk) - 1.05 MB" aria-label="Descargar App Android">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9992.4486.9992 1.0003s-.4481 1.0003-.9992 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.0818 12 8.0818s-3.5902.3298-5.1368.8682L4.841 5.4468a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+          </svg>
+        </a>
+
         <div class="header-actions" id="header-auth-actions">
           <!-- Renderizado dinamicamente por AeroAuth.actualizarHeaderUI -->
           <button type="button" class="btn-header-login" onclick="AeroAuth.abrirLoginModal()">Iniciar sesión</button>
@@ -254,11 +260,16 @@
                 </svg>
                 <span>Descargar para Windows (.exe)</span>
               </a>
+              <a href="/api/descargar/android" class="btn-download-android-pill" download="AeroFlowAirlines.apk" title="Descargar App para Android (.apk) - 1.05 MB" aria-label="Descargar App Android">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#3DDC84">
+                  <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.551 0 .9992.4486.9992 1.0003s-.4482 1.0003-.9992 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003s.4482-1.0003.9993-1.0003c.5511 0 .9992.4486.9992 1.0003s-.4481 1.0003-.9992 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.0818 12 8.0818s-3.5902.3298-5.1368.8682L4.841 5.4468a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                </svg>
+              </a>
               <span class="windows-security-note">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                 </svg>
-                Ejecutable nativo para PC • No requiere Python • 100% verificado
+                Ejecutable nativo para PC y APK móvil • 100% verificados
               </span>
             </div>
           </div>
@@ -1090,32 +1101,76 @@
             <!-- Método 1: Tarjeta Débito / Crédito -->
             <div class="pay-content-panel active" id="pay-panel-card">
               <div class="virtual-card-wrapper">
-                <div class="virtual-card" id="virtual-credit-card">
+                <div class="virtual-card card-circuit-theme" id="virtual-credit-card">
+                  <!-- CARA FRONTAL -->
                   <div class="virtual-card-front">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                      <div class="card-emv-chip"></div>
-                      <span style="font-weight:800;font-size:0.875rem;letter-spacing:0.08em;color:#93C5FD;" id="vcard-brand-display">AERO FLOW PLATINUM</span>
-                    </div>
-                    <div class="card-number-display tabular-nums" id="cc-preview-number">•••• •••• •••• 8910</div>
-                    <div class="card-meta-bottom">
-                      <div>
-                        <div style="font-size:0.5625rem;color:#94A3B8;">TITULAR</div>
-                        <div style="font-weight:700;letter-spacing:0.05em;" id="cc-preview-name">CARLOS ALBERTO MENDOZA</div>
+                    <!-- Fila Superior: Marca y Sello Dorado -->
+                    <div class="vcard-top-row">
+                      <div class="vcard-brand-group">
+                        <span class="vcard-bank-title">AERO FLOW AIRLINES</span>
+                        <span class="vcard-bank-tier" id="vcard-brand-display">PLATINUM CLUB</span>
                       </div>
-                      <div>
-                        <div style="font-size:0.5625rem;color:#94A3B8;">VENCE</div>
-                        <div style="font-weight:700;" id="cc-preview-exp">12/28</div>
+                      <div class="vcard-gold-seal" title="Sello de Calidad Aero Flow">
+                        <svg class="vcard-seal-plane" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- Fila Media: Chip EMV Dorado -->
+                    <div class="vcard-chip-row">
+                      <div class="vcard-emv-gold-chip" title="Chip EMV Seguro">
+                        <div class="vcard-chip-line-h"></div>
+                        <div class="vcard-chip-line-v"></div>
+                        <div class="vcard-chip-core"></div>
+                      </div>
+                    </div>
+
+                    <!-- Fila Número: 4 bloques de 4 dígitos -->
+                    <div class="vcard-number-row">
+                      <span class="vcard-number-val tabular-nums" id="cc-preview-number">4532 0123 4567 8910</span>
+                    </div>
+
+                    <!-- Fila Inferior: CARDHOLDER y VALID THRU / MONTH/YEAR -->
+                    <div class="vcard-bottom-row">
+                      <div class="vcard-holder-group">
+                        <span class="vcard-caption-label">CARDHOLDER</span>
+                        <span class="vcard-holder-val" id="cc-preview-name">CARLOS ALBERTO MENDOZA</span>
+                      </div>
+                      <div class="vcard-expiry-group">
+                        <div class="vcard-valid-thru-box">
+                          <span>VALID</span>
+                          <span>THRU</span>
+                        </div>
+                        <div class="vcard-date-box">
+                          <span class="vcard-my-sub">MONTH/YEAR</span>
+                          <span class="vcard-exp-val tabular-nums" id="cc-preview-exp">12/28</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  <!-- CARA TRASERA (GIRO 3D AL ENFOCAR CVV) -->
                   <div class="virtual-card-back">
                     <div class="card-magnetic-stripe"></div>
-                    <div style="padding:0 20px;">
-                      <span style="font-size:0.625rem;color:#94A3B8;text-transform:uppercase;">CVV / CVC</span>
-                      <div class="card-cvv-strip" id="cc-preview-cvv">•••</div>
+                    <div class="vcard-back-signature-row">
+                      <div class="vcard-signature-box">
+                        <span class="vcard-signature-text">Firma no transferible • AeroFlow VIP</span>
+                      </div>
+                      <div class="vcard-cvv-box">
+                        <span class="vcard-cvv-label">CVV</span>
+                        <div class="card-cvv-strip tabular-nums" id="cc-preview-cvv">•••</div>
+                      </div>
                     </div>
-                    <div style="padding:0 20px;font-size:0.5625rem;color:#64748B;">
-                      Firma autorizada • Red internacional protegida por AeroFlow Security PCI-DSS
+                    <div class="vcard-back-footer">
+                      <div class="vcard-back-seal-mini">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#D97706">
+                          <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+                        </svg>
+                      </div>
+                      <span class="vcard-security-text">
+                        Red internacional protegida por AeroFlow Security PCI-DSS nivel 1 • Redención global 24/7
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1124,6 +1179,11 @@
               <div class="form-group-minimal">
                 <label class="form-label-minimal" for="card-number-input">Numero de Tarjeta (16 digitos)</label>
                 <input type="text" class="form-input-minimal tabular-nums" id="card-number-input" placeholder="4532 0123 4567 8910" value="4532 0123 4567 8910" maxlength="19" oninput="AeroMinimalUI.alCambiarTarjetaCredito()">
+              </div>
+
+              <div class="form-group-minimal">
+                <label class="form-label-minimal" for="card-holder-input">Nombre del Titular (CARDHOLDER)</label>
+                <input type="text" class="form-input-minimal" id="card-holder-input" placeholder="CARLOS ALBERTO MENDOZA" value="CARLOS ALBERTO MENDOZA" oninput="AeroMinimalUI.alCambiarTarjetaCredito()">
               </div>
 
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">

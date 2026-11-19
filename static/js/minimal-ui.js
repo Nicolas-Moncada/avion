@@ -2153,7 +2153,8 @@
   function alCambiarTarjetaCredito() {
     const numInput = document.getElementById('card-number-input');
     const expInput = document.getElementById('card-exp-input');
-    const nameInput = document.getElementById('passenger-name-input');
+    const holderInput = document.getElementById('card-holder-input');
+    const paxNameInput = document.getElementById('passenger-name-input');
 
     const numPrev = document.getElementById('cc-preview-number');
     const expPrev = document.getElementById('cc-preview-exp');
@@ -2162,21 +2163,24 @@
 
     if (numPrev && numInput) {
       const val = numInput.value.trim();
-      numPrev.textContent = val ? val : '•••• •••• •••• ••••';
+      numPrev.textContent = val ? val : '4532 0123 4567 8910';
       
       // Detección de Franquicia
       if (brandDisplay) {
         if (val.startsWith('4')) brandDisplay.textContent = 'VISA SIGNATURE';
         else if (val.startsWith('5')) brandDisplay.textContent = 'MASTERCARD BLACK';
-        else if (val.startsWith('3')) brandDisplay.textContent = 'AMERICAN EXPRESS PLATINUM';
-        else brandDisplay.textContent = 'AERO FLOW PLATINUM';
+        else if (val.startsWith('3')) brandDisplay.textContent = 'AMEX PLATINUM';
+        else brandDisplay.textContent = 'PLATINUM CLUB';
       }
     }
     if (expPrev && expInput) {
       expPrev.textContent = expInput.value.trim() || '12/28';
     }
-    if (namePrev && nameInput) {
-      namePrev.textContent = nameInput.value.trim().toUpperCase() || 'CARLOS ALBERTO MENDOZA';
+    if (namePrev) {
+      const nameVal = (holderInput && holderInput.value.trim()) || 
+                      (paxNameInput && paxNameInput.value.trim()) || 
+                      'CARLOS ALBERTO MENDOZA';
+      namePrev.textContent = nameVal.toUpperCase();
     }
   }
 
@@ -4101,6 +4105,25 @@
         let val = e.target.value.replace(/\D/g, '').slice(0, 4);
         if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
         e.target.value = val;
+        alCambiarTarjetaCredito();
+      });
+    }
+
+    const cardHolderInput = document.getElementById('card-holder-input');
+    if (cardHolderInput) {
+      cardHolderInput.addEventListener('input', (e) => {
+        cardHolderInput.dataset.custom = 'true';
+        alCambiarTarjetaCredito();
+      });
+    }
+
+    const paxNameInput = document.getElementById('passenger-name-input');
+    if (paxNameInput) {
+      paxNameInput.addEventListener('input', (e) => {
+        const holderEl = document.getElementById('card-holder-input');
+        if (holderEl && (!holderEl.value || holderEl.dataset.custom !== 'true')) {
+          holderEl.value = e.target.value.toUpperCase();
+        }
         alCambiarTarjetaCredito();
       });
     }

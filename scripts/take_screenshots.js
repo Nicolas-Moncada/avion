@@ -48,21 +48,28 @@ const path = require('path');
   await page.waitForTimeout(300);
 
   // 3. LATAM Fuselage Cabin Map
-  console.log('Opening LATAM Fuselage Cabin Map...');
+  console.log('Opening LATAM Fuselage Cabin Map for flight AF2020...');
   await page.evaluate(() => {
-    AeroMinimalUI.abrirMapaCabina('AF1001');
+    AeroMinimalUI.abrirMapaCabina('AF2020');
   });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(__dirname, '../docs/screenshots/03_seat_selection_fuselage.png') });
 
   // 4. Checkout step 3 (3D Card)
   console.log('Navigating to checkout step 3 (3D Card)...');
   await page.evaluate(() => {
-    AeroMinimalUI.seleccionarSillaLATAM('1A', 'vip');
+    AeroMinimalUI.seleccionarSillaLATAM('1A', 'vip', 'Ventana');
     AeroMinimalUI.avanzarPasoCheckout(2);
     AeroMinimalUI.avanzarPasoCheckout(3);
+    const cardNum = document.getElementById('card-number-input');
+    const cardExp = document.getElementById('card-exp-input');
+    const cardHolder = document.getElementById('card-holder-input');
+    if (cardNum) cardNum.value = '4532 0123 4567 8910';
+    if (cardExp) cardExp.value = '12/28';
+    if (cardHolder) cardHolder.value = 'CARLOS ALBERTO MENDOZA';
+    AeroMinimalUI.alCambiarTarjetaCredito();
   });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(__dirname, '../docs/screenshots/04_checkout_3d_card.png') });
 
   // Cerrar checkout modal
@@ -80,7 +87,7 @@ const path = require('path');
   await page.screenshot({ path: path.join(__dirname, '../docs/screenshots/05_boarding_console_sound.png') });
 
   // 6. Boarding Pass with QR & Linear Barcode in "Mis Reservas"
-  console.log('Opening Mis Reservas / Boarding Pass with active PNR AF79FD...');
+  console.log('Opening Mis Reservas / Boarding Pass with active PNR AFC5DC...');
   await page.evaluate(async () => {
     AeroMinimalUI.abrirModalMisReservas();
   });
@@ -89,7 +96,7 @@ const path = require('path');
   await page.evaluate(async () => {
     const input = document.getElementById('input-buscar-pnr');
     if (input) {
-      input.value = 'AF79FD';
+      input.value = 'AFC5DC';
       await AeroMinimalUI.buscarReservaPorPnrInput();
     }
   });
