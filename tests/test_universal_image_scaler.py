@@ -24,6 +24,19 @@ def upload_multipart(url, file_bytes, filename, role="admin"):
         err_msg = e.read().decode()
         print("HTTP Error response body:", err_msg)
         raise
+    except urllib.error.URLError:
+        # Fallback a test_client de Flask en memoria si el servidor en vivo no está activo
+        from app import app
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/admin/upload-imagen",
+                data={"file": (io.BytesIO(file_bytes), filename)},
+                headers={"X-User-Role": role},
+                content_type="multipart/form-data",
+            )
+            if resp.status_code >= 400:
+                raise urllib.error.HTTPError(url, resp.status_code, resp.get_data(as_text=True), {}, None)
+            return resp.get_json()
 
 def test_image_scaler_unit():
     print("1. Probando escalador universal con imagen gigante de 3840x2160 (4K Ultra-Wide)...")

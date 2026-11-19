@@ -1,3 +1,6 @@
-# AERO FLOW AIRLINES — dependencias del servidor
-# Probado con Python 3.11 / Flask 3.1.3
+# AERO FLOW AIRLINES — Dependencias oficiales del servidor
+# Probado y validado en Python 3.10+ / Python 3.11
 flask==3.1.3
+pillow>=10.0.0
+werkzeug>=3.0.0
+pytest>=8.0.0
