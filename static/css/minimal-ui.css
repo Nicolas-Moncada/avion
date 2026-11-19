@@ -92,7 +92,23 @@ body {
   height: 26px;
   stroke: var(--text-primary, #0F172A);
   flex-shrink: 0;
-  transition: stroke 0.2s ease, transform 0.2s ease;
+  will-change: transform;
+  animation: paper-plane-float 3.2s ease-in-out infinite;
+  transition: stroke 0.2s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes paper-plane-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-2.5px) rotate(-2deg);
+  }
+}
+
+.brand-logo-link:hover .brand-icon-svg {
+  animation-play-state: paused;
+  transform: translate(4px, -4px) rotate(6deg) scale(1.08);
 }
 
 body.dark-mode .brand-icon-svg,
@@ -4258,6 +4274,314 @@ body.dark-mode .aero-loader-text,
 
 .aero-loader-msg {
   display: inline-block;
+}
+
+/* ==========================================================================
+   ADMIN CONSOLE: TABLA Y GESTIÓN DE USUARIOS
+   ========================================================================== */
+.admin-users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-search-wrapper {
+  position: relative;
+  flex: 1;
+  max-width: 380px;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.admin-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: 10px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  font-size: 0.875rem;
+  color: #0F172A;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-search-input:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.admin-users-counter {
+  font-size: 0.8125rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.badge-rol {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge-rol-admin {
+  background: #F3E8FF;
+  color: #7E22CE;
+  border: 1px solid #E9D5FF;
+}
+
+.badge-rol-pasajero {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
+}
+
+.badge-pwd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-pwd-activa {
+  background: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+
+.badge-pwd-activa::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16A34A;
+}
+
+.badge-pwd-otp {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.badge-pwd-otp::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #D97706;
+}
+
+.admin-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-admin-subaction {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #1E293B;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-admin-subaction:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+}
+
+.btn-admin-subaction.btn-otp-action {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+}
+
+.btn-admin-subaction.btn-otp-action:hover {
+  background: #DBEAFE;
+  border-color: #93C5FD;
+}
+
+/* ==========================================================================
+   MODALES DE SEGURIDAD, RECUPERACIÓN Y PERFIL
+   ========================================================================== */
+.modal-card-auth-step {
+  max-width: 440px;
+}
+
+.auth-recovery-step {
+  animation: fadeInStep 0.2s ease-out;
+}
+
+@keyframes fadeInStep {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recovery-hint-alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.recovery-code-input {
+  letter-spacing: 0.35em;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+  font-family: monospace;
+}
+
+/* Modal OTP Display */
+.otp-display-box {
+  background: #F8FAFC;
+  border: 2px dashed #94A3B8;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.otp-display-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #0F172A;
+  margin-bottom: 10px;
+}
+
+.btn-copy-otp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #0F172A;
+  color: #FFFFFF;
+  border: none;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-copy-otp:hover {
+  background: #1E293B;
+}
+
+/* Modal Mi Perfil */
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-field-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.profile-field-label {
+  font-size: 0.75rem;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.profile-field-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0F172A;
+  word-break: break-all;
+}
+
+.profile-section-divider {
+  border-top: 1px solid #E2E8F0;
+  margin: 18px 0;
+  padding-top: 14px;
+}
+
+.profile-section-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 12px;
+}
+
+/* Modal Bloqueo Obligatorio */
+.forced-pwd-card {
+  border-top: 4px solid #E11D48;
+}
+
+/* Modo oscuro adaptaciones */
+body.dark-mode .admin-search-input,
+[data-theme="dark"] .admin-search-input {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+body.dark-mode .profile-field-card,
+[data-theme="dark"] .profile-field-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+body.dark-mode .profile-field-value,
+[data-theme="dark"] .profile-field-value {
+  color: #F8FAFC;
+}
+
+body.dark-mode .otp-display-box,
+[data-theme="dark"] .otp-display-box {
+  background: #1E293B;
+  border-color: #475569;
+}
+
+body.dark-mode .otp-display-code,
+[data-theme="dark"] .otp-display-code {
+  color: #38BDF8;
 }
 
 /* Accessibility: Reduced Motion Support */

@@ -276,6 +276,7 @@
     const modal = document.getElementById("modal-login-auth");
     if (!modal) return;
     ocultarErrorLogin();
+    modal.style.display = "flex";
     modal.classList.add("active");
   }
 
@@ -283,6 +284,7 @@
     const modal = document.getElementById("modal-login-auth");
     if (!modal) return;
     modal.classList.remove("active");
+    modal.style.display = "none";
   }
 
   function seleccionarTabLogin(rol) {
@@ -368,10 +370,10 @@
     const rolEtiqueta = esAdmin ? "Administrador" : "Pasajero";
 
     headerActions.innerHTML = `
-      <div class="user-profile-badge">
+      <div class="user-profile-badge" onclick="AeroAuth.abrirModalPerfil()" style="cursor:pointer;" title="Ver mi perfil oficial">
         <span class="role-indicator-dot ${dotClass}" title="Rol: ${rolEtiqueta}"></span>
         <span>${sanearTexto(sesion.nombre)}</span>
-        <button type="button" class="btn-logout-small" title="Cerrar sesion" onclick="AeroAuth.cerrarSesion()">
+        <button type="button" class="btn-logout-small" title="Cerrar sesion" onclick="event.stopPropagation(); AeroAuth.cerrarSesion();">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
@@ -419,6 +421,9 @@
     const titleEl = document.getElementById("login-title-h2");
     const descEl = document.getElementById("login-modal-desc");
     const grpNombre = document.getElementById("group-register-nombre");
+    const grpDoc = document.getElementById("group-register-documento");
+    const grpTel = document.getElementById("group-register-telefono");
+    const forgotRow = document.getElementById("auth-forgot-row");
     const roleTabs = document.getElementById("auth-role-tabs-wrapper");
     const autofillRow = document.getElementById("auth-autofill-wrapper");
     const btnSubmitText = document.getElementById("btn-submit-auth-text");
@@ -431,6 +436,9 @@
       if (titleEl) titleEl.textContent = "Crear Cuenta de Pasajero";
       if (descEl) descEl.textContent = "Regístrate para reservar vuelos y emitir tus pases de abordar oficiales";
       if (grpNombre) grpNombre.style.display = "block";
+      if (grpDoc) grpDoc.style.display = "block";
+      if (grpTel) grpTel.style.display = "block";
+      if (forgotRow) forgotRow.style.display = "none";
       if (roleTabs) roleTabs.style.display = "none";
       if (autofillRow) autofillRow.style.display = "none";
       if (btnSubmitText) btnSubmitText.textContent = "Registrarme e Ingresar";
@@ -440,6 +448,9 @@
       if (titleEl) titleEl.textContent = "Iniciar sesión";
       if (descEl) descEl.textContent = "Ingresa para seleccionar tu silla y gestionar tu reserva";
       if (grpNombre) grpNombre.style.display = "none";
+      if (grpDoc) grpDoc.style.display = "none";
+      if (grpTel) grpTel.style.display = "none";
+      if (forgotRow) forgotRow.style.display = "block";
       if (roleTabs) roleTabs.style.display = "grid";
       if (autofillRow) autofillRow.style.display = "flex";
       if (btnSubmitText) btnSubmitText.textContent = "Ingresar a Aero Flow";
@@ -448,10 +459,12 @@
     }
   }
 
-  async function registrarUsuario(nombreRaw, emailRaw, passwordRaw) {
+  async function registrarUsuario(nombreRaw, emailRaw, passwordRaw, documentoRaw = "", telefonoRaw = "") {
     const nombre = String(nombreRaw || "").trim();
     const email = String(emailRaw || "").toLowerCase().trim();
     const password = String(passwordRaw || "").trim();
+    const documento = String(documentoRaw || "").trim();
+    const telefono = String(telefonoRaw || "").trim();
 
     if (!nombre || !email || !password) {
       return {
@@ -470,7 +483,7 @@
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, email, password }),
+        body: JSON.stringify({ nombre, email, password, documento, telefono }),
       });
       const data = await res.json();
       if (res.ok && data.exito && data.sesion) {
@@ -485,7 +498,10 @@
         userId: nuevoId,
         email: email,
         nombre: nombre,
+        documento: documento,
+        telefono: telefono,
         rol: "pasajero",
+        debe_cambiar_password: 0,
         timestamp: Date.now(),
       };
       guardarSesion(sesion);
@@ -494,6 +510,511 @@
         sesion: sesion,
         mensaje: `Bienvenido, ${nombre}. Cuenta registrada localmente.`,
       };
+    }
+  }
+
+  // ===========================================================================
+  // 6.6. RECUPERACIÓN DE CONTRASEÑA EN 2 PASOS
+  // ===========================================================================
+  let recuperacionEstado = {
+    email: "",
+    documento: "",
+  };
+
+  function abrirModalRecuperar() {
+    cerrarLoginModal();
+    const modal = document.getElementById("modal-recuperar-password");
+    if (!modal) return;
+    const errBanner = document.getElementById("recuperar-error-banner");
+    const infoBanner = document.getElementById("recuperar-info-banner");
+    if (errBanner) { errBanner.style.display = "none"; errBanner.textContent = ""; }
+    if (infoBanner) { infoBanner.style.display = "none"; infoBanner.textContent = ""; }
+    const paso1 = document.getElementById("form-recuperar-paso-1");
+    const paso2 = document.getElementById("form-recuperar-paso-2");
+    if (paso1) paso1.style.display = "block";
+    if (paso2) paso2.style.display = "none";
+    modal.style.display = "flex";
+    modal.classList.add("active");
+  }
+
+  function cerrarModalRecuperar() {
+    const modal = document.getElementById("modal-recuperar-password");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  function volverALoginDesdeRecuperar() {
+    cerrarModalRecuperar();
+    abrirLoginModal();
+  }
+
+  async function solicitarCodigoRecuperacion() {
+    const emailInput = document.getElementById("recuperar-email-input");
+    const docInput = document.getElementById("recuperar-doc-input");
+    const errBanner = document.getElementById("recuperar-error-banner");
+    const infoBanner = document.getElementById("recuperar-info-banner");
+
+    const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
+    const doc = docInput ? docInput.value.trim() : "";
+
+    if (!email || !doc) {
+      if (errBanner) {
+        errBanner.textContent = "Por favor ingresa tu correo y número de documento registrado.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (errBanner) errBanner.style.display = "none";
+
+    const accion = async () => {
+      const resp = await fetch("/api/auth/recuperar/solicitar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, documento: doc }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Verificando identidad y generando código de seguridad...",
+        accion,
+        null,
+        async (res) => {
+          if (!res.ok) {
+            if (errBanner) {
+              errBanner.textContent = res.data.error || "No fue posible generar el código de recuperación.";
+              errBanner.style.display = "block";
+            }
+            return;
+          }
+          recuperacionEstado.email = email;
+          recuperacionEstado.documento = doc;
+          const paso1 = document.getElementById("form-recuperar-paso-1");
+          const paso2 = document.getElementById("form-recuperar-paso-2");
+          if (paso1) paso1.style.display = "none";
+          if (paso2) paso2.style.display = "block";
+          if (infoBanner) {
+            infoBanner.textContent = res.data.mensaje || "Código de verificación de 6 dígitos generado.";
+            infoBanner.style.display = "flex";
+          }
+          const codInput = document.getElementById("recuperar-codigo-input");
+          if (codInput && (res.data.codigo || res.data.codigo_demo)) {
+            codInput.value = res.data.codigo || res.data.codigo_demo;
+          }
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (errBanner) {
+          errBanner.textContent = res.data.error || "No fue posible generar el código.";
+          errBanner.style.display = "block";
+        }
+        return;
+      }
+      recuperacionEstado.email = email;
+      recuperacionEstado.documento = doc;
+      const paso1 = document.getElementById("form-recuperar-paso-1");
+      const paso2 = document.getElementById("form-recuperar-paso-2");
+      if (paso1) paso1.style.display = "none";
+      if (paso2) paso2.style.display = "block";
+      if (infoBanner) {
+        infoBanner.textContent = res.data.mensaje || "Código de verificación enviado.";
+        infoBanner.style.display = "flex";
+      }
+    }
+  }
+
+  async function confirmarCodigoRecuperacion() {
+    const codInput = document.getElementById("recuperar-codigo-input");
+    const passInput = document.getElementById("recuperar-password-nuevo");
+    const confInput = document.getElementById("recuperar-password-confirm");
+    const errBanner = document.getElementById("recuperar-error-banner");
+
+    const codigo = codInput ? codInput.value.trim() : "";
+    const pass = passInput ? passInput.value.trim() : "";
+    const conf = confInput ? confInput.value.trim() : "";
+
+    if (!codigo || !pass || !conf) {
+      if (errBanner) {
+        errBanner.textContent = "Por favor ingresa el código y tu nueva contraseña.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (pass !== conf) {
+      if (errBanner) {
+        errBanner.textContent = "Las contraseñas ingresadas no coinciden.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (pass.length < 6) {
+      if (errBanner) {
+        errBanner.textContent = "La nueva contraseña debe tener al menos 6 caracteres.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (errBanner) errBanner.style.display = "none";
+
+    const accion = async () => {
+      const resp = await fetch("/api/auth/recuperar/confirmar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: recuperacionEstado.email,
+          documento: recuperacionEstado.documento,
+          codigo,
+          password_nuevo: pass,
+        }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Validando código y asegurando tu nueva contraseña...",
+        accion,
+        null,
+        async (res) => {
+          if (!res.ok) {
+            if (errBanner) {
+              errBanner.textContent = res.data.error || "Código inválido o expirado.";
+              errBanner.style.display = "block";
+            }
+            return;
+          }
+          cerrarModalRecuperar();
+          abrirLoginModal();
+          const emailLogin = document.getElementById("login-email-input");
+          if (emailLogin) emailLogin.value = recuperacionEstado.email;
+          mostrarNotificacion("Contraseña restablecida con éxito. Inicia sesión con tu nueva clave.");
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (errBanner) {
+          errBanner.textContent = res.data.error || "Error al actualizar contraseña.";
+          errBanner.style.display = "block";
+        }
+        return;
+      }
+      cerrarModalRecuperar();
+      abrirLoginModal();
+      mostrarNotificacion("Contraseña restablecida con éxito.");
+    }
+  }
+
+  // ===========================================================================
+  // 6.7. CAMBIO DE CONTRASEÑA OBLIGATORIO (OTP / PRIMER INICIO)
+  // ===========================================================================
+  let usuarioCambioObligatorio = null;
+
+  function abrirModalCambioObligatorio(userId, email) {
+    cerrarLoginModal();
+    usuarioCambioObligatorio = { userId, email };
+    const modal = document.getElementById("modal-cambio-password-obligatorio");
+    if (!modal) return;
+    const errBanner = document.getElementById("obligatorio-error-banner");
+    if (errBanner) { errBanner.style.display = "none"; errBanner.textContent = ""; }
+    const p1 = document.getElementById("obligatorio-password-nuevo");
+    const p2 = document.getElementById("obligatorio-password-confirm");
+    if (p1) p1.value = "";
+    if (p2) p2.value = "";
+    modal.style.display = "flex";
+    modal.classList.add("active");
+  }
+
+  async function completarCambioObligatorio() {
+    if (!usuarioCambioObligatorio) return;
+    const p1 = document.getElementById("obligatorio-password-nuevo");
+    const p2 = document.getElementById("obligatorio-password-confirm");
+    const errBanner = document.getElementById("obligatorio-error-banner");
+
+    const passNuevo = p1 ? p1.value.trim() : "";
+    const passConf = p2 ? p2.value.trim() : "";
+
+    if (!passNuevo || !passConf) {
+      if (errBanner) {
+        errBanner.textContent = "Por favor ingresa y confirma tu nueva contraseña.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (passNuevo !== passConf) {
+      if (errBanner) {
+        errBanner.textContent = "Las contraseñas no coinciden.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (passNuevo.length < 6) {
+      if (errBanner) {
+        errBanner.textContent = "La nueva contraseña debe tener al menos 6 caracteres.";
+        errBanner.style.display = "block";
+      }
+      return;
+    }
+
+    if (errBanner) errBanner.style.display = "none";
+
+    const accion = async () => {
+      const resp = await fetch("/api/auth/completar-cambio-obligatorio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: usuarioCambioObligatorio.userId,
+          password_nuevo: passNuevo,
+        }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Cifrando y persistiendo tu nueva contraseña definitiva...",
+        accion,
+        async () => {
+          const sesion = obtenerSesionActual();
+          if (sesion) {
+            sesion.debe_cambiar_password = 0;
+            guardarSesion(sesion);
+          }
+        },
+        async (res) => {
+          if (!res.ok) {
+            if (errBanner) {
+              errBanner.textContent = res.data.error || "Error al actualizar la contraseña.";
+              errBanner.style.display = "block";
+            }
+            return;
+          }
+          const modal = document.getElementById("modal-cambio-password-obligatorio");
+          if (modal) {
+            modal.classList.remove("active");
+            modal.style.display = "none";
+          }
+          usuarioCambioObligatorio = null;
+          mostrarNotificacion("Contraseña definitiva establecida exitosamente. ¡Bienvenido!");
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (errBanner) {
+          errBanner.textContent = res.data.error || "Error al actualizar contraseña.";
+          errBanner.style.display = "block";
+        }
+        return;
+      }
+      const sesion = obtenerSesionActual();
+      if (sesion) {
+        sesion.debe_cambiar_password = 0;
+        guardarSesion(sesion);
+      }
+      const modal = document.getElementById("modal-cambio-password-obligatorio");
+      if (modal) {
+        modal.classList.remove("active");
+        modal.style.display = "none";
+      }
+      usuarioCambioObligatorio = null;
+      mostrarNotificacion("Contraseña definitiva establecida exitosamente.");
+    }
+  }
+
+  // ===========================================================================
+  // 6.8. MI PERFIL Y CAMBIO VOLUNTARIO DE CONTRASEÑA
+  // ===========================================================================
+  async function abrirModalPerfil() {
+    const sesion = obtenerSesionActual();
+    if (!sesion) {
+      abrirLoginModal();
+      return;
+    }
+    const modal = document.getElementById("modal-user-profile");
+    if (!modal) return;
+
+    // Reset error / success
+    const errBox = document.getElementById("profile-pwd-error");
+    const succBox = document.getElementById("profile-pwd-success");
+    if (errBox) { errBox.style.display = "none"; errBox.textContent = ""; }
+    if (succBox) { succBox.style.display = "none"; succBox.textContent = ""; }
+    const pActual = document.getElementById("perfil-password-actual");
+    const pNuevo = document.getElementById("perfil-password-nuevo");
+    const pConf = document.getElementById("perfil-password-confirm");
+    if (pActual) pActual.value = "";
+    if (pNuevo) pNuevo.value = "";
+    if (pConf) pConf.value = "";
+
+    // Show modal
+    modal.style.display = "flex";
+    modal.classList.add("active");
+
+    // Pre-fill from session
+    const nomEl = document.getElementById("profile-display-nombre");
+    const emEl = document.getElementById("profile-display-email");
+    const docEl = document.getElementById("profile-display-doc");
+    const telEl = document.getElementById("profile-display-tel");
+    const rolEl = document.getElementById("profile-display-rol");
+    const resEl = document.getElementById("profile-display-reservas");
+
+    if (nomEl) nomEl.textContent = sesion.nombre || "—";
+    if (emEl) emEl.textContent = sesion.email || "—";
+    if (docEl) docEl.textContent = sesion.documento || "—";
+    if (telEl) telEl.textContent = sesion.telefono || "—";
+    if (rolEl) rolEl.textContent = (sesion.rol === "admin" || sesion.rol === "integral") ? "Administrador" : "Pasajero";
+
+    // Fetch fresh profile from server
+    try {
+      const resp = await fetch(`/api/auth/perfil?userId=${encodeURIComponent(sesion.userId)}`, {
+        headers: { "X-User-Id": sesion.userId }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.exito && data.perfil) {
+          const p = data.perfil;
+          if (nomEl) nomEl.textContent = p.nombre || sesion.nombre;
+          if (emEl) emEl.textContent = p.email || sesion.email;
+          if (docEl) docEl.textContent = p.documento || "Sin registrar";
+          if (telEl) telEl.textContent = p.telefono || "Sin registrar";
+          if (rolEl) rolEl.textContent = (p.rol === "admin" || p.rol === "integral") ? "Administrador" : "Pasajero";
+          if (resEl) resEl.textContent = `${p.total_reservas} vuelo(s)`;
+        }
+      }
+    } catch (e) {
+      console.warn("[Profile] Error al cargar perfil fresco:", e);
+    }
+  }
+
+  function cerrarModalPerfil() {
+    const modal = document.getElementById("modal-user-profile");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  async function cambiarPasswordPerfil() {
+    const sesion = obtenerSesionActual();
+    if (!sesion) {
+      abrirLoginModal();
+      return;
+    }
+
+    const pActual = document.getElementById("perfil-password-actual");
+    const pNuevo = document.getElementById("perfil-password-nuevo");
+    const pConf = document.getElementById("perfil-password-confirm");
+    const errBox = document.getElementById("profile-pwd-error");
+    const succBox = document.getElementById("profile-pwd-success");
+
+    const passActual = pActual ? pActual.value.trim() : "";
+    const passNuevo = pNuevo ? pNuevo.value.trim() : "";
+    const passConf = pConf ? pConf.value.trim() : "";
+
+    if (!passActual || !passNuevo || !passConf) {
+      if (errBox) {
+        errBox.textContent = "Por favor completa todos los campos de contraseña.";
+        errBox.style.display = "block";
+      }
+      return;
+    }
+
+    if (passNuevo !== passConf) {
+      if (errBox) {
+        errBox.textContent = "La nueva contraseña y su confirmación no coinciden.";
+        errBox.style.display = "block";
+      }
+      return;
+    }
+
+    if (passNuevo.length < 6) {
+      if (errBox) {
+        errBox.textContent = "La nueva contraseña debe tener al menos 6 caracteres.";
+        errBox.style.display = "block";
+      }
+      return;
+    }
+
+    if (passActual === passNuevo) {
+      if (errBox) {
+        errBox.textContent = "La nueva contraseña no puede ser idéntica a la contraseña actual.";
+        errBox.style.display = "block";
+      }
+      return;
+    }
+
+    if (errBox) errBox.style.display = "none";
+    if (succBox) succBox.style.display = "none";
+
+    const accion = async () => {
+      const resp = await fetch("/api/auth/cambiar-password", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": sesion.userId,
+        },
+        body: JSON.stringify({
+          userId: sesion.userId,
+          password_actual: passActual,
+          password_nuevo: passNuevo,
+        }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Validando y guardando tu nueva contraseña...",
+        accion,
+        null,
+        async (res) => {
+          if (!res.ok) {
+            if (errBox) {
+              errBox.textContent = res.data.error || "No se pudo actualizar la contraseña.";
+              errBox.style.display = "block";
+            }
+            return;
+          }
+          if (pActual) pActual.value = "";
+          if (pNuevo) pNuevo.value = "";
+          if (pConf) pConf.value = "";
+          if (succBox) {
+            succBox.textContent = "Contraseña actualizada exitosamente.";
+            succBox.style.display = "flex";
+          }
+          mostrarNotificacion("Tu contraseña ha sido actualizada con éxito.");
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (errBox) {
+          errBox.textContent = res.data.error || "No se pudo actualizar la contraseña.";
+          errBox.style.display = "block";
+        }
+        return;
+      }
+      if (pActual) pActual.value = "";
+      if (pNuevo) pNuevo.value = "";
+      if (pConf) pConf.value = "";
+      if (succBox) {
+        succBox.textContent = "Contraseña actualizada exitosamente.";
+        succBox.style.display = "flex";
+      }
+      mostrarNotificacion("Tu contraseña ha sido actualizada.");
     }
   }
 
@@ -512,10 +1033,14 @@
         const emailInput = document.getElementById("login-email-input");
         const passInput = document.getElementById("login-password-input");
         const nameInput = document.getElementById("register-name-input");
+        const docInput = document.getElementById("register-doc-input");
+        const telInput = document.getElementById("register-tel-input");
 
         const email = emailInput ? emailInput.value : "";
         const pass = passInput ? passInput.value : "";
         const nombre = nameInput ? nameInput.value : "";
+        const documento = docInput ? docInput.value : "";
+        const telefono = telInput ? telInput.value : "";
         const submitBtn =
           document.getElementById("btn-submit-auth") ||
           document.getElementById("login-submit-btn");
@@ -535,7 +1060,7 @@
               await window.AeroLoader.transaccionConCarga(
                 "Creando cuenta y preparando tu perfil...",
                 async () => {
-                  const regRes = await registrarUsuario(nombre, email, pass);
+                  const regRes = await registrarUsuario(nombre, email, pass, documento, telefono);
                   if (!regRes.exito) {
                     mostrarErrorLogin(regRes.mensaje);
                     return { exito: false };
@@ -573,7 +1098,7 @@
                 }
               );
             } else {
-              const regRes = await registrarUsuario(nombre, email, pass);
+              const regRes = await registrarUsuario(nombre, email, pass, documento, telefono);
               if (regRes.exito) {
                 ocultarErrorLogin();
                 actualizarHeaderUI(regRes.sesion);
@@ -621,6 +1146,13 @@
                 ocultarErrorLogin();
                 actualizarHeaderUI(resEscritura.sesion);
                 cerrarLoginModal();
+
+                // Intercepción para cambio obligatorio si tiene clave temporal
+                if (resEscritura.sesion.debe_cambiar_password === 1 || resEscritura.sesion.debe_cambiar_password === true) {
+                  abrirModalCambioObligatorio(resEscritura.sesion.userId, resEscritura.sesion.email);
+                  return;
+                }
+
                 mostrarNotificacion(`Bienvenido, ${resEscritura.sesion.nombre}`);
                 if (window.AeroMinimalUI) {
                   if (typeof window.AeroMinimalUI.actualizarPortalPasajero === "function") {
@@ -648,6 +1180,12 @@
               ocultarErrorLogin();
               actualizarHeaderUI(res.sesion);
               cerrarLoginModal();
+
+              if (res.sesion.debe_cambiar_password === 1 || res.sesion.debe_cambiar_password === true) {
+                abrirModalCambioObligatorio(res.sesion.userId, res.sesion.email);
+                return;
+              }
+
               mostrarNotificacion(`Bienvenido, ${res.sesion.nombre}`);
               if (window.AeroMinimalUI && typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
                 window.AeroMinimalUI.actualizarEnlaceWhatsApp(res.sesion, "");
@@ -688,6 +1226,16 @@
     autofillDemo,
     togglePasswordVisibility,
     actualizarHeaderUI,
+    abrirModalRecuperar,
+    cerrarModalRecuperar,
+    volverALoginDesdeRecuperar,
+    solicitarCodigoRecuperacion,
+    confirmarCodigoRecuperacion,
+    abrirModalCambioObligatorio,
+    completarCambioObligatorio,
+    abrirModalPerfil,
+    cerrarModalPerfil,
+    cambiarPasswordPerfil,
   };
 
   // Alias para compatibilidad con código existente

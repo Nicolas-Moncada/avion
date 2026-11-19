@@ -12,6 +12,7 @@ import sys
 import uuid
 import time
 import json
+import secrets
 from datetime import datetime, timedelta
 from typing import Tuple, Dict, Any, Optional
 from data_structures.hash_map import TablaHashVuelos
@@ -150,19 +151,45 @@ def _crear_indices(cursor):
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email ON usuarios(email);")
 
 
+def _migrar_tabla_usuarios(cursor):
+    """Aplica migraciones no destructivas a la tabla usuarios."""
+    cursor.execute("PRAGMA table_info(usuarios)")
+    cols = {row["name"] if isinstance(row, dict) else row[1] for row in cursor.fetchall()}
+    if "documento" not in cols:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN documento VARCHAR(30)")
+    if "telefono" not in cols:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN telefono VARCHAR(30)")
+    if "debe_cambiar_password" not in cols:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER DEFAULT 0")
+    if "reset_code_hash" not in cols:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN reset_code_hash VARCHAR(255)")
+    if "reset_expires_at" not in cols:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN reset_expires_at TIMESTAMP")
+
+    cursor.execute("UPDATE usuarios SET documento = '101829384', telefono = '+57 300 123 4567' WHERE email = 'pasajero@aeroflow.com' AND (documento IS NULL OR documento = '')")
+    cursor.execute("UPDATE usuarios SET documento = 'ADMIN001', telefono = '+57 315 566 7152' WHERE email = 'admin@aeroflow.com' AND (documento IS NULL OR documento = '')")
+
+
 def _sembrar_usuarios_demo(cursor):
     """Siembra los 2 usuarios maestros oficiales por defecto: admin y pasajero."""
+    _migrar_tabla_usuarios(cursor)
     usuarios_base = [
-        ("usr-adm-001", "Administrador AeroFlow", "admin@aeroflow.com", "admin123", "admin"),
-        ("usr-pax-001", "Pasajero Demo", "pasajero@aeroflow.com", "pasajero123", "pasajero"),
+        ("usr-adm-001", "Administrador AeroFlow", "admin@aeroflow.com", "ADMIN001", "+57 315 566 7152", "admin123", "admin"),
+        ("usr-pax-001", "Carlos Mendoza", "pasajero@aeroflow.com", "101829384", "+57 300 123 4567", "pasajero123", "pasajero"),
     ]
-    for uid, nombre, email, password, rol in usuarios_base:
+    for uid, nombre, email, doc, tel, password, rol in usuarios_base:
         cursor.execute("SELECT id FROM usuarios WHERE email = ?", (email.lower(),))
-        if not cursor.fetchone():
+        row = cursor.fetchone()
+        if not row:
             p_hash = generate_password_hash(password)
             cursor.execute(
-                "INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)",
-                (uid, nombre, email.lower(), p_hash, rol)
+                "INSERT INTO usuarios (id, nombre, email, documento, telefono, password_hash, rol, debe_cambiar_password) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+                (uid, nombre, email.lower(), doc, tel, p_hash, rol)
+            )
+        else:
+            cursor.execute(
+                "UPDATE usuarios SET documento = COALESCE(NULLIF(documento, ''), ?), telefono = COALESCE(NULLIF(telefono, ''), ?) WHERE email = ?",
+                (doc, tel, email.lower())
             )
 
 
@@ -369,8 +396,13 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
+                documento TEXT,
+                telefono TEXT,
                 password_hash TEXT NOT NULL,
                 rol TEXT NOT NULL DEFAULT 'pasajero',
+                debe_cambiar_password INTEGER DEFAULT 0,
+                reset_code_hash TEXT,
+                reset_expires_at TIMESTAMP,
                 creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """)
@@ -1061,8 +1093,13 @@ def reiniciar_semilla_limpia():
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
+                documento TEXT,
+                telefono TEXT,
                 password_hash TEXT NOT NULL,
                 rol TEXT NOT NULL DEFAULT 'pasajero',
+                debe_cambiar_password INTEGER DEFAULT 0,
+                reset_code_hash TEXT,
+                reset_expires_at TIMESTAMP,
                 creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """)
@@ -2221,10 +2258,12 @@ def obtener_reporte_conciliacion_atomic() -> Dict[str, Any]:
 # GESTIÓN Y PERSISTENCIA DE USUARIOS Y AUTENTICACIÓN
 # =============================================================================
 
-def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "pasajero") -> Dict[str, Any]:
+def registrar_nuevo_usuario(nombre: str, email: str, password: str, documento: str = "", telefono: str = "", rol: str = "pasajero") -> Dict[str, Any]:
     """Registra un nuevo usuario en la base de datos con validación y hashing seguro."""
     email_clean = email.strip().lower()
     nombre_clean = nombre.strip()
+    doc_clean = documento.strip()
+    tel_clean = telefono.strip()
 
     if not email_clean or not password or not nombre_clean:
         return {"exito": False, "error": "Todos los campos (nombre, correo y contraseña) son obligatorios."}
@@ -2244,8 +2283,8 @@ def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "
             user_id = f"usr-pax-{uuid.uuid4().hex[:8]}"
             p_hash = generate_password_hash(password)
             cursor.execute(
-                "INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)",
-                (user_id, nombre_clean, email_clean, p_hash, rol)
+                "INSERT INTO usuarios (id, nombre, email, documento, telefono, password_hash, rol, debe_cambiar_password) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+                (user_id, nombre_clean, email_clean, doc_clean, tel_clean, p_hash, rol)
             )
             return {
                 "exito": True,
@@ -2253,7 +2292,10 @@ def registrar_nuevo_usuario(nombre: str, email: str, password: str, rol: str = "
                     "id": user_id,
                     "nombre": nombre_clean,
                     "email": email_clean,
-                    "rol": rol
+                    "documento": doc_clean,
+                    "telefono": tel_clean,
+                    "rol": rol,
+                    "debe_cambiar_password": False
                 }
             }
     finally:
@@ -2268,7 +2310,7 @@ def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None)
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, nombre, email, password_hash, rol FROM usuarios WHERE email = ?", (email_clean,))
+        cursor.execute("SELECT id, nombre, email, documento, telefono, password_hash, rol, debe_cambiar_password FROM usuarios WHERE email = ?", (email_clean,))
         row = cursor.fetchone()
         if not row:
             return {"exito": False, "error": "Credenciales inválidas. Verifica tu correo y contraseña."}
@@ -2295,7 +2337,10 @@ def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None)
                 "id": row["id"],
                 "nombre": row["nombre"],
                 "email": row["email"],
-                "rol": rol_usuario
+                "documento": row["documento"] or "",
+                "telefono": row["telefono"] or "",
+                "rol": rol_usuario,
+                "debe_cambiar_password": bool(row["debe_cambiar_password"])
             }
         }
     finally:
@@ -2304,12 +2349,291 @@ def autenticar_usuario_bd(email: str, password: str, rol_solicitado: str = None)
 
 def listar_usuarios_registrados() -> list:
     """Devuelve la lista de usuarios registrados para auditoría y visualización."""
+    return obtener_usuarios_admin()
+
+
+def obtener_usuarios_admin() -> list:
+    """Retorna la lista completa de usuarios con métricas de reservas y estado de clave para el Admin."""
     init_db()
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, nombre, email, rol, creado_en FROM usuarios ORDER BY creado_en DESC")
-        return [dict(row) for row in cursor.fetchall()]
+        cursor.execute("""
+            SELECT u.id, u.nombre, u.email,
+                   COALESCE(u.documento, '') AS documento,
+                   COALESCE(u.telefono, '') AS telefono,
+                   u.rol,
+                   COALESCE(u.debe_cambiar_password, 0) AS debe_cambiar_password,
+                   u.creado_en,
+                   (
+                       SELECT COUNT(*) FROM manifiesto m
+                       WHERE (m.pasajero_doc = u.documento AND m.pasajero_doc != '' AND u.documento IS NOT NULL)
+                          OR (LOWER(m.pasajero_nombre) = LOWER(u.nombre) AND m.pasajero_nombre != '')
+                   ) AS total_reservas
+            FROM usuarios u
+            ORDER BY u.creado_en DESC
+        """)
+        usuarios = []
+        for r in cursor.fetchall():
+            usuarios.append({
+                "id": r["id"],
+                "nombre": r["nombre"],
+                "email": r["email"],
+                "documento": r["documento"],
+                "telefono": r["telefono"],
+                "rol": r["rol"],
+                "debe_cambiar_password": bool(r["debe_cambiar_password"]),
+                "total_reservas": r["total_reservas"],
+                "creado_en": str(r["creado_en"] or "")
+            })
+        return usuarios
+    finally:
+        conn.close()
+
+
+def solicitar_recuperacion_password(email: str, documento: str) -> Dict[str, Any]:
+    """Genera un código temporal seguro de 6 dígitos con 15 minutos de vigencia para recuperación."""
+    init_db()
+    email_clean = email.strip().lower()
+    doc_clean = documento.strip()
+    if not email_clean or not doc_clean:
+        return {"exito": False, "error": "Correo electrónico y número de documento son obligatorios."}
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email, documento FROM usuarios WHERE email = ?", (email_clean,))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "No se encontró ningún usuario con ese correo electrónico."}
+
+        doc_bd = (row["documento"] or "").strip()
+        if doc_bd and doc_bd.upper() != doc_clean.upper():
+            return {"exito": False, "error": "El número de documento no coincide con el registrado en la cuenta."}
+
+        codigo = f"{secrets.randbelow(900000) + 100000}"
+        code_hash = generate_password_hash(codigo)
+        expira = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute(
+            "UPDATE usuarios SET reset_code_hash = ?, reset_expires_at = ? WHERE id = ?",
+            (code_hash, expira, row["id"])
+        )
+        conn.commit()
+
+        return {
+            "exito": True,
+            "codigo": codigo,
+            "codigo_demo": codigo,
+            "mensaje": f"Código de recuperación generado (modo local): {codigo} — válido por 15 min",
+            "expira_en_minutos": 15
+        }
+    finally:
+        conn.close()
+
+
+def confirmar_recuperacion_password(email: str, documento: str, codigo: str, password_nuevo: str) -> Dict[str, Any]:
+    """Verifica el código de recuperación y establece la nueva contraseña con hash seguro."""
+    init_db()
+    email_clean = email.strip().lower()
+    doc_clean = documento.strip()
+    cod_clean = codigo.strip()
+
+    if not email_clean or not doc_clean or not cod_clean or not password_nuevo:
+        return {"exito": False, "error": "Todos los campos son obligatorios."}
+
+    if len(password_nuevo) < 6:
+        return {"exito": False, "error": "La nueva contraseña debe tener al menos 6 caracteres."}
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, nombre, documento, reset_code_hash, reset_expires_at FROM usuarios WHERE email = ?",
+            (email_clean,)
+        )
+        row = cursor.fetchone()
+        if not row or not row["reset_code_hash"]:
+            return {"exito": False, "error": "No hay una solicitud de recuperación activa para esta cuenta."}
+
+        doc_bd = (row["documento"] or "").strip()
+        if doc_bd and doc_bd.upper() != doc_clean.upper():
+            return {"exito": False, "error": "El documento no coincide con el registrado."}
+
+        expira_str = row["reset_expires_at"]
+        if expira_str:
+            try:
+                expira_dt = datetime.strptime(str(expira_str).split(".")[0], "%Y-%m-%d %H:%M:%S")
+                if datetime.now() > expira_dt:
+                    return {"exito": False, "error": "El código de recuperación ha expirado. Solicita uno nuevo."}
+            except Exception:
+                pass
+
+        if not check_password_hash(row["reset_code_hash"], cod_clean):
+            return {"exito": False, "error": "Código de recuperación inválido."}
+
+        p_hash = generate_password_hash(password_nuevo)
+        cursor.execute(
+            "UPDATE usuarios SET password_hash = ?, reset_code_hash = NULL, reset_expires_at = NULL, debe_cambiar_password = 0 WHERE id = ?",
+            (p_hash, row["id"])
+        )
+        conn.commit()
+
+        return {"exito": True, "mensaje": "Contraseña restablecida con éxito. Ya puedes iniciar sesión con tu nueva contraseña."}
+    finally:
+        conn.close()
+
+
+def admin_actualizar_password_usuario(user_id: str, password_nuevo: str, debe_cambiar: bool = False) -> Dict[str, Any]:
+    """Actualiza la contraseña de un usuario desde el panel de administración."""
+    init_db()
+    if not password_nuevo or len(password_nuevo) < 6:
+        return {"exito": False, "error": "La contraseña debe tener al menos 6 caracteres."}
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM usuarios WHERE id = ?", (user_id,))
+        if not cursor.fetchone():
+            return {"exito": False, "error": "Usuario no encontrado."}
+
+        p_hash = generate_password_hash(password_nuevo)
+        flag = 1 if debe_cambiar else 0
+        cursor.execute(
+            "UPDATE usuarios SET password_hash = ?, debe_cambiar_password = ? WHERE id = ?",
+            (p_hash, flag, user_id)
+        )
+        conn.commit()
+        return {"exito": True, "mensaje": "Contraseña actualizada exitosamente."}
+    finally:
+        conn.close()
+
+
+def admin_generar_otp_usuario(user_id: str) -> Dict[str, Any]:
+    """Genera una contraseña de un solo uso legible y la guarda hasheada en BD activando debe_cambiar_password."""
+    init_db()
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email FROM usuarios WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "Usuario no encontrado."}
+
+        chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        otp = "AF-" + "".join(secrets.choice(chars) for _ in range(6))
+        p_hash = generate_password_hash(otp)
+
+        cursor.execute(
+            "UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 1 WHERE id = ?",
+            (p_hash, user_id)
+        )
+        conn.commit()
+        return {
+            "exito": True,
+            "otp": otp,
+            "usuario": row["nombre"],
+            "mensaje": f"Contraseña de un solo uso generada: {otp}"
+        }
+    finally:
+        conn.close()
+
+
+def cambiar_password_usuario(user_id: str, password_actual: str, password_nuevo: str) -> Dict[str, Any]:
+    """Permite al usuario cambiar voluntariamente su contraseña desde Mi Perfil."""
+    init_db()
+    if not password_actual or not password_nuevo:
+        return {"exito": False, "error": "Todos los campos de contraseña son obligatorios."}
+    if len(password_nuevo) < 6:
+        return {"exito": False, "error": "La nueva contraseña debe tener al menos 6 caracteres."}
+    if password_actual == password_nuevo:
+        return {"exito": False, "error": "La nueva contraseña no puede ser idéntica a la contraseña actual."}
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password_hash FROM usuarios WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "Usuario no encontrado."}
+
+        if not check_password_hash(row["password_hash"], password_actual):
+            return {"exito": False, "error": "La contraseña actual no es correcta."}
+
+        p_hash = generate_password_hash(password_nuevo)
+        cursor.execute(
+            "UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0 WHERE id = ?",
+            (p_hash, user_id)
+        )
+        conn.commit()
+        return {"exito": True, "mensaje": "Contraseña actualizada exitosamente."}
+    finally:
+        conn.close()
+
+
+def completar_cambio_obligatorio(user_id: str, password_nuevo: str) -> Dict[str, Any]:
+    """Establece la nueva contraseña definitiva para un usuario con clave temporal de un solo uso."""
+    init_db()
+    if not password_nuevo or len(password_nuevo) < 6:
+        return {"exito": False, "error": "La nueva contraseña debe tener al menos 6 caracteres."}
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password_hash FROM usuarios WHERE id = ? OR email = ?", (user_id, user_id.lower()))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "Usuario no encontrado."}
+
+        if check_password_hash(row["password_hash"], password_nuevo):
+            return {"exito": False, "error": "La nueva contraseña no puede ser la misma clave temporal."}
+
+        p_hash = generate_password_hash(password_nuevo)
+        cursor.execute(
+            "UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0 WHERE id = ?",
+            (p_hash, row["id"])
+        )
+        conn.commit()
+        return {"exito": True, "mensaje": "Nueva contraseña establecida exitosamente."}
+    finally:
+        conn.close()
+
+
+def obtener_perfil_usuario(user_id: str) -> Dict[str, Any]:
+    """Obtiene los datos completos del perfil de un usuario para visualización en Mi Perfil."""
+    init_db()
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.id, u.nombre, u.email,
+                   COALESCE(u.documento, '') AS documento,
+                   COALESCE(u.telefono, '') AS telefono,
+                   u.rol,
+                   u.creado_en,
+                   (
+                       SELECT COUNT(*) FROM manifiesto m
+                       WHERE (m.pasajero_doc = u.documento AND m.pasajero_doc != '' AND u.documento IS NOT NULL)
+                          OR (LOWER(m.pasajero_nombre) = LOWER(u.nombre) AND m.pasajero_nombre != '')
+                   ) AS total_reservas
+            FROM usuarios u
+            WHERE u.id = ? OR LOWER(u.email) = LOWER(?)
+        """, (user_id, user_id))
+        row = cursor.fetchone()
+        if not row:
+            return {"exito": False, "error": "Perfil no encontrado."}
+        return {
+            "exito": True,
+            "perfil": {
+                "id": row["id"],
+                "nombre": row["nombre"],
+                "email": row["email"],
+                "documento": row["documento"],
+                "telefono": row["telefono"],
+                "rol": row["rol"],
+                "total_reservas": row["total_reservas"],
+                "creado_en": str(row["creado_en"] or "")
+            }
+        }
     finally:
         conn.close()
 

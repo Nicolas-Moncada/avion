@@ -842,11 +842,13 @@ def api_auth_register():
         nombre = str(data.get("nombre", "")).strip()
         email = str(data.get("email", "")).strip().lower()
         password = str(data.get("password", "")).strip()
+        documento = str(data.get("documento", "")).strip()
+        telefono = str(data.get("telefono", "")).strip()
 
         if not nombre or not email or not password:
             return jsonify({
                 "exito": False,
-                "error": "Todos los campos (nombre, correo y contraseña) son obligatorios."
+                "error": "Todos los campos obligatorios (nombre, correo y contraseña) deben ser completados."
             }), 400
 
         if "@" not in email or "." not in email:
@@ -861,7 +863,14 @@ def api_auth_register():
                 "error": "La contraseña debe tener al menos 6 caracteres."
             }), 400
 
-        res = db.registrar_nuevo_usuario(nombre=nombre, email=email, password=password, rol="pasajero")
+        res = db.registrar_nuevo_usuario(
+            nombre=nombre,
+            email=email,
+            password=password,
+            documento=documento,
+            telefono=telefono,
+            rol="pasajero"
+        )
         if not res.get("exito"):
             return jsonify(res), 400
 
@@ -871,7 +880,10 @@ def api_auth_register():
             "userId": usr["id"],
             "nombre": usr["nombre"],
             "email": usr["email"],
+            "documento": usr.get("documento", ""),
+            "telefono": usr.get("telefono", ""),
             "rol": "pasajero",
+            "debe_cambiar_password": usr.get("debe_cambiar_password", 0),
             "token": token,
             "timestamp": int(time.time() * 1000)
         }
@@ -907,7 +919,10 @@ def api_auth_login():
             "userId": usr["id"],
             "nombre": usr["nombre"],
             "email": usr["email"],
+            "documento": usr.get("documento", ""),
+            "telefono": usr.get("telefono", ""),
             "rol": usr["rol"],
+            "debe_cambiar_password": usr.get("debe_cambiar_password", 0),
             "token": token,
             "timestamp": int(time.time() * 1000)
         }
@@ -921,13 +936,121 @@ def api_auth_login():
         return jsonify({"exito": False, "error": f"Error interno en login: {str(e)}"}), 500
 
 
+@app.route("/api/auth/recuperar/solicitar", methods=["POST"])
+def api_auth_recuperar_solicitar():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        email = str(data.get("email", "")).strip()
+        documento = str(data.get("documento", "")).strip()
+        res = db.solicitar_recuperacion_password(email=email, documento=documento)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        logging.error(f"[Auth Recuperar Solicitar] Error: {e}")
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/auth/recuperar/confirmar", methods=["POST"])
+def api_auth_recuperar_confirmar():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        email = str(data.get("email", "")).strip()
+        documento = str(data.get("documento", "")).strip()
+        codigo = str(data.get("codigo", "")).strip()
+        password_nuevo = str(data.get("password_nuevo", "")).strip()
+        res = db.confirmar_recuperacion_password(
+            email=email,
+            documento=documento,
+            codigo=codigo,
+            password_nuevo=password_nuevo
+        )
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        logging.error(f"[Auth Recuperar Confirmar] Error: {e}")
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/auth/perfil", methods=["GET"])
+def api_auth_perfil():
+    try:
+        user_id = request.headers.get("X-User-Id", "") or request.args.get("userId", "")
+        if not user_id:
+            return jsonify({"exito": False, "error": "Identificador de usuario no proporcionado."}), 400
+        res = db.obtener_perfil_usuario(user_id)
+        status_code = 200 if res.get("exito") else 404
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/auth/cambiar-password", methods=["PUT", "POST"])
+def api_auth_cambiar_password():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        user_id = str(data.get("userId", "") or request.headers.get("X-User-Id", "")).strip()
+        password_actual = str(data.get("password_actual", "")).strip()
+        password_nuevo = str(data.get("password_nuevo", "")).strip()
+        if not user_id:
+            return jsonify({"exito": False, "error": "Identificador de usuario no válido."}), 400
+        res = db.cambiar_password_usuario(user_id, password_actual, password_nuevo)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/auth/completar-cambio-obligatorio", methods=["POST"])
+def api_auth_completar_cambio_obligatorio():
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        user_id = str(data.get("userId", "") or data.get("email", "")).strip()
+        password_nuevo = str(data.get("password_nuevo", "")).strip()
+        if not user_id:
+            return jsonify({"exito": False, "error": "Identificador de usuario requerido."}), 400
+        res = db.completar_cambio_obligatorio(user_id, password_nuevo)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
 @app.route("/api/admin/usuarios", methods=["GET"])
 def api_admin_usuarios():
     role = request.headers.get("X-User-Role", "").lower()
     if role not in ("admin", "integral"):
         return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
-    usuarios = db.listar_usuarios_registrados()
+    usuarios = db.obtener_usuarios_admin()
     return jsonify({"exito": True, "usuarios": usuarios, "total": len(usuarios)}), 200
+
+
+@app.route("/api/admin/usuarios/<user_id>/password", methods=["PUT", "POST"])
+def api_admin_usuario_password(user_id):
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        password = str(data.get("password", "")).strip()
+        debe_cambiar = bool(data.get("debe_cambiar", False))
+        res = db.admin_actualizar_password_usuario(user_id, password, debe_cambiar)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/usuarios/<user_id>/otp", methods=["POST"])
+def api_admin_usuario_otp(user_id):
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    try:
+        res = db.admin_generar_otp_usuario(user_id)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
 
 
 # =====================================================================

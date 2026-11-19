@@ -4809,6 +4809,329 @@
     contents.forEach((c) =>
       c.classList.toggle("active", c.id === `admin-tab-${tabId}`),
     );
+
+    if (tabId === "usuarios") {
+      cargarUsuariosAdmin();
+    }
+  }
+
+  // ===========================================================================
+  // GESTIÓN DE USUARIOS Y CONTRASEÑAS EN EL PANEL ADMIN
+  // ===========================================================================
+  let _adminUsuariosCache = [];
+
+  async function cargarUsuariosAdmin() {
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+    const countLabel = document.getElementById("admin-users-count-label");
+    const tbody = document.getElementById("admin-usuarios-tbody");
+    if (countLabel) countLabel.textContent = "Consultando base de datos...";
+
+    try {
+      const resp = await fetch("/api/admin/usuarios", {
+        headers: {
+          "X-User-Role": rol,
+          "Cache-Control": "no-cache",
+        },
+      });
+      const data = await resp.json();
+      if (resp.ok && data.exito && Array.isArray(data.usuarios)) {
+        _adminUsuariosCache = data.usuarios;
+        renderizarUsuariosAdmin(_adminUsuariosCache);
+      } else {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#EF4444;">${data.error || "No se pudo cargar la lista de usuarios."}</td></tr>`;
+        }
+        if (countLabel) countLabel.textContent = "Error al consultar usuarios";
+      }
+    } catch (e) {
+      console.error("[Admin Usuarios] Error al consultar usuarios:", e);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#EF4444;">Error de red al consultar usuarios registrados.</td></tr>`;
+      }
+      if (countLabel) countLabel.textContent = "Error de conexión";
+    }
+  }
+
+  function filtrarUsuariosAdmin(query) {
+    const q = String(query || "").toLowerCase().trim();
+    if (!q) {
+      renderizarUsuariosAdmin(_adminUsuariosCache);
+      return;
+    }
+    const filtrados = _adminUsuariosCache.filter((u) => {
+      const nom = String(u.nombre || "").toLowerCase();
+      const email = String(u.email || "").toLowerCase();
+      const doc = String(u.documento || "").toLowerCase();
+      return nom.includes(q) || email.includes(q) || doc.includes(q);
+    });
+    renderizarUsuariosAdmin(filtrados);
+  }
+
+  function renderizarUsuariosAdmin(usuarios) {
+    const tbody = document.getElementById("admin-usuarios-tbody");
+    const countLabel = document.getElementById("admin-users-count-label");
+    if (countLabel) {
+      countLabel.textContent = `${usuarios.length} usuario(s) registrado(s)`;
+    }
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (usuarios.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#64748B;">No se encontraron usuarios registrados.</td></tr>`;
+      return;
+    }
+
+    usuarios.forEach((u) => {
+      const tr = document.createElement("tr");
+      const esAdmin = u.rol === "admin" || u.rol === "integral";
+      const rolClass = esAdmin ? "badge-rol-admin" : "badge-rol-pasajero";
+      const rolText = esAdmin ? "Administrador" : "Pasajero";
+
+      const pwdBadge = u.debe_cambiar_password
+        ? `<span class="badge-pwd-status badge-pwd-otp" title="Requiere cambio obligatorio de contraseña">OTP Pendiente</span>`
+        : `<span class="badge-pwd-status badge-pwd-activa" title="Contraseña definitiva activa">Activa</span>`;
+
+      const docDisplay = u.documento
+        ? escapeHtml(u.documento)
+        : `<span style="color:#94A3B8;font-style:italic;">Sin doc</span>`;
+
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(u.nombre)}</strong></td>
+        <td>${docDisplay}</td>
+        <td>${escapeHtml(u.email)}</td>
+        <td><span class="badge-rol ${rolClass}">${rolText}</span></td>
+        <td>${pwdBadge}</td>
+        <td><strong>${u.total_reservas || 0}</strong></td>
+        <td style="text-align:right;">
+          <div class="admin-actions-cell">
+            <button type="button" class="btn-admin-subaction btn-otp-action" onclick="AeroMinimalUI.generarOtpUsuario('${escapeAttr(u.id)}', '${escapeAttr(u.nombre)}')" title="Generar contraseña de un solo uso">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>Generar OTP</span>
+            </button>
+            <button type="button" class="btn-admin-subaction" onclick="AeroMinimalUI.abrirModalPasswordUsuario('${escapeAttr(u.id)}', '${escapeAttr(u.nombre)}')" title="Restablecer contraseña manualmente">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              <span>Restablecer</span>
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function abrirModalPasswordUsuario(userId, nombre) {
+    const modal = document.getElementById("modal-admin-edit-password");
+    if (!modal) return;
+    const nameEl = document.getElementById("admin-pwd-edit-user-name");
+    const idEl = document.getElementById("admin-pwd-edit-user-id");
+    const inputEl = document.getElementById("admin-pwd-edit-input");
+    const forceEl = document.getElementById("admin-pwd-edit-force");
+    const errEl = document.getElementById("admin-pwd-edit-error");
+
+    if (nameEl) nameEl.textContent = nombre || "Usuario";
+    if (idEl) idEl.value = userId;
+    if (inputEl) inputEl.value = "";
+    if (forceEl) forceEl.checked = true;
+    if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
+
+    modal.style.display = "flex";
+    modal.classList.add("active");
+  }
+
+  function cerrarModalPasswordUsuario() {
+    const modal = document.getElementById("modal-admin-edit-password");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  async function guardarPasswordUsuarioAdmin() {
+    const idEl = document.getElementById("admin-pwd-edit-user-id");
+    const inputEl = document.getElementById("admin-pwd-edit-input");
+    const forceEl = document.getElementById("admin-pwd-edit-force");
+    const errEl = document.getElementById("admin-pwd-edit-error");
+
+    const userId = idEl ? idEl.value : "";
+    const pass = inputEl ? inputEl.value.trim() : "";
+    const force = forceEl ? forceEl.checked : false;
+
+    if (!userId || !pass) {
+      if (errEl) {
+        errEl.textContent = "Por favor ingresa la nueva contraseña.";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+    if (pass.length < 6) {
+      if (errEl) {
+        errEl.textContent = "La contraseña debe tener al menos 6 caracteres.";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+
+    const accion = async () => {
+      const resp = await fetch(`/api/admin/usuarios/${encodeURIComponent(userId)}/password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Role": rol,
+        },
+        body: JSON.stringify({ password: pass, debe_cambiar: force }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Guardando nueva contraseña de usuario en base de datos...",
+        accion,
+        async () => {
+          await cargarUsuariosAdmin();
+        },
+        async (res) => {
+          if (!res.ok) {
+            if (errEl) {
+              errEl.textContent = res.data.error || "No se pudo actualizar la contraseña.";
+              errEl.style.display = "block";
+            }
+            return;
+          }
+          cerrarModalPasswordUsuario();
+          if (typeof window.showToast === "function") {
+            window.showToast("Contraseña restablecida exitosamente.", false);
+          }
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (errEl) {
+          errEl.textContent = res.data.error || "No se pudo actualizar la contraseña.";
+          errEl.style.display = "block";
+        }
+        return;
+      }
+      cerrarModalPasswordUsuario();
+      await cargarUsuariosAdmin();
+      if (typeof window.showToast === "function") {
+        window.showToast("Contraseña restablecida exitosamente.", false);
+      }
+    }
+  }
+
+  async function generarOtpUsuario(userId, nombre) {
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+
+    const accion = async () => {
+      const resp = await fetch(`/api/admin/usuarios/${encodeURIComponent(userId)}/otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Role": rol,
+        },
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Generando contraseña de un solo uso en base de datos...",
+        accion,
+        async () => {
+          await cargarUsuariosAdmin();
+        },
+        async (res) => {
+          if (!res.ok) {
+            if (typeof window.showToast === "function") {
+              window.showToast(res.data.error || "Error al generar contraseña temporal.", true);
+            }
+            return;
+          }
+          mostrarModalOtpGenerado(res.data.otp, nombre || res.data.usuario);
+        }
+      );
+    } else {
+      const res = await accion();
+      if (!res.ok) {
+        if (typeof window.showToast === "function") {
+          window.showToast(res.data.error || "Error al generar contraseña temporal.", true);
+        }
+        return;
+      }
+      await cargarUsuariosAdmin();
+      mostrarModalOtpGenerado(res.data.otp, nombre || res.data.usuario);
+    }
+  }
+
+  function mostrarModalOtpGenerado(otp, nombre) {
+    const modal = document.getElementById("modal-admin-otp-display");
+    if (!modal) return;
+    const codeEl = document.getElementById("admin-otp-code-text");
+    const nameEl = document.getElementById("admin-otp-user-name");
+    const copyLabel = document.getElementById("btn-copy-otp-label");
+
+    if (codeEl) codeEl.textContent = otp;
+    if (nameEl) nameEl.textContent = nombre || "Usuario";
+    if (copyLabel) copyLabel.textContent = "Copiar Contraseña";
+
+    modal.style.display = "flex";
+    modal.classList.add("active");
+  }
+
+  function cerrarModalOtpDisplay() {
+    const modal = document.getElementById("modal-admin-otp-display");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  async function copiarOtpGenerado() {
+    const codeEl = document.getElementById("admin-otp-code-text");
+    const copyLabel = document.getElementById("btn-copy-otp-label");
+    const text = codeEl ? codeEl.textContent.trim() : "";
+    if (!text) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      if (copyLabel) copyLabel.textContent = "¡Copiado al portapapeles!";
+      setTimeout(() => {
+        if (copyLabel) copyLabel.textContent = "Copiar Contraseña";
+      }, 2500);
+      if (typeof window.showToast === "function") {
+        window.showToast("Contraseña temporal copiada al portapapeles", false);
+      }
+    } catch (e) {
+      console.warn("[Admin OTP] Fallback de copiado:", e);
+    }
   }
 
   function renderizarAdminOfertas() {
@@ -5410,6 +5733,15 @@
     abrirPanelAdmin,
     cerrarPanelAdmin,
     alternarTabAdmin,
+    cargarUsuariosAdmin,
+    filtrarUsuariosAdmin,
+    renderizarUsuariosAdmin,
+    abrirModalPasswordUsuario,
+    cerrarModalPasswordUsuario,
+    guardarPasswordUsuarioAdmin,
+    generarOtpUsuario,
+    cerrarModalOtpDisplay,
+    copiarOtpGenerado,
     guardarCambiosVueloAdmin,
     playAirportChime,
     playScannerBeep,
