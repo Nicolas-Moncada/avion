@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" fill="none">
-  <rect width="1600" height="900" fill="#0B192C"/>
-  <circle cx="800" cy="450" r="220" fill="#1D4ED8" opacity="0.12"/>
-  <circle cx="800" cy="450" r="100" fill="#DA291C" opacity="0.08"/>
-  <text x="800" y="430" font-family="'JetBrains Mono', monospace" font-size="32" fill="#94A3B8" text-anchor="middle" font-weight="bold">✈</text>
-  <text x="800" y="480" font-family="'JetBrains Mono', monospace" font-size="20" fill="#64748B" text-anchor="middle">AERO FLOW AIRLINES</text>
-  <text x="800" y="510" font-family="'JetBrains Mono', monospace" font-size="16" fill="#64748B" text-anchor="middle">Destino — Imagen local</text>
-</svg>

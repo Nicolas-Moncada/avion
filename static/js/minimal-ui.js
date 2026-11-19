@@ -56,7 +56,9 @@
     isAutomaticBoardingRunning: false,
     isDepartureAnimationRunning: false,
     boardingInterval: null,
-    departureTimers: []
+    departureTimers: [],
+    destinosCargados: [],
+    soundEnabled: typeof localStorage !== 'undefined' ? (localStorage.getItem('aeroflow_sound') !== 'false') : true
   };
 
   const NOMBRES_MESES = [
@@ -335,7 +337,48 @@
     return audioCtx;
   }
 
+  function playErrorTone() {
+    if (!uiState.soundEnabled) return;
+    try {
+      const ctx = obtenerAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, now);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch (e) {}
+  }
+
+  function toggleSonido() {
+    uiState.soundEnabled = !uiState.soundEnabled;
+    try {
+      localStorage.setItem('aeroflow_sound', uiState.soundEnabled ? 'true' : 'false');
+    } catch (e) {}
+    actualizarBotonesSonido();
+    showToast(uiState.soundEnabled ? 'Sonido de aeropuerto activado' : 'Sonido de aeropuerto silenciado');
+  }
+
+  function actualizarBotonesSonido() {
+    const btn = document.getElementById('btn-sound-toggle');
+    const label = document.getElementById('btn-sound-toggle-text');
+    if (label) {
+      label.textContent = uiState.soundEnabled ? 'Sonido: ON' : 'Sonido: OFF';
+    }
+    if (btn) {
+      btn.style.opacity = uiState.soundEnabled ? '1' : '0.6';
+      btn.title = uiState.soundEnabled ? 'Silenciar sonidos de aeropuerto' : 'Activar sonidos de aeropuerto';
+    }
+  }
+
   function playAirportChime() {
+    if (!uiState.soundEnabled) return;
     try {
       const ctx = obtenerAudioContext();
       if (!ctx) return;
@@ -372,6 +415,7 @@
   }
 
   function playScannerBeep() {
+    if (!uiState.soundEnabled) return;
     try {
       const ctx = obtenerAudioContext();
       if (!ctx) return;
@@ -962,6 +1006,195 @@
   // =========================================================================
   // 8. GESTOR Y EDITOR DE VUELOS (ADMINISTRADOR — INTACTO 100%)
   // =========================================================================
+  
+  // =========================================================================
+  // GESTIÓN DINÁMICA DE DESTINOS DESDE BD (TABLA destino_imagenes)
+  // =========================================================================
+  function extraerIataTexto(str) {
+    if (!str) return '';
+    const m = String(str).match(/\b([A-Z]{3})\b/);
+    return m ? m[1] : String(str).trim().toUpperCase();
+  }
+
+  function seleccionarOpcionSelect(selectEl, valorTexto) {
+    if (!selectEl || !valorTexto) return;
+    const targetIata = extraerIataTexto(valorTexto);
+    for (let i = 0; i < selectEl.options.length; i++) {
+      const opt = selectEl.options[i];
+      const optIata = opt.getAttribute('data-iata') || extraerIataTexto(opt.value);
+      if (targetIata && optIata === targetIata) {
+        selectEl.selectedIndex = i;
+        return;
+      }
+      if (opt.value.toLowerCase().includes(valorTexto.toLowerCase()) || valorTexto.toLowerCase().includes(opt.value.toLowerCase())) {
+        selectEl.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  async function cargarDestinosAdmin() {
+    try {
+      const res = await fetch('/api/destinos');
+      const data = await res.json().catch(() => ({}));
+      if (data && data.exito && Array.isArray(data.destinos) && data.destinos.length > 0) {
+        uiState.destinosCargados = data.destinos;
+      }
+    } catch (e) {
+      console.warn('Error cargando destinos:', e);
+    }
+    poblarSelectsDestinos();
+  }
+
+  function poblarSelectsDestinos() {
+    const origenSelect = document.getElementById('editor-flight-origen');
+    const destinoSelect = document.getElementById('editor-flight-destino');
+    if (!origenSelect || !destinoSelect) return;
+
+    const valOrigenPrev = origenSelect.value;
+    const valDestinoPrev = destinoSelect.value;
+
+    const lista = (uiState.destinosCargados && uiState.destinosCargados.length > 0)
+      ? uiState.destinosCargados
+      : [
+          { ciudad: 'Bogotá', codigo_iata: 'BOG', pais: 'Colombia' },
+          { ciudad: 'Medellín', codigo_iata: 'MDE', pais: 'Colombia' },
+          { ciudad: 'Cali', codigo_iata: 'CLO', pais: 'Colombia' },
+          { ciudad: 'Cartagena', codigo_iata: 'CTG', pais: 'Colombia' },
+          { ciudad: 'Santa Marta', codigo_iata: 'SMR', pais: 'Colombia' },
+          { ciudad: 'Barranquilla', codigo_iata: 'BAQ', pais: 'Colombia' },
+          { ciudad: 'Montería', codigo_iata: 'MTR', pais: 'Colombia' },
+          { ciudad: 'Miami', codigo_iata: 'MIA', pais: 'Estados Unidos' },
+          { ciudad: 'Nueva York', codigo_iata: 'JFK', pais: 'Estados Unidos' },
+          { ciudad: 'Madrid', codigo_iata: 'MAD', pais: 'España' },
+          { ciudad: 'Ciudad de México', codigo_iata: 'MEX', pais: 'México' }
+        ];
+
+    let html = '';
+    lista.forEach(d => {
+      const label = `${d.ciudad} (${d.codigo_iata})`;
+      html += `<option value="${label}" data-iata="${d.codigo_iata}">${label}</option>`;
+    });
+
+    origenSelect.innerHTML = html;
+    destinoSelect.innerHTML = html;
+
+    if (valOrigenPrev) {
+      seleccionarOpcionSelect(origenSelect, valOrigenPrev);
+    } else {
+      seleccionarOpcionSelect(origenSelect, 'Bogotá (BOG)');
+    }
+
+    if (valDestinoPrev) {
+      seleccionarOpcionSelect(destinoSelect, valDestinoPrev);
+    } else {
+      seleccionarOpcionSelect(destinoSelect, 'Cartagena (CTG)');
+    }
+
+    alCambiarDestinoEditor();
+  }
+
+  function alCambiarDestinoEditor() {
+    const destinoSelect = document.getElementById('editor-flight-destino');
+    const origenSelect = document.getElementById('editor-flight-origen');
+    const thumbImg = document.getElementById('editor-destino-thumb-img');
+    const urlInput = document.getElementById('editor-flight-image-url');
+    const errorEl = document.getElementById('editor-dest-error');
+
+    if (!destinoSelect) return;
+    const opt = destinoSelect.selectedOptions?.[0];
+    const iata = opt?.getAttribute('data-iata') || extraerIataTexto(destinoSelect.value) || 'CTG';
+
+    const imgUrl = `/api/destinos/${iata}/imagen`;
+    if (thumbImg) thumbImg.src = imgUrl;
+    if (urlInput) urlInput.value = imgUrl;
+    actualizarPreviewFoto(imgUrl);
+
+    // Validación origen !== destino
+    const origenIata = extraerIataTexto(origenSelect?.value);
+    const destinoIata = extraerIataTexto(destinoSelect?.value);
+    if (origenIata && destinoIata && origenIata === destinoIata) {
+      if (errorEl) {
+        errorEl.textContent = 'El origen y el destino no pueden ser iguales';
+        errorEl.style.display = 'block';
+      }
+      destinoSelect.style.borderColor = '#EF4444';
+    } else {
+      if (errorEl) errorEl.style.display = 'none';
+      destinoSelect.style.borderColor = '';
+    }
+  }
+
+  function alCambiarOrigenEditor() {
+    alCambiarDestinoEditor();
+  }
+
+  function abrirModalNuevoDestino() {
+    const modal = document.getElementById('modal-nuevo-destino');
+    if (!modal) return;
+    const form = document.getElementById('form-nuevo-destino');
+    if (form) form.reset();
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
+
+  function cerrarModalNuevoDestino() {
+    const modal = document.getElementById('modal-nuevo-destino');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('active');
+    }
+  }
+
+  async function guardarNuevoDestino() {
+    const ciudad = document.getElementById('nd-ciudad')?.value?.trim();
+    const iata = document.getElementById('nd-iata')?.value?.trim()?.toUpperCase();
+    const pais = document.getElementById('nd-pais')?.value?.trim() || 'Colombia';
+    const fileInput = document.getElementById('nd-imagen');
+    const file = fileInput?.files?.[0];
+
+    if (!ciudad || !iata || iata.length !== 3) {
+      showToast('Ingresa una ciudad válida y un código IATA de 3 letras', true);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('ciudad', ciudad);
+    formData.append('codigo_iata', iata);
+    formData.append('pais', pais);
+    if (file) {
+      formData.append('imagen', file);
+    }
+
+    try {
+      const res = await fetch('/api/admin/destinos', {
+        method: 'POST',
+        headers: {
+          'X-User-Role': 'admin'
+        },
+        body: formData
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        showToast(data.error || 'Error guardando nuevo destino', true);
+        return;
+      }
+
+      showToast(`Destino ${ciudad} (${iata}) guardado exitosamente en base de datos.`);
+      cerrarModalNuevoDestino();
+
+      await cargarDestinosAdmin();
+      const destSelect = document.getElementById('editor-flight-destino');
+      if (destSelect) {
+        seleccionarOpcionSelect(destSelect, iata);
+        alCambiarDestinoEditor();
+      }
+    } catch (err) {
+      showToast('Error de conexión al guardar destino', true);
+    }
+  }
+
   function abrirEditorVuelo(codigo) {
     const modal = document.getElementById('modal-admin-editor-vuelo');
     if (!modal) return;
@@ -992,8 +1225,9 @@
       const nuevoCod = 'AF' + Math.floor(1000 + Math.random() * 9000);
       codeInput.value = nuevoCod;
       codeInput.readOnly = false;
-      origenInput.value = 'BOG - Bogotá El Dorado';
-      destinoInput.value = 'CTG - Cartagena';
+      poblarSelectsDestinos();
+      seleccionarOpcionSelect(origenInput, 'Bogotá (BOG)');
+      seleccionarOpcionSelect(destinoInput, 'Cartagena (CTG)');
       aeronaveInput.value = 'Airbus A320neo';
       priceInput.value = 75900;
       catInput.value = 'playa';
@@ -1001,9 +1235,10 @@
       timeInput.value = '10:00 AM';
       gateInput.value = 'B-04';
       statusInput.value = 'Programado';
-      urlInput.value = '/static/img/oferta-cartagena.jpg';
+      urlInput.value = '/api/destinos/CTG/imagen';
       tagInput.value = 'Recomendado para ti';
       submitBtnText.textContent = 'Crear Vuelo en Base de Datos';
+      alCambiarDestinoEditor();
     } else {
       const vuelo = uiState.vuelosCargados.find(v => v.codigo === codigo);
       if (!vuelo) {
@@ -1017,8 +1252,10 @@
 
       codeInput.value = vuelo.codigo;
       codeInput.readOnly = true;
-      origenInput.value = vuelo.origen || 'BOG - Bogotá El Dorado';
-      destinoInput.value = vuelo.destino || '';
+      poblarSelectsDestinos();
+      seleccionarOpcionSelect(origenInput, vuelo.origen || 'Bogotá (BOG)');
+      seleccionarOpcionSelect(destinoInput, vuelo.destino || 'Cartagena (CTG)');
+      alCambiarDestinoEditor();
       aeronaveInput.value = vuelo.tipo_aeronave || 'Airbus A320neo';
       priceInput.value = vuelo.precio_base_cop || 71810;
       catInput.value = vuelo.categoria || 'ciudad';
@@ -1127,13 +1364,30 @@
       return;
     }
 
+    const iataOrig = extraerIataTexto(origen);
+    const iataDest = extraerIataTexto(destino);
+    if (iataOrig && iataDest && iataOrig === iataDest) {
+      showToast('El origen y el destino no pueden ser iguales', true);
+      const errEl = document.getElementById('editor-dest-error');
+      if (errEl) {
+        errEl.textContent = 'El origen y el destino no pueden ser iguales';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    let imagenFinal = imagenUrl;
+    if (!imagenFinal || imagenFinal === '/static/img/oferta-cali.jpg' || imagenFinal.includes('placeholder')) {
+      if (iataDest) imagenFinal = `/api/destinos/${iataDest}/imagen`;
+    }
+
     const payload = {
       codigo, origen, destino,
       tipo_aeronave: aeronave,
       precio_base_cop: precioBase,
       categoria, fecha_salida: fecha,
       hora_salida_12h: hora, puerta, estado,
-      imagen_url: imagenUrl, tag_destacado: tag
+      imagen_url: imagenFinal, tag_destacado: tag
     };
 
     const endpoint = isNew ? '/api/admin/vuelos' : `/api/admin/vuelos/${encodeURIComponent(codigo)}`;
@@ -1657,6 +1911,11 @@
   }
 
   function seleccionarSillaLATAM(seatId, categoria, posicion, claseBackend = null) {
+    if (typeof categoria === 'string') {
+      categoria = CATEGORIAS_ASIENTO[categoria.toLowerCase()] || (categoria.toUpperCase() === 'VIP' ? CATEGORIAS_ASIENTO.vip : CATEGORIAS_ASIENTO.standard);
+    } else if (!categoria) {
+      categoria = CATEGORIAS_ASIENTO.standard;
+    }
     uiState.selectedSeat = {
       id: seatId,
       categoria: categoria.nombre,
@@ -1951,6 +2210,15 @@
       const vuelo = uiState.selectedFlight;
       const pnr = 'AF' + Math.random().toString(36).substring(2, 8).toUpperCase();
       const recibo = `REC-BOG-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      if (uiState.activePaymentMethod === 'card') {
+        const numTarjeta = document.getElementById('card-number-input')?.value || '';
+        if (!validarAlgoritmoLuhn(numTarjeta)) {
+          showToast('Número de tarjeta inválido según algoritmo de Luhn', true);
+          if (payBtn) payBtn.disabled = false;
+          return;
+        }
+      }
 
       const isVip = uiState.selectedSeat.clase === 'VIP';
       const basePrice = vuelo.precio_base_cop || 71810;
@@ -3280,6 +3548,164 @@
       .join('');
   }
 
+  
+  // =========================================================================
+  // VALIDACIÓN LUHN, ESCÁNER DE PUERTA (ANTI-DUPLICADO) Y BÚSQUEDA PNR
+  // =========================================================================
+  function validarAlgoritmoLuhn(numStr) {
+    const digits = String(numStr).replace(/\D/g, '');
+    if (digits.length < 13 || digits.length > 19) return false;
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = parseInt(digits.charAt(i), 10);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return (sum % 10) === 0;
+  }
+
+  async function escanearTiqueteManual() {
+    const input = document.getElementById('gate-scan-input');
+    const val = input ? input.value.trim() : '';
+    if (!val) {
+      showToast('Digita o escanea un PNR, número de documento o tiquete', true);
+      return;
+    }
+
+    const codVuelo = uiState.activeGateFlight || 'AF1001';
+    try {
+      const res = await fetch('/api/embarque/escanear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': 'admin'
+        },
+        body: JSON.stringify({
+          vuelo_codigo: codVuelo,
+          tiquete_o_pnr: val
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        playErrorTone();
+        showToast(data.error || '¡ALERTA! Pasajero ya abordado o tiquete duplicado', true);
+        const hud = document.getElementById('scanner-hud-status');
+        if (hud) {
+          hud.textContent = `ALERTA 409: DUPLICADO // ${data.pasajero || val} YA ABORDÓ`;
+          hud.style.color = '#EF4444';
+        }
+        return;
+      }
+
+      if (!res.ok) {
+        showToast(data.error || 'Tiquete no encontrado en este vuelo', true);
+        return;
+      }
+
+      playScannerBeep();
+      playAirportChime();
+      showToast(data.mensaje || 'Pasajero abordado exitosamente');
+
+      const hud = document.getElementById('scanner-hud-status');
+      if (hud) {
+        hud.textContent = `ABORDADO: ${data.pasajero} • ASIENTO ${data.asiento}`;
+        hud.style.color = '#10B981';
+      }
+      const lastPax = document.getElementById('scanner-last-scanned-pax');
+      if (lastPax) {
+        lastPax.textContent = `Último pasajero: ${data.pasajero} (${data.asiento})`;
+      }
+
+      if (input) input.value = '';
+      await cargarReservasServidor();
+      cambiarVueloConsolaAbordaje(codVuelo);
+    } catch (err) {
+      showToast('Error de red al escanear tiquete', true);
+    }
+  }
+
+  async function buscarReservaPorPnrInput() {
+    const input = document.getElementById('input-buscar-pnr');
+    const pnr = input ? input.value.trim().toUpperCase() : '';
+    if (!pnr) {
+      showToast('Digita el código de reserva PNR (6 caracteres)', true);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/reservas/pnr/${encodeURIComponent(pnr)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.exito) {
+        showToast(data.error || `No se encontró reserva con código PNR "${pnr}"`, true);
+        return;
+      }
+
+      const resObj = data.reserva || {};
+      const nombrePax = resObj.pasajero_nombre || resObj.nombre_pasajero || 'Pasajero';
+      showToast(`Reserva ${pnr} encontrada: ${nombrePax} (${resObj.vuelo_codigo})`);
+
+      const itemFormateado = {
+        recibo: resObj.recibo || 'REC-BOG-2026',
+        pnr: resObj.codigo_pnr || resObj.pnr || pnr,
+        vueloCodigo: resObj.vuelo_codigo,
+        origen: resObj.origen || 'BOG - Bogotá El Dorado',
+        destino: resObj.destino || 'CTG - Cartagena',
+        fecha: resObj.fecha_salida || '2026-11-20',
+        hora: resObj.hora_salida_12h || '10:00 AM',
+        puerta: resObj.puerta || 'B-01',
+        asiento: resObj.asiento || resObj.asiento_id || '1A',
+        clase: resObj.clase_cabina || resObj.categoria || 'Estándar',
+        pasajeroNombre: nombrePax,
+        pasajeroDoc: resObj.pasajero_doc || resObj.documento_pasajero || '101829384',
+        documentoReal: resObj.pasajero_doc || resObj.documento_pasajero || '101829384',
+        tarifaTotalCOP: resObj.tarifa_pagada_cop || resObj.total_cop || 288454,
+        metodoPago: resObj.metodo_pago || 'Tarjeta',
+        estado: resObj.estado_tiquete || resObj.estado || 'Confirmado',
+        estado_embarque: resObj.estado_embarque || 'Confirmado',
+        grupo_abordaje: resObj.grupo_abordaje || 'Grupo 2 Ventana',
+        tipoAeronave: resObj.tipo_aeronave || 'Airbus A320neo',
+        compradaEnSesion: true
+      };
+
+      // Agregar a reservas activas y renderizar
+      uiState.misReservas.unshift(itemFormateado);
+      uiState.misDocumentosComprados.add(itemFormateado.documentoReal);
+      renderizarContenidoModalMisReservas();
+    } catch (err) {
+      console.error('PNR SEARCH ERROR:', err);
+      showToast('Error buscando reserva por PNR: ' + (err.message || err), true);
+    }
+  }
+
+  async function realizarWebCheckinPnr(pnr, apellido) {
+    try {
+      const res = await fetch('/api/checkin/web', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pnr, apellido: apellido || '' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'No fue posible realizar Web Check-in', true);
+        return;
+      }
+
+      playAirportChime();
+      showToast(`¡Check-in realizado! Asignado ${data.grupo_abordaje || 'Grupo 2'}`);
+      await cargarReservasServidor();
+      renderizarContenidoModalMisReservas();
+    } catch (err) {
+      showToast('Error de red al realizar Web Check-in', true);
+    }
+  }
+
   function abrirModalMisReservas() {
     if (!uiState.reservasServidorCargadas) {
       asegurarReservaDemo();
@@ -3648,6 +4074,51 @@
       });
     });
 
+    // 3D Credit Card flip events & Luhn formatting
+    const cvvInput = document.getElementById('card-cvv-input');
+    const vCard = document.getElementById('virtual-credit-card');
+    const cvvPrev = document.getElementById('cc-preview-cvv');
+    if (cvvInput && vCard) {
+      cvvInput.addEventListener('focus', () => vCard.classList.add('flipped'));
+      cvvInput.addEventListener('blur', () => vCard.classList.remove('flipped'));
+      cvvInput.addEventListener('input', (e) => {
+        if (cvvPrev) cvvPrev.textContent = e.target.value ? e.target.value : '•••';
+      });
+    }
+
+    const cardNumInput = document.getElementById('card-number-input');
+    if (cardNumInput) {
+      cardNumInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '').slice(0, 16);
+        e.target.value = val.replace(/(\d{4})(?=\d)/g, '$1 ');
+        alCambiarTarjetaCredito();
+      });
+    }
+
+    const cardExpInput = document.getElementById('card-exp-input');
+    if (cardExpInput) {
+      cardExpInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+        if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
+        e.target.value = val;
+        alCambiarTarjetaCredito();
+      });
+    }
+
+    // Fechas dinámicas relativas siempre vigentes (hoy + 2 días)
+    const salEl = document.getElementById('search-val-salida');
+    if (salEl) {
+      const hoy = new Date();
+      hoy.setDate(hoy.getDate() + 2);
+      const d = String(hoy.getDate()).padStart(2, '0');
+      const m = String(hoy.getMonth() + 1).padStart(2, '0');
+      const y = String(hoy.getFullYear()).slice(-2);
+      salEl.textContent = `${d}/${m}/${y}`;
+    }
+
+    cargarDestinosAdmin();
+    actualizarBotonesSonido();
+
     setTimeout(() => {
       sincronizarModoAdmin();
     }, 100);
@@ -3708,7 +4179,18 @@
     alternarTabAdmin,
     guardarCambiosVueloAdmin,
     playAirportChime,
-    playScannerBeep
+    playScannerBeep,
+    playErrorTone,
+    toggleSonido,
+    alCambiarDestinoEditor,
+    alCambiarOrigenEditor,
+    abrirModalNuevoDestino,
+    cerrarModalNuevoDestino,
+    guardarNuevoDestino,
+    escanearTiqueteManual,
+    buscarReservaPorPnrInput,
+    realizarWebCheckinPnr,
+    validarAlgoritmoLuhn
   };
 
   document.addEventListener('DOMContentLoaded', init);

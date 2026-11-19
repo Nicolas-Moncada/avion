@@ -1,45 +1,60 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+block_cipher = None
 
 a = Analysis(
     ['desktop_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[('templates', 'templates'), ('static', 'static'), ('vendor', 'vendor'), ('assets', 'assets'), ('icons', 'icons'), ('js', 'js'), ('manifest.webmanifest', '.'), ('sw.js', '.'), ('offline.html', '.'), ('aerocore.db', '.')],
-    hiddenimports=[],
+    datas=[
+        ('templates', 'templates'),
+        ('static', 'static'),
+        ('data_structures', 'data_structures'),
+        ('payments', 'payments'),
+        ('airports', 'airports'),
+        ('icons', 'icons'),
+    ],
+    hiddenimports=[
+        'flask',
+        'PIL',
+        'PIL.Image',
+        'PIL.ImageOps',
+        'PIL.ImageFilter',
+        'werkzeug',
+        'werkzeug.security',
+        'sqlite3',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'PyQt5', 'PyQt6', 'matplotlib'],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
-    optimize=0,
 )
-pyz = PYZ(a.pure)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='AeroFlowAirlines',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icons/app_icon.ico'],
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='AeroFlowAirlines',
+    icon='icons/app_icon.ico' if os.path.exists('icons/app_icon.ico') else None,
 )

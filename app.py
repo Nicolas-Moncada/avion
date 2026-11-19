@@ -454,20 +454,299 @@ def serve_js(filename):
     return send_from_directory(os.path.join(config.BUNDLE_DIR, "js"), filename)
 
 
-@app.route("/descargar-apk")
-@app.route("/api/descargar-apk")
-def descargar_apk():
-    """Sirve la aplicacion APK oficial para dispositivos Android."""
-    apk_dir = os.path.join(config.BUNDLE_DIR, "static", "apk")
-    apk_filename = "AeroFlowAirlines.apk"
-    if not os.path.exists(os.path.join(apk_dir, apk_filename)):
-        apk_dir = os.path.join(config.BUNDLE_DIR, "dist")
-    return send_from_directory(
-        apk_dir,
-        apk_filename,
-        as_attachment=True,
-        mimetype="application/vnd.android.package-archive",
-    )
+@app.route("/descargar-windows")
+@app.route("/api/descargar/windows")
+def descargar_windows():
+    """Descarga el ejecutable nativo compilado para Windows (.exe)."""
+    dist_dir = os.path.join(config.BUNDLE_DIR, "dist")
+    exe_filename = "AeroFlowAirlines.exe"
+    exe_path = os.path.join(dist_dir, exe_filename)
+    if os.path.exists(exe_path):
+        return send_from_directory(
+            dist_dir,
+            exe_filename,
+            as_attachment=True,
+            mimetype="application/vnd.microsoft.portable-executable",
+        )
+    root_exe = os.path.join(config.BUNDLE_DIR, exe_filename)
+    if os.path.exists(root_exe):
+        return send_from_directory(
+            config.BUNDLE_DIR,
+            exe_filename,
+            as_attachment=True,
+            mimetype="application/vnd.microsoft.portable-executable",
+        )
+    return jsonify({
+        "disponible": False,
+        "mensaje": "El ejecutable AeroFlowAirlines.exe se genera ejecutando: python build_windows.py",
+        "instrucciones": "Ejecute 'python build_windows.py' para generar el instalador/ejecutable en dist/."
+    }), 200
+
+
+# =====================================================================
+# DESTINOS Y FOTOGRAFÍAS EN BASE DE DATOS
+# =====================================================================
+
+@app.route("/api/destinos", methods=["GET"])
+def api_listar_destinos():
+    """Retorna la lista de destinos oficiales en tiempo real desde la BD."""
+    destinos = db.listar_destinos_bd()
+    return jsonify({"exito": True, "total": len(destinos), "destinos": destinos}), 200
+
+
+@app.route("/api/destinos/<codigo_iata>/imagen", methods=["GET"])
+def api_obtener_imagen_destino(codigo_iata):
+    """Sirve la fotografía HD del destino almacenada como BLOB en la base de datos."""
+    blob, mime, updated_at = db.obtener_imagen_destino_bd(codigo_iata)
+    if not blob:
+        try:
+            from PIL import Image, ImageDraw
+            img = Image.new("RGB", (1280, 800), (15, 23, 42))
+            draw = ImageDraw.Draw(img)
+            draw.text((640, 400), f"AEROFLOW • {codigo_iata.upper()}", fill=(255, 255, 255), anchor="mm")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            blob = buf.getvalue()
+            mime = "image/jpeg"
+        except Exception:
+            return jsonify({"error": f"No se encontró fotografía para {codigo_iata}"}), 404
+
+    etag = f'"{hash(blob)}"'
+    if request.headers.get("If-None-Match") == etag:
+        return "", 304
+
+    resp = app.response_class(blob, mimetype=mime or "image/jpeg")
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@app.route("/api/admin/destinos", methods=["POST"])
+def api_admin_crear_destino():
+    """Crea un nuevo destino y procesa su fotografía HD a 16:10 para almacenarla en BD."""
+    rol = request.headers.get("X-User-Role", "pasajero").lower()
+    if rol != "admin":
+        return jsonify({"error": "Acceso denegado: se requiere rol admin"}), 403
+
+    ciudad = request.form.get("ciudad", "").strip()
+    codigo_iata = request.form.get("codigo_iata", "").strip().upper()
+    pais = request.form.get("pais", "Colombia").strip()
+    archivo = request.files.get("imagen") or request.files.get("file")
+
+    if not ciudad or not codigo_iata or len(codigo_iata) != 3:
+        return jsonify({"error": "Ciudad y código IATA de 3 letras son obligatorios"}), 400
+
+    blob = None
+    if archivo:
+        try:
+            raw_img = Image.open(archivo)
+            if raw_img.mode != "RGB":
+                raw_img = raw_img.convert("RGB")
+            fitted = ImageOps.fit(raw_img, (1280, 800), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+            buf = io.BytesIO()
+            fitted.save(buf, format="JPEG", quality=88, optimize=True)
+            blob = buf.getvalue()
+        except Exception as e:
+            return jsonify({"error": f"Error procesando imagen: {e}"}), 400
+    else:
+        from PIL import ImageDraw
+        img = Image.new("RGB", (1280, 800), (15, 23, 42))
+        draw = ImageDraw.Draw(img)
+        draw.text((640, 400), f"{ciudad} ({codigo_iata})", fill=(255, 255, 255), anchor="mm")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=88)
+        blob = buf.getvalue()
+
+    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/jpeg")
+    bump_state()
+    return jsonify(resultado), 201
+
+
+@app.route("/api/admin/destinos/<codigo_iata>/imagen", methods=["PUT", "POST"])
+def api_admin_actualizar_imagen_destino(codigo_iata):
+    """Actualiza la fotografía de un destino existente en destino_imagenes."""
+    rol = request.headers.get("X-User-Role", "pasajero").lower()
+    if rol != "admin":
+        return jsonify({"error": "Acceso denegado: se requiere rol admin"}), 403
+
+    archivo = request.files.get("imagen") or request.files.get("file")
+    if not archivo:
+        return jsonify({"error": "No se recibió archivo de imagen"}), 400
+
+    try:
+        raw_img = Image.open(archivo)
+        if raw_img.mode != "RGB":
+            raw_img = raw_img.convert("RGB")
+        fitted = ImageOps.fit(raw_img, (1280, 800), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+        buf = io.BytesIO()
+        fitted.save(buf, format="JPEG", quality=88, optimize=True)
+        blob = buf.getvalue()
+    except Exception as e:
+        return jsonify({"error": f"Error procesando imagen: {e}"}), 400
+
+    conn = db.get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT ciudad, pais FROM destino_imagenes WHERE UPPER(codigo_iata) = ?", (codigo_iata.upper(),))
+        row = cur.fetchone()
+        ciudad = row["ciudad"] if row else codigo_iata
+        pais = row["pais"] if row else "Colombia"
+    finally:
+        conn.close()
+
+    resultado = db.guardar_destino_bd(ciudad, codigo_iata, pais, blob, "image/jpeg")
+    bump_state()
+    return jsonify(resultado), 200
+
+
+# =====================================================================
+# GESTIÓN DE PNR, WEB CHECK-IN Y CANCELACIÓN ATÓMICA
+# =====================================================================
+
+@app.route("/api/reservas/pnr/<pnr>", methods=["GET"])
+def api_buscar_reserva_pnr(pnr):
+    """Consulta la información completa de una reserva mediante su código PNR."""
+    reserva = db.buscar_reserva_por_pnr(pnr)
+    if not reserva:
+        return jsonify({"exito": False, "error": f"No se encontró reserva con el código PNR '{pnr}'"}), 404
+    return jsonify({"exito": True, "reserva": reserva}), 200
+
+
+@app.route("/api/checkin/web", methods=["POST"])
+def api_checkin_web():
+    """Procesa el web check-in por PNR, asigna grupo de abordaje y activa estado."""
+    data = request.get_json(silent=True) or {}
+    pnr = str(data.get("pnr", "")).strip().upper()
+    apellido = str(data.get("apellido", "")).strip()
+    if not pnr:
+        return jsonify({"exito": False, "error": "El código PNR es obligatorio"}), 400
+    res = db.actualizar_checkin_web(pnr, apellido)
+    if not res.get("exito"):
+        return jsonify(res), 400
+    bump_state()
+    return jsonify(res), 200
+
+
+@app.route("/api/reservas/cancelar", methods=["POST"])
+def api_cancelar_reserva_pnr():
+    """Cancela un tiquete por PNR liberando atómicamente el asiento en el mapa del avión."""
+    data = request.get_json(silent=True) or {}
+    pnr = str(data.get("pnr", "")).strip().upper()
+    motivo = str(data.get("motivo", "Cancelado por el usuario")).strip()
+    if not pnr:
+        return jsonify({"exito": False, "error": "El código PNR es obligatorio"}), 400
+    res = db.cancelar_reserva_pnr(pnr, motivo)
+    if not res.get("exito"):
+        return jsonify(res), 404
+    vuelo_cod = res.get("vuelo_codigo")
+    asiento = res.get("asiento_liberado")
+    if vuelo_cod and asiento and vuelo_cod in manifiestos:
+        manifiestos[vuelo_cod].eliminar(asiento)
+    bump_state()
+    return jsonify(res), 200
+
+
+@app.route("/api/embarque/escanear", methods=["POST"])
+def api_embarque_escanear():
+    """Valida y aborda un pasajero en puerta con bloqueo estricto contra doble abordaje."""
+    data = request.get_json(silent=True) or {}
+    vuelo_cod = str(data.get("vuelo_codigo", "")).strip().upper()
+    documento = str(data.get("documento", "")).strip()
+    pnr = str(data.get("pnr", "")).strip().upper()
+    tiquete_val = str(data.get("tiquete_o_pnr", "")).strip()
+
+    if tiquete_val:
+        if len(tiquete_val) <= 8 and any(c.isalpha() for c in tiquete_val):
+            pnr = pnr or tiquete_val.upper()
+        else:
+            documento = documento or tiquete_val
+
+    if not vuelo_cod:
+        return jsonify({"exito": False, "error": "El código de vuelo es obligatorio"}), 400
+    if not documento and not pnr:
+        return jsonify({"exito": False, "error": "El documento o código PNR es obligatorio"}), 400
+
+    res = db.validar_y_abordar_tiquete(vuelo_cod, documento, pnr)
+    codigo_http = res.pop("codigo_http", 200)
+    if res.get("exito"):
+        bump_state()
+    return jsonify(res), codigo_http
+
+
+# =====================================================================
+# DASHBOARD ADMINISTRATIVO Y EXPORTACIONES WINDOWS EXCEL (CSV / UTF-8 BOM)
+# =====================================================================
+
+@app.route("/api/admin/dashboard", methods=["GET"])
+def api_admin_dashboard():
+    """Entrega los KPIs reales calculados por SQL del negocio aeronáutico."""
+    rol = request.headers.get("X-User-Role", "pasajero").lower()
+    if rol != "admin":
+        return jsonify({"error": "Acceso denegado: se requiere rol admin"}), 403
+    kpis = db.obtener_kpis_dashboard()
+    return jsonify({"exito": True, "kpis": kpis}), 200
+
+
+@app.route("/api/admin/export/manifiesto/<codigo>", methods=["GET"])
+def api_admin_export_manifiesto(codigo):
+    """Exporta el manifiesto oficial de cabina en formato CSV con UTF-8 BOM para Excel."""
+    rol = request.headers.get("X-User-Role", "pasajero").lower()
+    if rol != "admin":
+        return jsonify({"error": "Acceso denegado: se requiere rol admin"}), 403
+    conn = db.get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT pasajero_doc, pasajero_nombre, asiento, clase_cabina,
+                   hora_checkin_12h, estado_tiquete, grupo_abordaje, codigo_pnr, tarifa_pagada_cop
+            FROM manifiesto WHERE UPPER(vuelo_codigo) = ?
+            ORDER BY asiento ASC
+        """, (codigo.strip().upper(),))
+        rows = cur.fetchall()
+        import io, csv
+        output = io.StringIO()
+        output.write('\ufeff')
+        writer = csv.writer(output, delimiter=';')
+        writer.writerow(["Documento", "Nombre Completo", "Asiento", "Clase", "Hora Check-in", "Estado", "Grupo Abordaje", "PNR", "Tarifa COP"])
+        for r in rows:
+            writer.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], int(r[8])])
+        csv_data = output.getvalue().encode('utf-8')
+        resp = app.response_class(csv_data, mimetype="text/csv; charset=utf-8")
+        resp.headers["Content-Disposition"] = f'attachment; filename="Manifiesto_Vuelo_{codigo}.csv"'
+        return resp
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/export/ventas", methods=["GET"])
+def api_admin_export_ventas():
+    """Exporta el reporte financiero de conciliación y ventas con UTF-8 BOM para Excel."""
+    rol = request.headers.get("X-User-Role", "pasajero").lower()
+    if rol != "admin":
+        return jsonify({"error": "Acceso denegado: se requiere rol admin"}), 403
+    conn = db.get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT documento, nombre_completo, vuelo_id, asiento, metodo_pago,
+                   monto_cop, referencia_pago, estado_embarque, fecha_hora_registro
+            FROM pasajeros_recientes_pagos
+            ORDER BY id DESC
+        """)
+        rows = cur.fetchall()
+        import io, csv
+        output = io.StringIO()
+        output.write('\ufeff')
+        writer = csv.writer(output, delimiter=';')
+        writer.writerow(["Documento", "Nombre", "Vuelo", "Asiento", "Método de Pago", "Monto COP", "Referencia", "Estado", "Fecha Registro"])
+        for r in rows:
+            writer.writerow([r[0], r[1], r[2], r[3], r[4], int(r[5]), r[6], r[7], r[8]])
+        csv_data = output.getvalue().encode('utf-8')
+        resp = app.response_class(csv_data, mimetype="text/csv; charset=utf-8")
+        resp.headers["Content-Disposition"] = 'attachment; filename="Reporte_Ventas_AeroFlow.csv"'
+        return resp
+    finally:
+        conn.close()
 
 
 @app.route("/")
@@ -2181,6 +2460,15 @@ def api_admin_upload_imagen():
     )
 
 
+def extraer_iata_normalizado(s: str) -> str:
+    """Extrae el código IATA de 3 letras de un string (ej. 'Bogotá (BOG)' -> 'BOG') o retorna el string limpio."""
+    if not s:
+        return ""
+    import re
+    m = re.search(r"\b([A-Z]{3})\b", s.upper())
+    return m.group(1) if m else s.strip().upper()
+
+
 @app.route("/api/admin/vuelos", methods=["POST"])
 def api_admin_crear_vuelo():
     rol = (
@@ -2205,20 +2493,27 @@ def api_admin_crear_vuelo():
     if not codigo:
         codigo = f"AF{random.randint(1000, 9999)}"
 
-    origen = str(data.get("origen", "BOG - Bogotá El Dorado")).strip()
+    origen = str(data.get("origen", "Bogotá (BOG)")).strip()
     destino = str(data.get("destino", "")).strip()
     if not destino:
         return jsonify({"error": "El destino es obligatorio"}), 400
+
+    if extraer_iata_normalizado(origen) == extraer_iata_normalizado(destino):
+        return jsonify({"error": "El origen y el destino no pueden ser iguales"}), 400
 
     tipo_aero = str(data.get("tipo_aeronave", "Airbus A320neo")).strip()
     config_aero = obtener_configuracion_aeronave(tipo_aero)
     capacidad = int(data.get("capacidad_maxima") or config_aero.get("capacidad", 36))
 
-    raw_img = str(data.get("imagen_url", "/static/img/oferta-cali.jpg")).strip()
+    raw_img = str(data.get("imagen_url", "")).strip()
     if raw_img.startswith("data:image"):
         procesada = procesar_y_redimensionar_imagen_16_10(raw_img, f"vuelo_{codigo}")
         if procesada:
             raw_img = procesada
+    elif not raw_img or raw_img == "/static/img/oferta-cali.jpg":
+        dest_iata = extraer_iata_normalizado(destino)
+        if dest_iata:
+            raw_img = f"/api/destinos/{dest_iata}/imagen"
 
     vuelo_dict = {
         "codigo": codigo,
@@ -2282,6 +2577,12 @@ def api_admin_editar_vuelo(codigo=None):
     vuelo, _ = tabla_vuelos.buscar(codigo)
     if not vuelo:
         return jsonify({"error": f"Vuelo {codigo} no encontrado"}), 404
+
+    # Validación lógica: impedir origen == destino
+    target_origen = data.get("origen", vuelo.get("origen", ""))
+    target_destino = data.get("destino", vuelo.get("destino", ""))
+    if target_origen and target_destino and extraer_iata_normalizado(str(target_origen)) == extraer_iata_normalizado(str(target_destino)):
+        return jsonify({"error": "El origen y el destino no pueden ser iguales"}), 400
 
     # Interceptar imagen en base64 para normalizar a 16:10
     if "imagen_url" in data:

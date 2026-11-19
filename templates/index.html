@@ -63,14 +63,11 @@
       </nav>
 
       <div class="header-right-zone">
-        <a href="/descargar-apk" class="btn-download-apk-header" download="AeroFlowAirlines.apk" title="Descargar APK oficial para Android (1.0 MB)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
+        <a href="/api/descargar/windows" class="btn-download-windows-header" download="AeroFlowAirlines.exe" title="Descargar ejecutable nativo para Windows (.exe) - 33.5 MB">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
           </svg>
-          <span>App Android</span>
-          <span class="apk-badge-micro">APK</span>
+          <span>Descargar para Windows (.exe)</span>
         </a>
 
         <div class="header-actions" id="header-auth-actions">
@@ -236,61 +233,46 @@
           <!-- Generado dinamicamente desde /api/vuelos -->
         </div>
 
-        <!-- Banner de Descarga Oficial de APK Android -->
-        <div class="apk-download-hero-card">
-          <div class="apk-download-card-content">
-            <div class="apk-download-badge-row">
-              <span class="apk-live-pill">
-                <span class="apk-live-dot"></span>
-                Disponible para Android
+        <!-- Banner de Descarga Oficial para Windows (.exe) -->
+        <div class="windows-download-hero-card">
+          <div class="windows-download-card-content">
+            <div class="windows-download-badge-row">
+              <span class="windows-live-pill">
+                <span class="windows-live-dot"></span>
+                Aplicación para Windows
               </span>
-              <span class="apk-meta-tag">APK Oficial v1.0.0 • 1.04 MB</span>
+              <span class="windows-meta-tag">AeroFlow Desktop v3.0 • 33.5 MB • Windows 10/11</span>
             </div>
-            <h3 class="apk-download-card-title">Descarga la App Móvil de Aero Flow</h3>
-            <p class="apk-download-card-desc">
-              Accede a tus reservas oficiales, selección de sillas VIP en tiempo real, pases de abordar de alta fidelidad con código de barras y estado de vuelos en sala directo desde tu smartphone Android.
+            <h3 class="windows-download-card-title">Descarga la App de Escritorio de Aero Flow (.exe)</h3>
+            <p class="windows-download-card-desc">
+              Accede a tus reservas oficiales, selección de sillas VIP en tiempo real, pases de abordar en alta fidelidad y consola de rampa directo desde tu PC Windows sin abrir terminales ni navegadores.
             </p>
-            <div class="apk-download-actions-row">
-              <a href="/descargar-apk" class="btn-download-apk-main" download="AeroFlowAirlines.apk">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
+            <div class="windows-download-actions-row">
+              <a href="/api/descargar/windows" class="btn-download-windows-main" download="AeroFlowAirlines.exe">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
                 </svg>
-                <span>Descargar APK Directa</span>
+                <span>Descargar para Windows (.exe)</span>
               </a>
-              <span class="apk-security-note">
+              <span class="windows-security-note">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                 </svg>
-                Instalación rápida • Sin Google Play requerido • 100% segura
+                Ejecutable nativo para PC • No requiere Python • 100% verificado
               </span>
             </div>
           </div>
-          <div class="apk-download-card-graphic" aria-hidden="true">
-            <svg class="phone-vector-svg" width="130" height="180" viewBox="0 0 160 220" fill="none" stroke="currentColor">
-              <!-- Chasis de Celular -->
-              <rect x="25" y="10" width="110" height="200" rx="18" stroke="#334155" stroke-width="2.5" fill="#0B132B"></rect>
-              <!-- Notch -->
-              <line x1="65" y1="20" x2="95" y2="20" stroke="#475569" stroke-width="2" stroke-linecap="round"></line>
-              <!-- Pantalla -->
-              <rect x="33" y="30" width="94" height="162" rx="10" fill="#0F172A"></rect>
-              <circle cx="48" cy="46" r="4" fill="#10B981"></circle>
-              <line x1="58" y1="46" x2="105" y2="46" stroke="#94A3B8" stroke-width="2"></line>
-              <!-- Tarjeta de Tiquete -->
-              <rect x="40" y="58" width="80" height="52" rx="6" fill="#1E293B" stroke="#334155" stroke-width="1"></rect>
-              <line x1="46" y1="68" x2="76" y2="68" stroke="#F8FAFC" stroke-width="2"></line>
-              <line x1="46" y1="76" x2="114" y2="76" stroke="#38BDF8" stroke-width="1.5"></line>
-              <line x1="46" y1="88" x2="88" y2="88" stroke="#64748B" stroke-width="1.5"></line>
-              <line x1="46" y1="98" x2="114" y2="98" stroke="#10B981" stroke-width="2" stroke-dasharray="3 2"></line>
-              <!-- Boton acción -->
-              <rect x="40" y="120" width="80" height="18" rx="4" fill="#2563EB"></rect>
-              <line x1="55" y1="129" x2="105" y2="129" stroke="#FFFFFF" stroke-width="1.5"></line>
-              <rect x="40" y="146" width="80" height="34" rx="4" fill="#1E293B"></rect>
-              <line x1="46" y1="156" x2="70" y2="156" stroke="#94A3B8" stroke-width="1.5"></line>
-              <line x1="46" y1="166" x2="95" y2="166" stroke="#94A3B8" stroke-width="1.5"></line>
-              <!-- Home bar -->
-              <line x1="65" y1="202" x2="95" y2="202" stroke="#64748B" stroke-width="2.5" stroke-linecap="round"></line>
+          <div class="windows-download-card-graphic" aria-hidden="true">
+            <svg class="pc-vector-svg" width="160" height="120" viewBox="0 0 160 120" fill="none" stroke="currentColor">
+              <rect x="15" y="10" width="130" height="85" rx="8" stroke="#334155" stroke-width="2.5" fill="#0B132B"></rect>
+              <rect x="23" y="18" width="114" height="69" rx="4" fill="#0F172A"></rect>
+              <path d="M70 95 L65 110 L95 110 L90 95 Z" fill="#334155"></path>
+              <rect x="30" y="26" width="100" height="12" rx="2" fill="#1E293B"></rect>
+              <circle cx="36" cy="32" r="2.5" fill="#EF4444"></circle>
+              <circle cx="43" cy="32" r="2.5" fill="#F59E0B"></circle>
+              <circle cx="50" cy="32" r="2.5" fill="#10B981"></circle>
+              <path d="M60 55 L80 48 L100 55 L82 58 Z" fill="#E11D48"></path>
+              <line x1="30" y1="72" x2="130" y2="72" stroke="#334155" stroke-width="1"></line>
             </svg>
           </div>
         </div>
@@ -426,6 +408,13 @@
                 <span class="gate-badge-pill" id="gate-number-badge">Puerta B-03</span>
                 <span class="gate-badge-pill" id="gate-plane-badge">Airbus A320neo</span>
                 <span class="gate-badge-pill gate-badge-live" id="gate-live-status-badge">Abordaje Activo</span>
+                <button type="button" class="btn-sound-toggle" id="btn-sound-toggle" onclick="AeroMinimalUI.toggleSonido()" aria-label="Alternar sonido de aeropuerto" title="Alternar sonido de aeropuerto">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                  <span id="btn-sound-toggle-text">Sonido: ON</span>
+                </button>
               </div>
             </div>
           </div>
@@ -483,6 +472,18 @@
               <span class="scanner-hud-subtext" id="scanner-hud-telemetry">TELEMETRÍA: PUERTA B-03 • FRECUENCIA LÁSER 635nm • MANIFIESTO ENLAZADO</span>
               <span class="scanner-hud-subtext" id="scanner-last-scanned-pax">Último pasajero: Ninguno</span>
             </div>
+          </div>
+
+          <!-- Escáner Manual de Tiquetes / PNR (Control Operario en Rampa) -->
+          <div class="gate-manual-scanner-bar" style="display:flex;gap:10px;margin-top:14px;align-items:center;background:rgba(15,23,42,0.6);padding:10px 14px;border-radius:10px;border:1px solid #334155;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" style="flex-shrink:0;">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path>
+              <line x1="7" y1="12" x2="17" y2="12"></line>
+            </svg>
+            <input type="text" id="gate-scan-input" class="form-input-minimal" placeholder="Escanear o digitar código PNR (ej. AF7K9Q) o documento..." style="flex:1;background:#0B1329;border-color:#334155;color:#F8FAFC;font-family:monospace;font-size:0.875rem;" onkeydown="if(event.key==='Enter'){event.preventDefault();AeroMinimalUI.escanearTiqueteManual();}">
+            <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.escanearTiqueteManual()" style="background:#10B981;white-space:nowrap;padding:7px 16px;font-size:0.8125rem;">
+              <span>Escanear Tiquete</span>
+            </button>
           </div>
 
           <!-- Overlay Cinemático de Despegue y Cierre de Puerta (Fase 3) -->
@@ -615,6 +616,42 @@
             Regístrate aquí
           </button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO DESTINO (ADMIN) -->
+  <div class="modal-overlay" id="modal-nuevo-destino" role="dialog" aria-labelledby="nuevo-destino-title" style="display:none;">
+    <div class="modal-card" style="max-width:480px;">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalNuevoDestino()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="admin-header-row" style="margin-bottom:16px;">
+        <h2 class="admin-title-h2" id="nuevo-destino-title">Registrar Nuevo Destino</h2>
+      </div>
+      <form id="form-nuevo-destino" onsubmit="event.preventDefault(); AeroMinimalUI.guardarNuevoDestino();">
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-ciudad">Nombre de la Ciudad</label>
+          <input type="text" class="form-input-minimal" id="nd-ciudad" placeholder="p.ej. Bucaramanga" required>
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-iata">Código IATA (3 letras únicas)</label>
+          <input type="text" class="form-input-minimal" id="nd-iata" placeholder="p.ej. BGA" maxlength="3" required style="text-transform:uppercase;">
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-pais">País</label>
+          <input type="text" class="form-input-minimal" id="nd-pais" value="Colombia" placeholder="Colombia" required>
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-imagen">Fotografía del Destino (cualquier tamaño/resolución)</label>
+          <input type="file" class="form-input-minimal" id="nd-imagen" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn-primary-flow" style="width:100%;margin-top:14px;background:#E11D48;">
+          Guardar Destino en Base de Datos
+        </button>
       </form>
     </div>
   </div>
@@ -1053,20 +1090,32 @@
             <!-- Método 1: Tarjeta Débito / Crédito -->
             <div class="pay-content-panel active" id="pay-panel-card">
               <div class="virtual-card-wrapper">
-                <div class="virtual-card">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div class="card-emv-chip"></div>
-                    <span style="font-weight:800;font-size:0.875rem;letter-spacing:0.08em;color:#93C5FD;" id="vcard-brand-display">AERO FLOW PLATINUM</span>
-                  </div>
-                  <div class="card-number-display" id="cc-preview-number">•••• •••• •••• 8910</div>
-                  <div class="card-meta-bottom">
-                    <div>
-                      <div style="font-size:0.5625rem;color:#94A3B8;">TITULAR</div>
-                      <div style="font-weight:700;letter-spacing:0.05em;" id="cc-preview-name">CARLOS ALBERTO MENDOZA</div>
+                <div class="virtual-card" id="virtual-credit-card">
+                  <div class="virtual-card-front">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div class="card-emv-chip"></div>
+                      <span style="font-weight:800;font-size:0.875rem;letter-spacing:0.08em;color:#93C5FD;" id="vcard-brand-display">AERO FLOW PLATINUM</span>
                     </div>
-                    <div>
-                      <div style="font-size:0.5625rem;color:#94A3B8;">VENCE</div>
-                      <div style="font-weight:700;" id="cc-preview-exp">12/28</div>
+                    <div class="card-number-display tabular-nums" id="cc-preview-number">•••• •••• •••• 8910</div>
+                    <div class="card-meta-bottom">
+                      <div>
+                        <div style="font-size:0.5625rem;color:#94A3B8;">TITULAR</div>
+                        <div style="font-weight:700;letter-spacing:0.05em;" id="cc-preview-name">CARLOS ALBERTO MENDOZA</div>
+                      </div>
+                      <div>
+                        <div style="font-size:0.5625rem;color:#94A3B8;">VENCE</div>
+                        <div style="font-weight:700;" id="cc-preview-exp">12/28</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="virtual-card-back">
+                    <div class="card-magnetic-stripe"></div>
+                    <div style="padding:0 20px;">
+                      <span style="font-size:0.625rem;color:#94A3B8;text-transform:uppercase;">CVV / CVC</span>
+                      <div class="card-cvv-strip" id="cc-preview-cvv">•••</div>
+                    </div>
+                    <div style="padding:0 20px;font-size:0.5625rem;color:#64748B;">
+                      Firma autorizada • Red internacional protegida por AeroFlow Security PCI-DSS
                     </div>
                   </div>
                 </div>
@@ -1192,6 +1241,18 @@
         </button>
       </div>
 
+      <!-- Buscador de Reserva por PNR -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;background:#F8FAFC;padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" style="flex-shrink:0;">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="input-buscar-pnr" class="form-input-minimal" placeholder="Consultar reserva por código PNR (ej. AF7K9Q)..." style="flex:1;text-transform:uppercase;font-family:monospace;font-weight:700;font-size:0.875rem;" maxlength="8" onkeydown="if(event.key==='Enter'){event.preventDefault();AeroMinimalUI.buscarReservaPorPnrInput();}">
+        <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.buscarReservaPorPnrInput()" style="white-space:nowrap;background:#0F172A;padding:7px 16px;font-size:0.8125rem;">
+          <span>Consultar Reserva</span>
+        </button>
+      </div>
+
       <div id="boarding-passes-container">
         <!-- Renderizado dinamicamente -->
       </div>
@@ -1271,16 +1332,31 @@
             </select>
           </div>
 
-          <!-- Origen -->
+          <!-- Origen Desplegable Dinámico -->
           <div class="form-group-minimal">
             <label class="form-label-minimal" for="editor-flight-origen">Ciudad de Origen</label>
-            <input type="text" class="form-input-minimal" id="editor-flight-origen" placeholder="BOG - Bogota El Dorado" required>
+            <select class="form-input-minimal" id="editor-flight-origen" required onchange="AeroMinimalUI.alCambiarOrigenEditor()">
+              <!-- Poblado dinámicamente desde /api/destinos -->
+            </select>
           </div>
 
-          <!-- Destino -->
+          <!-- Destino Desplegable Dinámico con Vista Previa y Botón Nuevo -->
           <div class="form-group-minimal">
-            <label class="form-label-minimal" for="editor-flight-destino">Ciudad de Destino</label>
-            <input type="text" class="form-input-minimal" id="editor-flight-destino" placeholder="MDE - Medellin" required>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <label class="form-label-minimal" for="editor-flight-destino" style="margin:0;">Ciudad de Destino</label>
+              <button type="button" class="btn-text-action" onclick="AeroMinimalUI.abrirModalNuevoDestino()" style="font-size:0.75rem;color:#E11D48;font-weight:700;background:none;border:none;cursor:pointer;padding:0;">
+                + Nuevo Destino
+              </button>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <select class="form-input-minimal" id="editor-flight-destino" required style="flex:1;" onchange="AeroMinimalUI.alCambiarDestinoEditor()">
+                <!-- Poblado dinámicamente desde /api/destinos -->
+              </select>
+              <div id="editor-destino-thumb-container" style="width:48px;height:36px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid #CBD5E1;background:#0F172A;">
+                <img id="editor-destino-thumb-img" src="/api/destinos/MDE/imagen" alt="Thumb" style="width:100%;height:100%;object-fit:cover;">
+              </div>
+            </div>
+            <span id="editor-dest-error" style="display:none;color:#E11D48;font-size:0.75rem;margin-top:4px;">El origen y el destino no pueden ser iguales.</span>
           </div>
 
           <!-- Precio Base COP -->
@@ -1372,6 +1448,42 @@
     </div>
   </div>
 
+  <!-- MODAL NUEVO DESTINO (ADMIN) -->
+  <div class="modal-overlay" id="modal-nuevo-destino" role="dialog" aria-labelledby="nuevo-destino-title" style="display:none;">
+    <div class="modal-card" style="max-width:480px;">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalNuevoDestino()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="admin-header-row" style="margin-bottom:16px;">
+        <h2 class="admin-title-h2" id="nuevo-destino-title">Registrar Nuevo Destino</h2>
+      </div>
+      <form id="form-nuevo-destino" onsubmit="event.preventDefault(); AeroMinimalUI.guardarNuevoDestino();">
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-ciudad">Nombre de la Ciudad</label>
+          <input type="text" class="form-input-minimal" id="nd-ciudad" placeholder="p.ej. Bucaramanga" required>
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-iata">Código IATA (3 letras únicas)</label>
+          <input type="text" class="form-input-minimal" id="nd-iata" placeholder="p.ej. BGA" maxlength="3" required style="text-transform:uppercase;">
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-pais">País</label>
+          <input type="text" class="form-input-minimal" id="nd-pais" value="Colombia" placeholder="Colombia" required>
+        </div>
+        <div class="form-group-minimal">
+          <label class="form-label-minimal" for="nd-imagen">Fotografía del Destino (cualquier tamaño/resolución)</label>
+          <input type="file" class="form-input-minimal" id="nd-imagen" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn-primary-flow" style="width:100%;margin-top:14px;background:#E11D48;">
+          Guardar Destino en Base de Datos
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL CONSOLA DE ADMINISTRACION (EXCLUSIVO ADMINISTRADOR — INTACTO 100%) -->
   <div class="modal-overlay" id="modal-panel-admin" role="dialog" aria-labelledby="admin-modal-title">
     <div class="modal-card modal-card-admin">
@@ -1420,17 +1532,38 @@
       <div class="admin-tab-content" id="admin-tab-finanzas">
         <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:20px;">
           <div style="background:#F1F5F9;padding:20px;border-radius:12px;">
-            <span style="font-size:0.75rem;font-weight:600;color:#64748B;text-transform:uppercase;">Recaudo Total</span>
+            <span style="font-size:0.75rem;font-weight:600;color:#64748B;text-transform:uppercase;">Recaudo Total (SQL)</span>
             <p style="font-size:1.5rem;font-weight:700;color:#0F172A;margin-top:6px;" class="tabular-nums" id="admin-fin-recaudo">COP 18.500.000</p>
           </div>
           <div style="background:#F1F5F9;padding:20px;border-radius:12px;">
-            <span style="font-size:0.75rem;font-weight:600;color:#64748B;text-transform:uppercase;">Reservas Confirmadas</span>
+            <span style="font-size:0.75rem;font-weight:600;color:#64748B;text-transform:uppercase;">Tiquetes Emitidos</span>
             <p style="font-size:1.5rem;font-weight:700;color:#0F172A;margin-top:6px;" id="admin-fin-ordenes">26 reservas</p>
           </div>
           <div style="background:#F1F5F9;padding:20px;border-radius:12px;">
             <span style="font-size:0.75rem;font-weight:600;color:#64748B;text-transform:uppercase;">Ocupacion Promedio</span>
             <p style="font-size:1.5rem;font-weight:700;color:#0F172A;margin-top:6px;" id="admin-fin-ocupacion">92%</p>
           </div>
+        </div>
+
+        <!-- Exportación Excel Windows -->
+        <div style="margin-top:24px;padding-top:20px;border-top:1px solid #E2E8F0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <a href="/api/admin/export/ventas" class="btn-primary-flow" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;background:#059669;" download>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Descargar Reporte Ventas / Conciliación CSV (Excel UTF-8 BOM)</span>
+          </a>
+          <a href="/api/admin/export/manifiesto/AF1001" id="btn-export-manifiesto-active" class="btn-secondary-glass" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:#0F172A;border:1px solid #CBD5E1;background:#FFFFFF;" download>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Descargar Manifiesto Pasajeros CSV (Excel)</span>
+          </a>
         </div>
       </div>
     </div>

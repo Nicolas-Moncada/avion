@@ -4,15 +4,17 @@ env/
 venv/
 node_modules/
 dist/
+build/
+*.exe
+*.spec
 scratch/
 dist-swr/
 *.log
 .DS_Store
 Thumbs.db
-aerocore.db
-*.db
-*.sqlite
-*.sqlite3
+aerocore.db*
+*.db*
+*.sqlite*
 __pycache__/
 *.pyc
 *.pyo
@@ -22,17 +24,10 @@ __pycache__/
 *.old
 *.tmp
 tmp/
-scratch/
-build/
 .pytest_cache/
 .netlify/
-android/app/build/
-android/.gradle/
 localpycs/
 
 # Admin upload destination test files
 static/img/uploads/*
 !static/img/uploads/.gitkeep
-
-
-

@@ -1,472 +1,357 @@
-# Aero Flow Airlines — Enterprise Core Platform
+# Aero Flow Airlines — Enterprise Core Platform v3.0
 
-Sistema empresarial de gestión comercial, reserva de asientos y control de operaciones aeroportuarias en rampa para aerolíneas comerciales de pasajeros. Diseñado con arquitectura de alto rendimiento desacoplada, indexación algorítmica en memoria viva ($O(1)$ y $O(\log n)$), persistencia relacional atómica con soporte WAL y una interfaz Single Page Application (SPA) sin dependencias de frameworks externos.
+Sistema empresarial de gestión comercial, itinerarios de vuelo, reserva interactiva de asientos en fuselaje, checkout multicanal blindado y control de operaciones aeroportuarias en rampa para aerolíneas comerciales. Integra persistencia relacional atómica en SQLite WAL, estructuras de datos algorítmicas en memoria ($O(1)$ y $O(\log n)$), interfaz Single Page Application (SPA) minimalista de alto rendimiento (60 FPS) y distribución ejecutable nativa para Windows (`AeroFlowAirlines.exe`).
 
 ---
 
 ## 1. Título y Resumen Técnico
 
 ### Problema que resuelve
-En la aviación comercial de pasajeros, las plataformas de reserva y despacho enfrentan tres desafíos computacionales críticos:
-1. **Latencia en consultas de alta concurrencia:** La búsqueda de vuelos y la verificación de identidad de pasajeros sufren cuellos de botella cuando dependen exclusivamente de consultas a disco bajo picos de demanda.
-2. **Condiciones de carrera y sobreventa descontrolada:** La reserva concurrente de asientos y la gestión de listas de espera (*standby*) pueden generar asignaciones duplicadas o bloqueos de concurrencia en la base de datos relacional.
-3. **Flujos transaccionales inconsistentes:** La emisión de tiquetes y el procesamiento de cobros requieren validaciones estrictas por etapas (*step-gating*), garantizando que ningún usuario pase a la pasarela de pago sin un asiento reservado y validado en la cabina.
-
-### Propósito principal y funcionamiento general
-**Aero Flow Airlines** proporciona un núcleo unificado que resuelve estos problemas mediante la combinación de estructuras de datos en memoria sincronizadas bidireccionalmente con SQLite:
-* **Motor comercial de pasajeros:** Búsqueda instantánea de itinerarios, mapa interactivo de fuselaje con disposición de asientos en 3 columnas estilo LATAM, acordeones colapsables de beneficios tarifarios, compuerta estricta de 3 pasos (Asiento $\rightarrow$ Pasajero $\rightarrow$ Pasarela de Pago en COP) y emisión de pases de abordar oficiales con código de barras y QR.
-* **Consola de operaciones y despacho en rampa:** Gestión de estados de vuelo (`Check-in abierto`, `Embarcando`, `Última llamada`, `DESPEGADO`, `CANCELADO`), control de sobreventa mediante cola FIFO de *standby* con ascensos automáticos ante cancelaciones, abordaje individual manual (pasajero por pasajero) y secuencial con escáner láser animado y retroalimentación auditiva sintetizada mediante Web Audio API.
-* **Módulo de administración de flota y contenido:** Creador y editor de vuelos con un procesador universal de imágenes (Pillow) que adapta y normaliza automáticamente cualquier fotografía de destino a una proporción 16:10 sin distorsión visual.
-* **Distribución móvil:** Paquete nativo Android compilado (APK de 1.04 MB) con enlace directo de descarga desde la interfaz.
+En la industria aeronáutica comercial, las plataformas de distribución y despacho operativo enfrentan retos computacionales de misión crítica:
+1. **Condiciones de carrera en asignación de asientos:** Riesgos de sobreventa (*overbooking*) o doble asignación bajo concurrencia. Aero Flow implementa bloqueos pesimistas temporizados (12 minutos) y transacciones atómicas con validación de unicidad `(vuelo_codigo, asiento)`.
+2. **Latencia en consultas y colas en sala de embarque:** Cuellos de botella durante el abordaje de pasajeros en puerta. Se resuelve combinando un árbol AVL y HashMaps indexados con persistencia continua en SQLite WAL.
+3. **Control estricto anti-duplicados en rampa:** El escaneo de tiquetes en puerta detecta inmediatamente dobles lecturas o intentos de reembarque, bloqueando la transacción con código de estado HTTP `409 Conflict` y alertando al operador en tiempo real.
+4. **Coherencia operativa de flota y destinos:** Sincronización en tiempo real entre el catálogo de destinos con fotografías HD almacenadas como BLOBs en base de datos, el formulario administrativo de creación/edición de vuelos con desplegables dinámicos validados (`origen != destino`) y la asignación automática de aeronaves.
+5. **Experiencia nativa de escritorio en PC:** Empaquetado completo en un archivo binario `.exe` autocontenido para Windows, eliminando dependencias de instalación de runtime en terminales de operaciones.
 
 ---
 
 ## 2. Stack Tecnológico
 
-El proyecto está construido con herramientas seleccionadas para garantizar máxima velocidad, portabilidad y mínima sobrecarga de dependencias:
-
-| Capa / Componente | Tecnología | Versión Detectada | Propósito en el Sistema |
+| Capa | Componente / Herramienta | Versión Detectada | Propósito Arquitectónico |
 | :--- | :--- | :--- | :--- |
-| **Lenguaje Backend** | Python | `3.11.9` (Compatible con $\ge$ 3.10) | Lógica de negocio, controladores REST y algoritmos. |
-| **Framework Web** | Flask | `3.1.3` | Servidor WSGI ligero para la API REST y entrega de la SPA. |
-| **Seguridad y Hashing** | Werkzeug | `3.1.9` | Criptografía para contraseñas de usuarios mediante PBKDF2 / SHA-256 con salt dinámico. |
-| **Procesamiento de Imágenes** | Pillow (PIL) | `12.3.0` | Normalizador y escalador universal de imágenes de destinos a relación 16:10 (`ImageOps.fit`). |
-| **Motor de Base de Datos** | SQLite | `3.45.1` (Modo WAL) | Persistencia relacional atómica con `PRAGMA journal_mode=WAL;` y timeout de 30 segundos. |
-| **Testing Backend** | Pytest / Unittest | `9.1.1` | Batería de pruebas automatizadas unitarias, de integración REST y de seguridad RBAC. |
-| **Frontend Runtime** | Vanilla JavaScript | ES6+ Moderno | Controlador reactivo de la SPA (`app.js`, `core.js`, `minimal-ui.js`, `auth.js`) sin frameworks externos. |
-| **Sistema de Diseño** | CSS3 Nativo | Estándar W3C | Variables CSS (Custom Properties), Flexbox, CSS Grid y animaciones aceleradas por GPU (`minimal-ui.css`, `design-tokens.css`). |
-| **Sintetizador de Audio** | Web Audio API | Estándar W3C | Generación procedural de dobles timbres armónicos de aeropuerto (C6–G6), tonos de escáner y fanfarria. |
-| **Testing E2E / UI** | Playwright | `^1.65.0` | Automatización de pruebas de navegación, flujos de registro, selección de asientos y pasarela. |
-| **Empaquetado Móvil** | Capacitor / Android | `6.0` (Android SDK) | Contenedor nativo Android generando el archivo instalable `AeroFlowAirlines.apk`. |
+| **Backend & REST API** | Python / Flask | Python 3.11+ / Flask 3.1.0 | Microframework WSGI, enrutamiento REST, middleware de roles e inyección de encabezados. |
+| **Servidor Concurrente** | Werkzeug WSGI Server | 3.1.3 | Manejo de peticiones HTTP/1.1 con Keep-Alive y control de concurrencia. |
+| **Persistencia Relacional** | SQLite 3 (WAL Mode) | 3.45+ | Motor embebido con Write-Ahead Logging, locking transaccional y claves foráneas activas. |
+| **Preprocesamiento Multimedia** | Pillow (PIL) | 11.1.0 | Recorte inteligente Lanczos centrado a relación de aspecto 16:10 (1280x800) y compresión JPEG BLOB. |
+| **Empaquetado de Escritorio** | PyInstaller | 6.12.0 | Compilador de binario nativo Windows (`dist/AeroFlowAirlines.exe`, 33.51 MB). |
+| **Frontend Web / UI** | HTML5 Semántico + CSS3 + Vanilla JS | ES2022+ Modern | SPA reactiva modular sin frameworks pesados, animaciones GPU 60 FPS y render interactivo. |
+| **Audio Sintetizado** | Web Audio API | W3C Standard | Generación por síntesis de osciladores para campanadas de aeropuerto (chimes F5/C5) y escáner láser (1850 Hz). |
+| **Testing & Calidad** | Pytest / Playwright | Pytest 9.1.1 / Playwright 1.50+ | Suites de pruebas unitarias, integración transaccional y capturas de regresión visual E2E. |
 
 ---
 
 ## 3. Arquitectura y Estructura del Proyecto
 
-El sistema implementa una arquitectura desacoplada donde el servidor Flask actúa como coordinador entre la memoria viva, la base de datos relacional y el cliente web estático:
-
-```
-c:\visual estudio code\avion\
-├── app.py                         # Punto de entrada del servidor Flask, enrutador REST, mutex y procesador 16:10
-├── config.py                      # Configuración de variables de entorno (Host, Puerto, Rutas, Debug)
-├── database.py                    # Capa de persistencia SQLite (WAL, esquema, índices únicos, inicialización y CLI)
-├── fleet_catalog.py               # Catálogo de modelos de aeronaves, planos de cabina y fórmulas de tarifas COP
-├── validation.py                  # Validadores declarativos de entrada con expresiones regulares sanitizadas
-├── airport_config.py              # Catálogo de aeropuertos de operación (BOG, MDE, MIA, MAD, etc.)
-├── desktop_launcher.py            # Lanzador para entornos de escritorio / empaquetado PyInstaller
-├── requirements.txt               # Especificación de dependencias de producción y pruebas en Python
-├── package.json                   # Dependencias de desarrollo para Node.js y suites de Playwright
-├── aerocore.db                    # Base de datos relacional SQLite (auto-generada con semilla de fábrica)
+```text
+avion/
+├── app.py                       # Controlador REST principal, endpoints administrativos y despacho estático
+├── database.py                  # Capa de persistencia SQLite WAL, migraciones automáticas y consultas SQL
+├── desktop_launcher.py          # Lanzador nativo de escritorio para PC Windows (inicia servidor y abre navegador)
+├── build_windows.py             # Script de automatización de compilación PyInstaller para generar AeroFlowAirlines.exe
+├── AeroFlowAirlines.spec        # Especificación PyInstaller con recursos estáticos y dependencias embebidas
+├── airport_config.py            # Matriz técnica de aeronaves, capacidades y distancias de rutas
+├── test_structures.py           # Pruebas unitarias de algoritmos en memoria (AVL, FIFO, HashMaps)
+├── aerocore.db                  # Base de datos relacional SQLite activa
 │
-├── data_structures/               # Implementaciones algorítmicas nativas en memoria viva
-│   ├── __init__.py                # Inicializador del paquete de estructuras de datos
-│   ├── hash_map.py                # Tabla Hash O(1) con resolución de colisiones por encadenamiento
-│   ├── avl_tree.py                # Árbol AVL O(log n) auto-balanceado para indexación de pasajeros por ID
-│   ├── linked_list.py             # Lista Enlazada Doble para modelado dinámico del manifiesto de cabina
-│   └── fifo_queue.py              # Cola FIFO estricta para sobreventa (Standby) y flujo de puerta (Boarding)
+├── dist/                        # Directorio de distribución de ejecutables de producción
+│   └── AeroFlowAirlines.exe     # Binario nativo autocontenido para Windows PC (33.51 MB)
 │
-├── payments/                      # Adaptador modular de procesamiento de pagos
-│   └── adapter.py                 # Procesador multi-método (Tarjeta de Crédito/Débito, PSE y Nequi)
+├── static/                      # Recursos estáticos servidos por el backend
+│   ├── css/
+│   │   ├── minimal-ui.css       # Sistema de diseño minimalista, 3D flip card, HUD láser y diseño responsive
+│   │   ├── design-tokens.css    # Variables globales CSS (colores HSL, tipografías, sombras y transiciones)
+│   │   └── tactical.css         # Utilidades de micro-interacciones táctiles y elevación
+│   ├── js/
+│   │   ├── minimal-ui.js        # Motor interactivo de UI (AeroMinimalUI): fuselaje, checkout 3D, consola rampa
+│   │   ├── auth.js              # Controlador de autenticación de clientes y sincronización de roles
+│   │   └── config.js            # Configuración de entornos y variables globales
+│   └── img/                     # Logotipos vectoriales SVG y fotografías de destinos
 │
-├── templates/                     # Vistas HTML
-│   └── index.html                 # Plantilla unificada Single Page Application (SPA) con semántica accesible
+├── templates/
+│   └── index.html               # Plantilla SPA principal (Vistas: Explorar, Viajes, Abordar y Modales)
 │
-├── static/                        # Activos web estáticos servidos directamente por el backend
-│   ├── apk/                       # Almacenamiento de binarios para distribución móvil
-│   │   └── AeroFlowAirlines.apk   # Paquete APK oficial para Android (1.04 MB)
-│   ├── css/                       # Hojas de estilo modulares
-│   │   ├── design-tokens.css      # Variables de diseño (paleta de colores, tipografía, radios y sombras)
-│   │   ├── minimal-ui.css         # Hoja principal del sistema de diseño (layout, asientos LATAM, modales)
-│   │   ├── login.css              # Estilos del sistema de autenticación y modales de inicio de sesión
-│   │   └── tactical.css           # Estilos complementarios para consola de operaciones y telemetría FIDS
-│   ├── js/                        # Controladores de lógica del lado del cliente
-│   │   ├── core.js                # Núcleo de utilidades (escape XSS, fetch con timeout, helpers DOM)
-│   │   ├── auth.js                # Controlador de sesión, almacenamiento de token y roles (admin/pasajero)
-│   │   ├── app.js                 # Controlador principal: catálogo, pasarela de pago, rampa y Web Audio
-│   │   ├── minimal-ui.js          # Micro-interacciones de interfaz, navegación por pestañas y toasts
-│   │   └── config.js              # Parámetros de conexión frontend hacia endpoints de API
-│   └── img/                       # Recursos gráficos e imágenes subidas
-│       ├── favicon.svg            # Isotipo corporativo vectorial
-│       ├── oferta-*.jpg           # Fotografías maestras de destinos en alta definición
-│       └── uploads/               # Directorio de fotos procesadas automáticamente a 16:10 por el admin
+├── docs/                        # Documentación técnica y evidencia gráfica
+│   └── screenshots/             # Capturas de pantalla oficiales de alta resolución
+│       ├── 01_home_hero_windows.png
+│       ├── 02_admin_destination_dropdown.png
+│       ├── 03_seat_selection_fuselage.png
+│       ├── 04_checkout_3d_card.png
+│       ├── 05_boarding_console_sound.png
+│       └── 06_boarding_pass_qr.png
 │
-├── docs/                          # Documentación técnica y evidencias de pruebas
-│   └── images/                    # Capturas de pantalla de la interfaz operativa del sistema
-│       ├── 01_catalogo_y_buscador.png
-│       ├── 02_autenticacion_usuarios.png
-│       ├── 03_seleccion_asientos_latam.png
-│       ├── 04_flujo_estricto_step_gating.png
-│       ├── 05_pasarela_pago_multicanal.png
-│       └── 06_panel_administracion_vuelos.png
+├── scripts/                     # Scripts de soporte y generación de datos
+│   ├── poblar_destinos_fotos.py # Seeder de paisajes HD 16:10 en SQLite (tabla destino_imagenes)
+│   ├── take_screenshots.js     # Script automatizado con Playwright para capturar vistas del sistema
+│   └── generate_icons.js        # Generador de favicon e iconos PWA
 │
-├── android/                       # Proyecto nativo Android generado con Capacitor
-│   └── app/src/main/              # Manifest, recursos y WebView nativo
-│
-└── tests/                         # Baterías de pruebas automatizadas
-    ├── test_api.py                # 21 pruebas de integración REST con base de datos aislada
-    ├── test_payments.py           # Pruebas del adaptador de pagos (aprobación, rechazo, idempotencia)
-    ├── test_universal_image_scaler.py # Pruebas del escalador de imágenes 16:10 (resoluciones, formatos)
-    ├── test_role_security.py      # Verificación de seguridad RBAC para rutas de administración
-    ├── test_registration_flow.js  # Prueba E2E de registro y login de usuarios con Playwright
-    └── verify_urgent_corrections.js # Prueba E2E de compuerta de pago y selector LATAM
+└── tests/                       # Suite automatizada de pruebas con Pytest
+    ├── test_api.py              # Pruebas integrales de endpoints REST y seguridad
+    ├── test_payments.py         # Pruebas de simulación de pagos, idempotencia y reembolsos
+    ├── test_regression.py       # Pruebas de regresión lógica y consistencia de asientos
+    ├── test_role_security.py    # Pruebas de autorización RBAC (admin vs. pasajero)
+    ├── test_universal_image_scaler.py # Verificación de reescalado Lanczos 16:10
+    └── test_v3_features.py      # Verificación de Windows .exe, PNR, check-in, escáner 409 y BOM Excel
 ```
 
 ---
 
-## 4. Funcionamiento Interno y Módulos
+## 4. Funcionamiento Interno y Módulos del Sistema
 
-### 4.1 Autenticación y Control de Acceso Basado en Roles (RBAC)
-
-El sistema implementa un modelo de seguridad por roles que distingue entre usuarios estándar y administradores:
-* **Mecanismo de contraseñas:** El almacenamiento de credenciales en la tabla `usuarios` utiliza la función `generate_password_hash` de Werkzeug, generando resguardos basados en PBKDF2 con SHA-256 y salt criptográfico único por registro.
-* **Roles del sistema:**
-  * `pasajero`: Rol por defecto asignado a nuevos registros. Permite consultar itinerarios, interactuar con el mapa de asientos, registrarse como viajero, realizar pagos en COP y consultar su pase de abordar.
-  * `admin`: Rol con privilegios elevados. Habilita los botones de edición de vuelos, el botón de creación de nuevas rutas, el panel de auditoría de rampa, la cancelación manual de vuelos, la subida de fotografías procesadas y la eliminación de registros del directorio de pasajeros.
-* **Controladores REST:**
-  * `POST /api/auth/register`: Valida formato de correo y contraseña, verifica unicidad y persiste el usuario.
-  * `POST /api/auth/login`: Comprueba el hash criptográfico y establece la sesión.
-  * `GET /api/auth/me`: Retorna los datos del usuario autenticado y su rol actual.
-  * `POST /api/auth/logout`: Invalida la sesión activa.
-
----
-
-### 4.2 Estructuras de Datos Algorítmicas en Memoria
-
-Para garantizar un rendimiento sub-milisegundo en las operaciones críticas, la plataforma mantiene cuatro estructuras de datos residentes en memoria viva (`data_structures/`), sincronizadas de manera bidireccional y atómica con la base de datos relacional:
-
-```mermaid
-flowchart LR
-    subgraph MemoriaViva["Estructuras de Datos en Memoria Viva"]
-        TH["TablaHashVuelos\nO(1) Búsqueda/Inserción\nEncadenamiento"]
-        AVL["ArbolAVLPasajeros\nO(log n) Búsqueda/Balanceo\nRotaciones LL, RR, LR, RL"]
-        LL["ListaEnlazadaManifiesto\nO(1) Inserción de Cabina\nNodos Doblemente Enlazados"]
-        FIFO["ColaFIFO\nO(1) Encolar/Desencolar\nStandby & Abordaje Secuencial"]
-    end
-
-    subgraph Modulos["Módulos de Negocio"]
-        Buscador["Buscador y FIDS"] --> TH
-        Directorio["Directorio y Millas"] --> AVL
-        Cabina["Mapa de Asientos"] --> LL
-        Rampa["Operaciones en Puerta"] --> FIFO
-    end
-```
-
-#### 1. `TablaHashVuelos` (`data_structures/hash_map.py`)
-* **Propósito:** Almacena la totalidad de vuelos programados para indexación instantánea por código de vuelo (ej. `AF1001`).
-* **Complejidad temporal:** Búsqueda, inserción y actualización en tiempo constante amortizado **$O(1)$**.
-* **Resolución de colisiones:** Encadenamiento (*chaining*) mediante nodos enlazados en cada cubeta (*bucket*). Dispone de cálculo dinámico del factor de carga ($\alpha = n / m$) y telemetría de microsegundos transcurridos por consulta.
-
-#### 2. `ArbolAVLPasajeros` (`data_structures/avl_tree.py`)
-* **Propósito:** Indexa el directorio de viajeros por su documento de identidad numérico.
-* **Complejidad temporal:** Búsqueda, inserción y eliminación estrictamente garantizadas en **$O(\log n)$**.
-* **Auto-balanceo:** Evalúa el factor de balanceo ($BF = \text{altura}(\text{izq}) - \text{altura}(\text{der})$) en cada mutación. Aplica rotaciones simples (Izquierda-Izquierda, Derecha-Derecha) o dobles (Izquierda-Derecha, Derecha-Izquierda) cuando $|BF| > 1$, manteniendo el árbol en equilibrio estricto.
-
-#### 3. `ListaEnlazadaManifiesto` (`data_structures/linked_list.py`)
-* **Propósito:** Modela el manifiesto de pasajeros confirmados a bordo de una aeronave en un vuelo particular.
-* **Comportamiento:** Permite inserciones al final en $O(1)$, iteración secuencial para auditoría de cabina y remoción de nodos sin requerir reorganización de memoria contigua.
-
-#### 4. `ColaFIFO` (`data_structures/fifo_queue.py`)
-* **Propósito:** Administra colas estrictas de Primero en Entrar, Primero en Salir para dos casos operacionales:
-  * **Cola de Standby (Sobreventa):** Cuando un vuelo alcanza el 100% de ocupación de su fuselaje, los intentos adicionales de compra no fallan sino que se encolan en espera. Si un pasajero confirmado cancela su asiento, el sistema extrae automáticamente la cabeza de la cola FIFO y promueve al viajero al asiento liberado.
-  * **Cola de Abordaje:** Ordena a los pasajeros para el proceso de embarque en puerta, ordenando primero a los viajeros VIP y luego procesando a los estándar en su orden de llegada.
-
----
-
-### 4.3 Flujo Estricto de Reserva y Compuerta de 3 Pasos (*Step Gating*)
-
-Para evitar registros huérfanos o intentos de pago sin asiento confirmado, la interfaz de compra implementa una máquina de estados estricta en 3 etapas:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Paso1_SeleccionAsiento: Clic en 'Seleccionar vuelo'
-    Paso1_SeleccionAsiento --> Paso1_AsientoElegido: Clic en silla libre (ej. 26D)
-    Paso1_AsientoElegido --> Paso2_DatosPasajero: Clic en 'Agregar y continuar'
-    Paso2_DatosPasajero --> Paso3_PasarelaPago: Datos validados con éxito
-    Paso3_PasarelaPago --> TiqueteEmitido: Pago aprobado en COP
-    TiqueteEmitido --> [*]
-
-    note right of Paso1_SeleccionAsiento
-        Paso 2 y Paso 3 se encuentran
-        COMPLETAMENTE BLOQUEADOS (disabled,
-        gris opaco y sin eventos de clic)
-    end note
-```
-
-1. **Paso 1 — Selección de Asientos:** El usuario visualiza el fuselaje interactivo de la aeronave dividido en filas y columnas (`A-B-C / D-E-F` o `A-B / C-D`), con un panel lateral izquierdo que presenta los beneficios de clase organizados en 4 acordeones colapsables compactos. Hasta que el usuario no selecciona físicamente un asiento disponible y pulsa el botón *"Agregar y continuar"*, el Paso 2 y el Paso 3 permanecen inhabilitados.
-2. **Paso 2 — Datos del Pasajero:** Se captura el documento de identidad, nombre completo y categoría del viajero. El sistema verifica que el documento no posea un tiquete activo en conflicto en otro vuelo simultáneo.
-3. **Paso 3 — Pasarela de Pago Multicanal:** Se habilita la liquidación de la tarifa en Pesos Colombianos (`$ COP`) calculada con desglose fiscal (tarifa base, tasa administrativa, tasa aeroportuaria e IVA 19%).
-
----
-
-### 4.4 Procesador y Escalador Universal de Imágenes 16:10
-
-El módulo de administración (`app.py`) integra una rutina de procesamiento fotográfico basada en Pillow (`procesar_y_redimensionar_imagen_16_10`):
-* **Compatibilidad de entrada:** Acepta cualquier formato estándar (JPEG, PNG, WebP, TIFF) y cualquier resolución original (incluyendo imágenes pesadas de cámaras digitales de más de 4000 px).
-* **Conversión de espacio de color:** Normaliza la imagen a modo `RGB`, eliminando canales alfa o paletas indexadas que provoquen errores al renderizar en contenedores web.
-* **Ajuste geométrico exacto:** Emplea `ImageOps.fit` con muestreo de alta calidad (`LANCZOS`) para recortar y ajustar la imagen a una proporción fija de **16:10** (resolución objetivo: $1280 \times 800$ píxeles).
-* **Compresión optimizada:** Guarda el archivo resultante en `static/img/uploads/` en formato JPEG con compresión calibrada a calidad 85, garantizando que el peso de descarga no supere los 300 KB.
-
----
-
-### 4.5 Esquema Relacional de la Base de Datos (`aerocore.db`)
-
-La base de datos SQLite opera bajo el modo **WAL (Write-Ahead Logging)**, permitiendo múltiples lecturas concurrentes simultáneas mientras las transacciones de escritura se ejecutan de forma atómica:
-
-```sql
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-PRAGMA busy_timeout = 30000;
-PRAGMA foreign_keys = ON;
-```
+### 4.1. Motor de Persistencia y Esquema Relacional (`database.py`)
+El sistema opera sobre SQLite 3 configurado con `PRAGMA journal_mode=WAL;` y `PRAGMA synchronous=NORMAL;`, lo que permite lecturas concurrentes sin bloqueo mientras se ejecutan escrituras transaccionales.
 
 ```mermaid
 erDiagram
-    USUARIOS {
-        int id PK
-        text email UK
-        text password_hash
-        text nombre
-        text rol
-        text fecha_creacion
+    DESTINO_IMAGENES {
+        string codigo_iata PK
+        string ciudad
+        string pais
+        blob imagen_blob
+        string mime_type
+        string updated_at
     }
-
     VUELOS {
-        text codigo PK
-        text origen
-        text destino
-        text tipo_aeronave
-        text fecha_salida
-        text hora_salida
-        text hora_llegada
-        text puerta
-        text estado
+        string codigo PK
+        string origen
+        string destino
+        string tipo_aeronave
+        string duracion_estimada
+        int distancia_km
+        string fecha_salida
+        string hora_salida_12h
+        string hora_llegada_12h
+        string puerta
         int capacidad_maxima
-        text imagen_url
-        int tarifa_base_cop
+        string estado
+        string imagen_url
+        int precio_base_cop
+        string categoria
+        string tag_destacado
     }
-
-    PASAJEROS {
-        text documento PK
-        text nombre
-        text nacionalidad
-        text categoria_viajero
-        text vuelo_asignado FK
-    }
-
     MANIFIESTO {
         int id PK
-        text vuelo_codigo FK
-        text pasajero_doc FK
-        text asiento
-        text clase_cabina
-        int tarifa_cop
-        text checkin_time
+        string vuelo_codigo FK
+        string pasajero_doc FK
+        string pasajero_nombre
+        string asiento
+        string hora_checkin_12h
+        string categoria
+        string clase_cabina
+        real tarifa_pagada_cop
+        string estado_embarque
+        string estado_tiquete
+        string codigo_pnr
+        string grupo_abordaje
+        string motivo_cancelacion
     }
-
-    COLA_STANDBY {
-        int id PK
-        text vuelo_codigo FK
-        text pasajero_doc FK
-        text fecha_ingreso
-    }
-
     ORDENES {
-        text order_id PK
-        text vuelo_codigo FK
-        text pasajero_doc FK
-        text asiento
-        int subtotal_cop
-        int impuestos_cop
+        string id PK
+        string pnr UK
+        string vuelo_codigo FK
+        string asiento_id
+        string documento_pasajero
+        string nombre_pasajero
         int total_cop
-        text estado
-        text fecha_creacion
+        string estado
+        int bloqueado_hasta
     }
-
     PAGOS {
-        text payment_id PK
-        text order_id FK
-        text metodo_pago
-        text referencia_bancaria
-        text estado
-        text auth_code
-        text fecha_pago
+        string id PK
+        string orden_id FK
+        int monto_cop
+        string estado
+        string proveedor
+        string idempotency_key UK
+        string marca
+        string ultimos_4
+    }
+    REEMBOLSOS {
+        string id PK
+        string pago_id FK
+        string orden_id FK
+        int monto_cop
+        string motivo
+        string autorizado_por
+    }
+    USUARIOS {
+        string id PK
+        string nombre
+        string email UK
+        string password_hash
+        string rol
     }
 
-    PASAJEROS_RECIENTES_PAGOS {
-        int id PK
-        text documento
-        text nombre
-        text vuelo_codigo
-        text asiento
-        int total_cop
-        text metodo_pago
-        text referencia
-        text estado_embarque
-        text fecha
-    }
-
-    VUELOS ||--o{ MANIFIESTO : "contiene"
-    PASAJEROS ||--o{ MANIFIESTO : "asiste_en"
-    VUELOS ||--o{ COLA_STANDBY : "encola_en"
-    PASAJEROS ||--o{ COLA_STANDBY : "espera_en"
-    VUELOS ||--o{ ORDENES : "factura"
-    ORDENES ||--o| PAGOS : "liquida"
+    VUELOS ||--o{ MANIFIESTO : "registra"
+    VUELOS ||--o{ ORDENES : "recibe"
+    ORDENES ||--o{ PAGOS : "procesa"
+    PAGOS ||--o{ REEMBOLSOS : "emite"
 ```
 
-#### Descripción de Tablas Principales:
-1. **`usuarios`**: Directorio de cuentas del sistema. Almacena correo único, hash criptográfico de contraseña, nombre y rol (`admin` o `pasajero`).
-2. **`vuelos`**: Catálogo de itinerarios operativos con origen, destino, aeronave, horarios en formato 12 horas, puerta de embarque, capacidad física, estado y tarifa en COP.
-3. **`pasajeros`**: Directorio de viajeros registrados, clasificados por categoría (`VIP` o `Estándar`) y su vuelo asignado activo.
-4. **`manifiesto`**: Relación atómica de ocupación física de cabina. Posee índices únicos compuestos para garantizar que ni un pasajero tenga dos asientos ni un asiento tenga dos pasajeros en el mismo vuelo:
-   * `idx_manifiesto_vuelo_pasajero` en `(vuelo_codigo, pasajero_doc)`.
-   * `idx_manifiesto_asiento` en `(vuelo_codigo, asiento)`.
-5. **`cola_standby`**: Almacenamiento persistente de viajeros en espera cuando la cabina está al 100%. Mantiene el orden de prelación para ascensos automáticos.
-6. **`ordenes`**: Encabezados de órdenes comerciales con desglose de subtotal, tasas aeroportuarias, IVA y total liquidado.
-7. **`pagos`**: Transacciones financieras aprobadas o declinadas vinculadas a una orden, con método de pago (`tarjeta`, `pse`, `nequi`), referencia bancaria y código de autorización.
-8. **`pasajeros_recientes_pagos`**: Bitácora operativa y financiera utilizada por el monitor de rampa para auditar el estado de embarque de cada pasajero (`Confirmado`, `EMBARCADO`, `CANCELADO`).
-9. **`pago_eventos`, `reembolsos`, `recibos`, `lista_espera`**: Tablas de auditoría auxiliar para trazabilidad de cobros, notas de crédito y vouchers fiscales.
+### 4.2. Desplegable Dinámico de Destinos en el Panel de Administración
+- **Alimentación reactiva:** Los campos de selección de origen (`#editor-flight-origen`) y destino (`#editor-flight-destino`) se pueblan automáticamente desde `GET /api/destinos` en formato `Ciudad (IATA)` (ej. `Bogotá (BOG)`, `Cartagena (CTG)`).
+- **Validación lógica:** Se impide la creación o edición de vuelos donde `origen == destino` tanto en el cliente como en el servidor (`HTTP 400 Bad Request`).
+- **Enlace automático de fotografía:** Al seleccionar cualquier destino, se enlaza automáticamente su fotografía HD almacenada en la base de datos (`/api/destinos/<IATA>/imagen`), actualizando instantáneamente la miniatura de previsualización sin intervención manual.
+- **Creación de destinos en caliente:** Mediante el modal **"+ Nuevo Destino"**, el administrador puede ingresar una nueva ciudad, su código IATA de 3 letras único y subir una imagen de cualquier resolución; el servidor la procesa con Pillow a 16:10 (1280x800) y la almacena en SQLite como BLOB.
+
+### 4.3. Buscador Inteligente sin Callejones sin Salida
+- **Ida y vuelta & Múltiples pasajeros:** Validación estricta `fecha_regreso >= fecha_salida`. Exige selección de $N$ asientos contiguos para $N$ pasajeros bajo un mismo PNR.
+- **Fechas relativas vigentes:** Los itinerarios y ofertas se calculan de forma relativa a la fecha actual (`hoy + 2` a `hoy + 60` días), evitando fechas vencidas.
+- **Fallback inteligente:** Si una ruta específica no cuenta con itinerario en la fecha exacta solicitada, el buscador lista las fechas más próximas disponibles para esa misma ruta.
+
+### 4.4. Pasarela de Pagos con Tarjeta 3D Interactiva
+- **Renderizado 3D con giro de 180°:** Diseñada con CSS `perspective: 1000px` y `transform-style: preserve-3d`. Al hacer foco (`focus`) en el campo CVV, la tarjeta gira $180^\circ$ sobre el eje Y mostrando la banda magnética y la firma de seguridad; al desenfocar (`blur`), regresa al frente.
+- **Detección de franquicia en tiempo real:**
+  - `^4` $\rightarrow$ Visa Signature
+  - `^5[1-5]|2[2-7]` $\rightarrow$ Mastercard Black
+  - `^3[47]` $\rightarrow$ American Express Platinum
+- **Validación por Algoritmo de Luhn:** Verificación matemática estricta del dígito de control del número de tarjeta antes de emitir la orden.
+
+### 4.5. Consola de Abordaje en Rampa y Audio Sintetizado
+- **Detección de doble abordaje (Anti-Duplicados):** El endpoint `POST /api/embarque/escanear` valida el tiquete en la base de datos; si el pasajero ya se encuentra marcado como abordado, rechaza inmediatamente con `HTTP 409 Conflict` y activa una señal sonora de error (`160 Hz sawtooth`).
+- **Web Audio API:** Generación procedural de sonido sin archivos de audio externos:
+  - Campanada de bienvenida / abordaje exitoso: acorde diatónico F5 (698 Hz) seguido de C5 (523 Hz) con envolvente exponencial.
+  - Confirmación de escáner láser: pulso senoidal a 1850 Hz (80 ms).
+  - Fanfarria de despegue: arpegio ascendente pentatónico.
+- **Interruptor de Sonido:** Botón toggle `Sonido: ON / OFF` en la consola de puerta con persistencia en `localStorage`.
+
+### 4.6. Consulta PNR, Web Check-in y Pases de Abordar Digitales
+- **Búsqueda PNR:** Campo de búsqueda rápida que consulta `/api/reservas/pnr/<PNR>` y renderiza el billete de forma inmediata.
+- **Web Check-in Automatizado:** Asigna dinámicamente el grupo de abordaje según la ubicación del asiento:
+  - `Grupo 1 VIP`: Cabina delantera y asientos clase VIP (Filas 1 y 2).
+  - `Grupo 2 Ventana`: Asientos de ventanilla (letras A y F).
+  - `Grupo 3 Pasillo`: Asientos centrales o de pasillo (letras B, C, D, E).
+- **Billete Oficial de Doble Talón:** Incorpora código QR 2D encriptado BCBP, código de barras lineal e impresión limpia en PDF.
+- **Cancelación Atómica:** Libera el asiento en SQLite y emite el reembolso correspondiente.
+
+### 4.7. Seguridad de Roles (RBAC) y Exportaciones Windows Excel
+- **Roles:**
+  - `admin` (`admin@aeroflow.com` / `admin123`): Acceso a creación/edición/eliminación de vuelos, exportaciones CSV, panel de rampa y gestión de flota.
+  - `pasajero` (`pasajero@aeroflow.com` / `pasajero123`): Consulta de itinerarios, selección de sillas, pasarela de pagos, web check-in y consulta de pases de abordar.
+- **Exportación Excel CSV (BOM UTF-8):** Los reportes descargables (`/api/admin/export/ventas` y `/api/admin/export/manifiesto/<codigo>`) anteponen el Byte Order Mark `\ufeff` para que Microsoft Excel en Windows abra los caracteres especiales y acentos en español con codificación correcta.
 
 ---
 
-## 5. Capturas de Pantalla (Evidencia Visual)
+## 5. Capturas de Pantalla (Evidencia Visual del Sistema)
 
-Las siguientes capturas documentan el funcionamiento real de la interfaz y sus módulos:
+### 5.1. Vista Principal, Buscador Inteligente y Catálogo de Destinos
+Vista de inicio que destaca el botón de descarga del ejecutable para Windows (`.exe`), el buscador con fechas dinámicas relativas y las ofertas con fotografías HD cargadas desde la tabla `destino_imagenes`.
 
-### 5.1 Catálogo Principal y Buscador de Vuelos
-![Catálogo y Buscador](docs/images/01_catalogo_y_buscador.png)
-*Vista del buscador de vuelos con visualización de itinerarios en formato 12 horas, selector de origen y destino, banner oficial de descarga de la aplicación móvil Android (APK) y tarjetas de destinos operados.*
-
----
-
-### 5.2 Sistema de Autenticación y Control de Acceso
-![Autenticación de Usuarios](docs/images/02_autenticacion_usuarios.png)
-*Modal de inicio de sesión con soporte para roles diferenciados (`admin` y `pasajero`). Los administradores acceden a herramientas de edición de flota y subida de fotografías, mientras que los pasajeros acceden a su historial de reservas.*
+![Vista Principal y Descarga Windows](docs/screenshots/01_home_hero_windows.png)
 
 ---
 
-### 5.3 Selección de Asientos en Cabina (Estilo LATAM)
-![Selección de Asientos LATAM](docs/images/03_seleccion_asientos_latam.png)
-*Plano cenital interactivo del fuselaje del avión en 3 columnas de asientos con indicador de estado (disponible, seleccionado, ocupado) y columna lateral con 4 acordeones colapsables compactos de beneficios tarifarios.*
+### 5.2. Editor Administrativo con Desplegables Dinámicos de Destino
+Panel de creación y edición de vuelos en el Administrador, demostrando los menús desplegables alimentados en tiempo real desde la base de datos, la vista previa de la fotografía HD del destino seleccionado y el botón "+ Nuevo Destino".
+
+![Editor de Vuelos con Desplegable Dinámico](docs/screenshots/02_admin_destination_dropdown.png)
 
 ---
 
-### 5.4 Flujo Transaccional Estricto (*Step Gating*)
-![Flujo Estricto de Reserva](docs/images/04_flujo_estricto_step_gating.png)
-*Demostración de la compuerta de seguridad: los Pasos 2 ("Datos del Pasajero") y 3 ("Pasarela de Pago") se encuentran totalmente inactivos y bloqueados en color gris opaco hasta que el usuario confirma la elección de su silla.*
+### 5.3. Selector de Asientos en Fuselaje Real (Tipo LATAM)
+Mapa interactivo de cabina con distribución física de asientos, pasillos, salidas de emergencia sobre las alas, suites VIP delanteras y temporizador de retención pesimista de 12 minutos.
+
+![Mapa de Cabina Interactivo](docs/screenshots/03_seat_selection_fuselage.png)
 
 ---
 
-### 5.5 Pasarela de Pago Multicanal en Pesos Colombianos ($ COP)
-![Pasarela de Pago Multicanal](docs/images/05_pasarela_pago_multicanal.png)
-*Etapa de pago activa con liquidación en COP y selección de método transaccional: Tarjeta de Crédito/Débito, transferencia bancaria PSE o billetera digital Nequi.*
+### 5.4. Pasarela de Pagos con Tarjeta de Crédito 3D Interactiva
+Paso 3 del flujo de checkout mostrando el desglose transparente de tarifa en pesos colombianos (COP) y la tarjeta virtual 3D con giro automático al enfocar el código CVV y validación por algoritmo de Luhn.
+
+![Pasarela de Pago y Tarjeta 3D](docs/screenshots/04_checkout_3d_card.png)
 
 ---
 
-### 5.6 Panel de Administración y Escalador Universal 16:10
-![Panel de Administración](docs/images/06_panel_administracion_vuelos.png)
-*Formulario administrativo para edición de vuelos y carga de fotografías. El procesador interno adapta y recorta cualquier formato o resolución subida a una proporción estándar de 16:10 sin distorsión.*
+### 5.5. Consola de Puerta de Embarque y Escáner Láser en Rampa
+Consola de control de rampa con telemetría en vivo, HUD de escaneo láser, selector de vuelos, barra de ocupación en tiempo real, lector manual de códigos PNR/documentos y conmutador de sonido de aeropuerto (ON/OFF).
+
+![Consola de Embarque y Escáner Láser](docs/screenshots/05_boarding_console_sound.png)
+
+---
+
+### 5.6. Pase de Abordar Digital Oficial con Código QR y Código de Barras
+Módulo de "Mis Reservas" con consulta instantánea por código PNR (ej. `AF79FD`), visualización del billete oficial de doble talón con fotografía del destino, asignación de grupo de abordaje y botones de acción.
+
+![Pase de Abordar Digital Oficial](docs/screenshots/06_boarding_pass_qr.png)
 
 ---
 
 ## 6. Instalación y Ejecución Local
 
-Sigue los pasos a continuación para desplegar el proyecto en un entorno local de desarrollo o evaluación técnica.
-
-### 6.1 Requisitos Previos
-* **Python:** Versión `3.10` o superior instalada (verificar con `python --version`).
-* **Pip:** Gestor de paquetes de Python actualizado.
-* **Git:** Para el clonado del repositorio.
+### Prerrequisitos
+- **Sistema Operativo:** Windows 10 / 11, macOS o Linux.
+- **Python:** Versión 3.10 o superior (recomendado Python 3.11).
+- **Navegador Web:** Google Chrome, Microsoft Edge, Mozilla Firefox o Brave.
 
 ---
 
-### 6.2 Pasos de Despliegue
-
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/nicolasmoncada160622-prog/sofware_pasajeros.git
-   cd sofware_pasajeros
-   ```
-
-2. **Crear y activar un entorno virtual aislado:**
-   * En **Windows (PowerShell):**
-     ```powershell
-     python -m venv venv
-     .\venv\Scripts\Activate.ps1
-     ```
-   * En **Linux / macOS (Bash/Zsh):**
-     ```bash
-     python3 -m venv venv
-     source venv/bin/activate
-     ```
-
-3. **Instalar las dependencias oficiales del sistema:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Verificar o inicializar la base de datos relacional:**
-   El sistema verifica automáticamente la existencia de `aerocore.db` en el primer arranque y genera los datos semilla si la base de datos se encuentra vacía. Para inicializar o diagnosticar manualmente la base de datos vía CLI:
-   ```bash
-   python database.py --seed-si-vacia
-   ```
-
-5. **Iniciar el servidor web:**
-   ```bash
-   python -X utf8 app.py
-   ```
-   > **Nota sobre codificación:** El parámetro `-X utf8` asegura que la consola de Windows maneje de manera limpia los caracteres tipográficos y acentos en los registros del servidor.
-
-6. **Acceder a la aplicación:**
-   Abre cualquier navegador web moderno en la dirección local:
-   ```
-   http://127.0.0.1:5000
-   ```
+### Opción A: Ejecución Directa de la Aplicación de Escritorio (.exe en Windows)
+Para terminales de despacho y usuarios en Windows que no requieren entorno de desarrollo:
+1. Navega a la carpeta `dist/` del repositorio.
+2. Haz doble clic sobre el archivo **`AeroFlowAirlines.exe`** (33.51 MB).
+3. La aplicación iniciará automáticamente el motor backend embebido y abrirá la interfaz en el navegador predeterminado en `http://127.0.0.1:5000`.
 
 ---
 
-### 6.3 Variables de Entorno Opcionales (`config.py`)
+### Opción B: Ejecución en Entorno de Desarrollo (Python)
 
-El comportamiento del servidor se puede ajustar definiendo las siguientes variables en el sistema antes de iniciar la ejecución:
+#### 1. Clonar el repositorio
+```bash
+git clone https://github.com/nicolasmoncada160622-prog/avion.git
+cd avion
+```
 
-| Variable | Valor por Defecto | Descripción |
-| :--- | :---: | :--- |
-| `AEROFLOW_HOST` | `127.0.0.1` | Dirección IP de escucha del servidor WSGI (`0.0.0.0` para acceso en red local). |
-| `AEROFLOW_PORT` | `5000` | Puerto TCP en el que se atienden peticiones HTTP. |
-| `AEROFLOW_DB_PATH` | `<raíz>/aerocore.db` | Ruta personalizada para el archivo de base de datos SQLite. |
-| `AEROFLOW_DEBUG` | `False` | Habilita o deshabilita la recarga automática en caliente de Flask. |
-
-*Ejemplo en PowerShell para ejecutar en un puerto alterno:*
+#### 2. Crear y activar entorno virtual
+En Windows (PowerShell):
 ```powershell
-$env:AEROFLOW_PORT="8080"; python -X utf8 app.py
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+En Linux / macOS:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### 3. Instalar dependencias
+```bash
+pip install flask pillow pyinstaller pytest
+```
+
+#### 4. Inicializar y poblar la base de datos (Opcional, se ejecuta automáticamente al arrancar)
+```bash
+python scripts/poblar_destinos_fotos.py
+```
+
+#### 5. Iniciar el servidor
+```bash
+python app.py
+```
+
+El servidor quedará disponible de inmediato en:
+```text
+http://127.0.0.1:5000
 ```
 
 ---
 
-### 6.4 Ejecución de Suites de Pruebas Automatizadas
+### Opción C: Compilar el Ejecutable `.exe` para Windows desde el Código Fuente
+Para recompilar el binario nativo de Windows:
+```bash
+python build_windows.py
+```
+El script ejecutará PyInstaller con todas las dependencias estáticas empaquetadas y generará el archivo final en `dist/AeroFlowAirlines.exe`.
 
-El proyecto incluye suites completas de pruebas unitarias y de integración:
+---
 
-* **Pruebas unitarias de estructuras de datos en memoria:**
-  ```bash
-  python -m unittest test_structures.py -v
-  ```
+## 7. Ejecución de la Suite de Pruebas Automatizadas
 
-* **Suite de integración REST y pruebas de endpoints (`tests/test_api.py`):**
-  ```bash
-  pytest tests/test_api.py -v
-  ```
+El proyecto incluye 72 pruebas automatizadas que validan la integridad transaccional, estructuras algorítmicas, seguridad de roles y nuevas características operativas.
 
-* **Pruebas del procesador universal de imágenes 16:10:**
-  ```bash
-  pytest tests/test_universal_image_scaler.py -v
-  ```
+Para ejecutar la suite completa con Pytest:
+```bash
+pytest -v
+```
 
-* **Pruebas de la pasarela y adaptador de pagos:**
-  ```bash
-  pytest tests/test_payments.py -v
-  ```
+Resultado esperado:
+```text
+============================= 72 passed in 2.47s =============================
+```
 
-* **Ejecutar toda la batería de pruebas de backend en conjunto:**
-  ```bash
-  pytest tests/ -v
-  ```
+Para ejecutar pruebas individuales por módulo:
+```bash
+pytest tests/test_v3_features.py -v     # Valida .exe, destinos en BD, PNR, check-in, 409 y BOM Excel
+pytest tests/test_payments.py -v        # Valida pasarela de pagos e idempotencia
+pytest tests/test_role_security.py -v   # Valida seguridad RBAC de administradores
+```
