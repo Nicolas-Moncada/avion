@@ -40,8 +40,8 @@ En los sistemas comerciales de aerolíneas, las operaciones de venta de boletos 
 A continuación se documenta el flujo operacional del sistema mediante capturas reales generadas sobre el entorno en producción:
 
 ### 2.1. Portada Principal y Buscador Inteligente
-![Portada Principal y Buscador](docs/screenshots/01-portada-buscador.png)
-*Pantalla de bienvenida para clientes públicos. Destaca el encabezado minimalista con acceso directo a "Iniciar sesión" en formato píldora, botón secundario para descarga de la versión nativa de Windows (`.exe`), selector de itinerarios con origen predeterminado en Bogotá (BOG), fechas de viaje vigentes y el botón flotante oficial de soporte vía WhatsApp (`+57 3155667152`) anclado en la esquina inferior derecha con animación radar constante.*
+![Portada Principal y Buscador](docs/screenshots/01_home_hero_official_logo.png)
+*Pantalla de bienvenida para clientes públicos. Destaca el logotipo oficial vectorial de Aero Flow (`/icons/icon-192.svg`), botones circulares uniformes para descarga de la versión nativa de Windows (`.exe`) y Android (`.apk`), acceso directo a "Iniciar sesión" en formato píldora, selector de itinerarios con origen predeterminado en Bogotá (BOG), fechas de viaje vigentes y el botón flotante oficial de soporte vía WhatsApp (`+57 3155667152`) anclado en la esquina inferior izquierda con contexto dinámico de pasajero.*
 
 ---
 
@@ -87,15 +87,15 @@ A continuación se documenta el flujo operacional del sistema mediante capturas 
 
 ---
 
-### 2.9. Modo Oscuro y Componente de Carga AeroLoader
-![Modo Oscuro y AeroLoader](docs/screenshots/09-tema-oscuro-y-loader.png)
-*Interfaz en modo oscuro profundo (`#0B0F17`) mostrando el componente global `AeroLoader`. Presenta un avión minimalista en órbita continua a 60 FPS sobre un anillo SVG punteado con fondo difuminado (`backdrop-filter: blur(8px)`), protegido por controladores anti-parpadeo para transiciones de estado limpias.*
+### 2.9. Pantalla de Carga Vectorial AeroLoader a 60 FPS (Turbina de 10 Álabes)
+![Pantalla de Carga Vectorial AeroLoader](docs/screenshots/02_aeroloader_turbine_active.png)
+*Pantalla de carga global construida 100% en SVG vectorial inline y CSS acelerado por hardware GPU (`will-change: transform; transform: rotate`). Presenta un rotor aerodinámico de 10 álabes metálicos curvados con progresión tonal plateada (del blanco plata al pizarra profundo), domo estático de cristal con destello especular cenital, halo pulsante atmosférico de respiración (2.4s) y tipografía `CARGANDO` con trazos lineales y reflejo especular invertido con degradado y desenfoque.*
 
 ---
 
-### 2.10. Adaptabilidad Móvil Responsiva y Soporte WhatsApp
-![Vista Móvil Responsiva](docs/screenshots/10-vista-movil.png)
-*Renderizado responsivo en resolución móvil estándar (`390x844`). Comprueba la reconfiguración automática de la grilla de ofertas a una sola columna, accesibilidad táctil en todos los botones ($\ge 44\text{px}$) y la persistencia del botón flotante de WhatsApp en la esquina inferior derecha (`bottom: 18px; right: 18px;`) adaptado para no obstaculizar la navegación del cliente.*
+### 2.10. Adaptabilidad Móvil Responsiva y Cero Desbordamiento Horizontal
+![Vista Móvil Responsiva](docs/screenshots/05_mobile_360x640_clean.png)
+*Renderizado responsivo probado en resoluciones móviles estándar (`360x640` y `390x844`), garantizando exactamente cero desbordamiento horizontal (`scrollWidth <= innerWidth`). Comprueba la reconfiguración automática de la grilla de ofertas a una sola columna, accesibilidad táctil en todos los botones ($\ge 44\text{px}$) y la persistencia del botón flotante de WhatsApp en la esquina inferior izquierda sin obstaculizar la navegación ni tapar pasarelas de pago.*
 
 ---
 
@@ -138,10 +138,11 @@ El sistema está estructurado sobre principios de ingeniería de software robust
 
 - **Cancelación Segura:** En caso de que el cliente o el administrador cancele una reserva, el sistema actualiza el registro en `manifiesto`, cancela el PNR y reincorpora de inmediato el asiento al catálogo de disponibles.
 
-### 3.4. Experiencia de Usuario Avanzada
-- **Tarjeta Virtual 3D Fintech:** Tarjeta con animación flip CSS3, verificación del algoritmo de Luhn, enmascaramiento seguro de dígitos y renderizado reactivo al escribir.
-- **AeroLoader Global:** Controlador JavaScript `window.AeroLoader` con lógica anti-flicker: ignora llamadas de menos de 120 ms, garantiza un tiempo visible mínimo de 320 ms y posee un temporizador de seguridad de 15 segundos para evitar bloqueos de interfaz.
-- **Soporte Oficial por WhatsApp:** Botón flotante animado configurado hacia la línea de atención oficial `+57 3155667152`. Si el usuario tiene una sesión activa o un PNR en pantalla, el mensaje prellenado incluye dinámicamente el código de su reserva para atención inmediata. Regla `@media print { display: none !important; }` activa para evitar que aparezca en impresiones.
+### 3.4. Experiencia de Usuario Avanzada y Barrera Transaccional Estricta
+- **AeroLoader como Barrera Transaccional (`window.AeroLoader.transaccionConCarga`):** Impide cualquier cambio o salto prematuro de vista hasta que el backend confirma el guardado (`COMMIT`) en SQLite. El método orquesta: (1) activación inmediata del loader a 60 FPS, (2) ejecución de la petición de escritura, (3) recarga en caliente de los datos frescos del servidor con directiva `cache: 'no-store'`, (4) visualización mínima de 650 ms para evitar parpadeos visuales (*anti-flicker*), y (5) ejecución segura de la transición visual final. En caso de error en la BD, la transición se cancela atómicamente y se presenta una notificación en la pantalla de origen sin alterar la vista.
+- **Tarjeta Virtual 3D Fintech:** Tarjeta interactiva con textura de circuitos electrónicos, chip EMV metálico dorado, isotipo Aero Flow, verificación del algoritmo de Luhn, formateo en 4 bloques de 4 dígitos y renderizado reactivo del nombre del titular en mayúsculas.
+- **Soporte Oficial por WhatsApp Contextual:** Botón flotante fijo hacia `+57 3155667152`. Detecta de forma inteligente el estado de autenticación: para visitantes anónimos envía un saludo limpio y profesional; para pasajeros autenticados incluye su nombre real y, al emitirse un tiquete, añade automáticamente el código de reserva PNR activo (ej. `(Reserva PNR: AFVGDP26)`). Oculto de forma estricta en `@media print`.
+- **Aislamiento de Privacidad entre Pasajeros:** El motor de reservas y portal de viajes aísla de manera estricta el historial por identificador de usuario y documento, garantizando que un pasajero nuevo nunca visualice reservas de otro viajero.
 
 ---
 

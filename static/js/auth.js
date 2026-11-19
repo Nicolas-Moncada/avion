@@ -114,8 +114,18 @@
     if (typeof window.cerrarModales === "function") {
       window.cerrarModales();
     }
-    if (window.AeroMinimalUI && typeof window.AeroMinimalUI.limpiarReservasSesion === "function") {
-      window.AeroMinimalUI.limpiarReservasSesion();
+    if (window.AeroMinimalUI) {
+      if (typeof window.AeroMinimalUI.resetUserState === "function") {
+        window.AeroMinimalUI.resetUserState();
+      } else if (typeof window.AeroMinimalUI.limpiarReservasSesion === "function") {
+        window.AeroMinimalUI.limpiarReservasSesion();
+      }
+      if (typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
+        window.AeroMinimalUI.actualizarEnlaceWhatsApp(null, "");
+      }
+      if (typeof window.AeroMinimalUI.actualizarPortalPasajero === "function") {
+        window.AeroMinimalUI.actualizarPortalPasajero();
+      }
     }
     mostrarNotificacion("Sesion cerrada correctamente.");
   }
@@ -506,7 +516,9 @@
         const email = emailInput ? emailInput.value : "";
         const pass = passInput ? passInput.value : "";
         const nombre = nameInput ? nameInput.value : "";
-        const submitBtn = document.getElementById("login-submit-btn");
+        const submitBtn =
+          document.getElementById("btn-submit-auth") ||
+          document.getElementById("login-submit-btn");
 
         if (submitBtn) {
           if (submitBtn.disabled) return;
@@ -515,13 +527,131 @@
 
         try {
           if (modoAuthActual === "register") {
-            const regRes = await registrarUsuario(nombre, email, pass);
-            if (regRes.exito) {
-              ocultarErrorLogin();
-              actualizarHeaderUI(regRes.sesion);
-              cerrarLoginModal();
-              mostrarNotificacion(regRes.mensaje || `Bienvenido, ${regRes.sesion.nombre}`);
+            if (window.AeroMinimalUI && typeof window.AeroMinimalUI.resetUserState === "function") {
+              window.AeroMinimalUI.resetUserState();
+            }
 
+            if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+              await window.AeroLoader.transaccionConCarga(
+                "Creando cuenta y preparando tu perfil...",
+                async () => {
+                  const regRes = await registrarUsuario(nombre, email, pass);
+                  if (!regRes.exito) {
+                    mostrarErrorLogin(regRes.mensaje);
+                    return { exito: false };
+                  }
+                  return { exito: true, sesion: regRes.sesion, mensaje: regRes.mensaje };
+                },
+                async () => {
+                  if (window.AeroMinimalUI && typeof window.AeroMinimalUI.cargarReservasServidor === "function") {
+                    await window.AeroMinimalUI.cargarReservasServidor();
+                  }
+                },
+                async (resEscritura) => {
+                  ocultarErrorLogin();
+                  actualizarHeaderUI(resEscritura.sesion);
+                  cerrarLoginModal();
+                  mostrarNotificacion(resEscritura.mensaje || `Bienvenido, ${resEscritura.sesion.nombre}`);
+                  if (window.AeroMinimalUI) {
+                    if (typeof window.AeroMinimalUI.actualizarPortalPasajero === "function") {
+                      window.AeroMinimalUI.actualizarPortalPasajero();
+                    }
+                    if (typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
+                      window.AeroMinimalUI.actualizarEnlaceWhatsApp(resEscritura.sesion, "");
+                    }
+                  }
+                  if (window.pendingFlightId) {
+                    const flightToOpen = window.pendingFlightId;
+                    window.pendingFlightId = null;
+                    if (
+                      window.AeroMinimalUI &&
+                      typeof window.AeroMinimalUI.abrirMapaCabina === "function"
+                    ) {
+                      window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
+                    }
+                  }
+                }
+              );
+            } else {
+              const regRes = await registrarUsuario(nombre, email, pass);
+              if (regRes.exito) {
+                ocultarErrorLogin();
+                actualizarHeaderUI(regRes.sesion);
+                cerrarLoginModal();
+                mostrarNotificacion(regRes.mensaje || `Bienvenido, ${regRes.sesion.nombre}`);
+                if (window.AeroMinimalUI && typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
+                  window.AeroMinimalUI.actualizarEnlaceWhatsApp(regRes.sesion, "");
+                }
+                if (window.pendingFlightId) {
+                  const flightToOpen = window.pendingFlightId;
+                  window.pendingFlightId = null;
+                  if (window.AeroMinimalUI && typeof window.AeroMinimalUI.abrirMapaCabina === "function") {
+                    window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
+                  }
+                }
+              } else {
+                mostrarErrorLogin(regRes.mensaje);
+              }
+            }
+            return;
+          }
+
+          // Modo Login
+          if (window.AeroMinimalUI && typeof window.AeroMinimalUI.resetUserState === "function") {
+            window.AeroMinimalUI.resetUserState();
+          }
+
+          if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+            await window.AeroLoader.transaccionConCarga(
+              "Iniciando sesión y cargando tus datos...",
+              async () => {
+                const res = await autenticar(rolLoginSeleccionado, email, pass);
+                if (!res.exito) {
+                  mostrarErrorLogin(res.mensaje);
+                  return { exito: false };
+                }
+                return { exito: true, sesion: res.sesion };
+              },
+              async () => {
+                if (window.AeroMinimalUI && typeof window.AeroMinimalUI.cargarReservasServidor === "function") {
+                  await window.AeroMinimalUI.cargarReservasServidor();
+                }
+              },
+              async (resEscritura) => {
+                ocultarErrorLogin();
+                actualizarHeaderUI(resEscritura.sesion);
+                cerrarLoginModal();
+                mostrarNotificacion(`Bienvenido, ${resEscritura.sesion.nombre}`);
+                if (window.AeroMinimalUI) {
+                  if (typeof window.AeroMinimalUI.actualizarPortalPasajero === "function") {
+                    window.AeroMinimalUI.actualizarPortalPasajero();
+                  }
+                  if (typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
+                    window.AeroMinimalUI.actualizarEnlaceWhatsApp(resEscritura.sesion, "");
+                  }
+                }
+                if (window.pendingFlightId) {
+                  const flightToOpen = window.pendingFlightId;
+                  window.pendingFlightId = null;
+                  if (
+                    window.AeroMinimalUI &&
+                    typeof window.AeroMinimalUI.abrirMapaCabina === "function"
+                  ) {
+                    window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
+                  }
+                }
+              }
+            );
+          } else {
+            const res = await autenticar(rolLoginSeleccionado, email, pass);
+            if (res.exito) {
+              ocultarErrorLogin();
+              actualizarHeaderUI(res.sesion);
+              cerrarLoginModal();
+              mostrarNotificacion(`Bienvenido, ${res.sesion.nombre}`);
+              if (window.AeroMinimalUI && typeof window.AeroMinimalUI.actualizarEnlaceWhatsApp === "function") {
+                window.AeroMinimalUI.actualizarEnlaceWhatsApp(res.sesion, "");
+              }
               if (window.pendingFlightId) {
                 const flightToOpen = window.pendingFlightId;
                 window.pendingFlightId = null;
@@ -533,32 +663,8 @@
                 }
               }
             } else {
-              mostrarErrorLogin(regRes.mensaje);
+              mostrarErrorLogin(res.mensaje);
             }
-            return;
-          }
-
-          // Modo Login
-          const res = await autenticar(rolLoginSeleccionado, email, pass);
-          if (res.exito) {
-            ocultarErrorLogin();
-            actualizarHeaderUI(res.sesion);
-            cerrarLoginModal();
-            mostrarNotificacion(`Bienvenido, ${res.sesion.nombre}`);
-
-            // Si había una intención pendiente de elegir silla, reanudarla automáticamente
-            if (window.pendingFlightId) {
-              const flightToOpen = window.pendingFlightId;
-              window.pendingFlightId = null;
-              if (
-                window.AeroMinimalUI &&
-                typeof window.AeroMinimalUI.abrirMapaCabina === "function"
-              ) {
-                window.AeroMinimalUI.abrirMapaCabina(flightToOpen);
-              }
-            }
-          } else {
-            mostrarErrorLogin(res.mensaje);
           }
         } finally {
           if (submitBtn) submitBtn.disabled = false;

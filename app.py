@@ -484,6 +484,7 @@ def descargar_windows():
     }), 200
 
 
+@app.route("/descargar-android")
 @app.route("/api/descargar/android")
 @app.route("/descargar-apk")
 def descargar_android():
@@ -678,16 +679,23 @@ def api_obtener_mis_reservas():
     nombre = request.args.get("nombre", "").strip()
     pnr = request.args.get("pnr", "").strip().upper()
     email = request.args.get("email", "").strip().lower()
+    user_id = request.args.get("user_id", "").strip()
     rol = (request.headers.get("X-User-Role") or "").lower().strip()
 
-    if rol in ("admin", "integral", "operador") and not documento and not nombre and not pnr and not email:
+    if rol in ("admin", "integral", "operador") and not documento and not nombre and not pnr and not email and not user_id:
         reservas = db.obtener_todas_las_reservas_activas()
         return jsonify({"exito": True, "total": len(reservas), "reservas": reservas}), 200
 
-    if not documento and not nombre and not pnr and not email:
+    if not documento and not nombre and not pnr and not email and not user_id:
         return jsonify({"exito": True, "total": 0, "reservas": []}), 200
 
-    reservas = db.obtener_reservas_por_pasajero(documento=documento, nombre=nombre, pnr=pnr, email=email)
+    reservas = db.obtener_reservas_por_pasajero(
+        documento=documento,
+        nombre=nombre,
+        pnr=pnr,
+        email=email,
+        user_id=user_id
+    )
     return jsonify({"exito": True, "total": len(reservas), "reservas": reservas}), 200
 
 

@@ -2650,10 +2650,10 @@ def obtener_kpis_dashboard():
         conn.close()
 
 
-def obtener_reservas_por_pasajero(documento: str = "", nombre: str = "", pnr: str = "", email: str = ""):
+def obtener_reservas_por_pasajero(documento: str = "", nombre: str = "", pnr: str = "", email: str = "", user_id: str = ""):
     """
     Retorna exclusivamente las reservas pertenecientes a un pasajero.
-    Filtra por documento, nombre normalizado, PNR o email para garantizar total privacidad.
+    Filtra por documento, nombre normalizado, PNR, email o user_id para garantizar total privacidad.
     """
     init_db()
     conn = get_connection()
@@ -2662,6 +2662,24 @@ def obtener_reservas_por_pasajero(documento: str = "", nombre: str = "", pnr: st
         doc_clean = (documento or "").replace("CC-", "").replace("TI-", "").strip()
         nombre_clean = (nombre or "").strip().lower()
         pnr_clean = (pnr or "").strip().upper()
+        email_clean = (email or "").strip().lower()
+        user_id_clean = (user_id or "").strip()
+
+        # Si se suministra user_id o email, resolver el nombre real registrado para filtrar
+        if user_id_clean and not nombre_clean:
+            cur.execute("SELECT nombre, email FROM usuarios WHERE id = ?", (user_id_clean,))
+            urow = cur.fetchone()
+            if urow:
+                if urow["nombre"]:
+                    nombre_clean = str(urow["nombre"]).strip().lower()
+                if not email_clean and urow["email"]:
+                    email_clean = str(urow["email"]).strip().lower()
+
+        if email_clean and not nombre_clean:
+            cur.execute("SELECT nombre FROM usuarios WHERE LOWER(TRIM(email)) = ?", (email_clean,))
+            urow = cur.fetchone()
+            if urow and urow["nombre"]:
+                nombre_clean = str(urow["nombre"]).strip().lower()
 
         conditions = []
         params = []
