@@ -81,4 +81,25 @@ assert(precioFormateado.includes('780.000'), 'Formato COP debe incluir separador
 assert(precioFormateado.includes('COP'), 'Formato COP debe incluir sufijo COP');
 console.log('✔ Formato COP entero exacto opera correctamente (AUD-03)');
 
+// 4. Verificación estructural de Cola FIFO e identificación inmutable de tarjetas (Fase 2)
+const fs = require('fs');
+const path = require('path');
+const minimalUiSrc = fs.readFileSync(path.join(__dirname, '..', 'static', 'js', 'minimal-ui.js'), 'utf8');
+assert(minimalUiSrc.includes('data-boarding-doc='), 'Las tarjetas deben renderizar atributo inmutable data-boarding-doc');
+assert(minimalUiSrc.includes('data-boarding-asiento='), 'Las tarjetas deben renderizar atributo inmutable data-boarding-asiento');
+assert(!minimalUiSrc.includes('getElementById(`ticket-card-${idx}`)') && !minimalUiSrc.includes('id="ticket-card-${idx}"'), 'No deben existir IDs colisionables ticket-card-${idx} entre Mis reservas y Cola FIFO');
+assert(!minimalUiSrc.includes('getElementById(`badge-status-${idx}`)') && !minimalUiSrc.includes('id="badge-status-${idx}"'), 'No deben existir IDs colisionables badge-status-${idx} entre Mis reservas y Cola FIFO');
+assert(minimalUiSrc.includes('✓ Pasajero Abordado'), 'El botón en fila FIFO debe mostrar "✓ Pasajero Abordado" al completar abordaje');
+console.log('✔ Identificación inmutable de tarjetas FIFO y ausencia de colisión de IDs verificadas');
+
+// 5. Verificación de animación de despegue, persistencia DESPEGADO y transición al siguiente vuelo (Fase 3)
+const tplHtml = fs.readFileSync(path.join(__dirname, '..', 'templates', 'index.html'), 'utf8');
+assert(tplHtml.includes('id="gate-departure-overlay"'), 'La plantilla debe incluir el overlay cinemático de despegue');
+assert(tplHtml.includes('id="gate-live-status-badge"'), 'La plantilla debe incluir el badge dinámico de estado en puerta');
+assert(minimalUiSrc.includes('dispararSecuenciaDespegueVuelo'), 'Debe existir la secuencia cinemática de despegue');
+assert(minimalUiSrc.includes('esVueloDespegado'), 'Debe existir validación de vuelos DESPEGADO al volver a Abordar');
+assert(minimalUiSrc.includes('✈️ DESPEGADO'), 'El selector debe marcar los vuelos cerrados con ✈️ DESPEGADO');
+assert(minimalUiSrc.includes('Todos los vuelos con pasajeros en rampa han sido despachados'), 'Debe existir el estado vacío final tras despachar todos los vuelos');
+console.log('✔ Secuencia cinemática de despegue, bloqueo DESPEGADO y transición automática verificadas');
+
 console.log('--- TODAS LAS PRUEBAS DE RESILIENCIA FRONTEND PASARON (100%) ---');

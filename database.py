@@ -12,7 +12,7 @@ import sys
 import uuid
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Tuple, Dict, Any, Optional
 from data_structures.hash_map import TablaHashVuelos
 from data_structures.avl_tree import ArbolAVLPasajeros
@@ -188,10 +188,15 @@ def init_db():
                 categoria TEXT NOT NULL,
                 clase_cabina TEXT NOT NULL,
                 tarifa_pagada_cop REAL NOT NULL,
+                estado_embarque TEXT DEFAULT 'Confirmado',
                 FOREIGN KEY (vuelo_codigo) REFERENCES vuelos(codigo),
                 FOREIGN KEY (pasajero_doc) REFERENCES pasajeros(documento)
             );
             """)
+            cursor.execute("PRAGMA table_info(manifiesto);")
+            cols_manifiesto = {row[1] for row in cursor.fetchall()}
+            if "estado_embarque" not in cols_manifiesto:
+                cursor.execute("ALTER TABLE manifiesto ADD COLUMN estado_embarque TEXT DEFAULT 'Confirmado'")
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS cola_standby (
@@ -206,16 +211,8 @@ def init_db():
             );
             """)
 
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS lista_espera (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                vuelo_codigo TEXT NOT NULL,
-                pasajero_doc TEXT NOT NULL,
-                pasajero_nombre TEXT NOT NULL,
-                categoria TEXT NOT NULL,
-                hora_ingreso_12h TEXT NOT NULL
-            );
-            """)
+            # Migración/limpieza: purgar tabla residual antigua 'lista_espera' si existe
+            cursor.execute("DROP TABLE IF EXISTS lista_espera;")
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS pasajeros_recientes_pagos (
@@ -321,6 +318,23 @@ def init_db():
             """)
             _sembrar_usuarios_demo(cursor)
             _crear_indices(cursor)
+
+            # Sincronizar registros huérfanos en pasajeros_recientes_pagos que ya fueron eliminados de manifiesto
+            cursor.execute("""
+                UPDATE pasajeros_recientes_pagos
+                SET estado_embarque = 'CANCELADO'
+                WHERE UPPER(estado_embarque) NOT IN ('CANCELADO', 'EN ESPERA (STANDBY)')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM manifiesto m
+                      WHERE UPPER(m.vuelo_codigo) = UPPER(pasajeros_recientes_pagos.vuelo_id)
+                        AND m.pasajero_doc = pasajeros_recientes_pagos.documento
+                  )
+                  AND EXISTS (
+                      SELECT 1 FROM vuelos v
+                      WHERE UPPER(v.codigo) = UPPER(pasajeros_recientes_pagos.vuelo_id)
+                        AND v.estado NOT IN ('DESPEGADO', 'Despegado', 'Cerrado')
+                  )
+            """)
     finally:
         conn.close()
 
@@ -503,10 +517,17 @@ def eliminar_checkin_persistido(vuelo_codigo: str, pasajero_doc: str):
     try:
         with conn:
             cursor = conn.cursor()
+            v_cod = str(vuelo_codigo).strip().upper()
+            p_doc = str(pasajero_doc).strip()
             cursor.execute("""
-                DELETE FROM manifiesto WHERE vuelo_codigo = ? AND pasajero_doc = ?
-            """, (str(vuelo_codigo).strip().upper(), str(pasajero_doc).strip()))
-            cursor.execute("UPDATE pasajeros SET vuelo_asignado = NULL WHERE documento = ?", (str(pasajero_doc).strip(),))
+                DELETE FROM manifiesto WHERE UPPER(vuelo_codigo) = ? AND pasajero_doc = ?
+            """, (v_cod, p_doc))
+            cursor.execute("UPDATE pasajeros SET vuelo_asignado = NULL WHERE documento = ?", (p_doc,))
+            cursor.execute("""
+                UPDATE pasajeros_recientes_pagos
+                SET estado_embarque = 'CANCELADO'
+                WHERE UPPER(vuelo_id) = ? AND documento = ?
+            """, (v_cod, p_doc))
             conn.commit()
     finally:
         conn.close()
@@ -541,7 +562,6 @@ def eliminar_pasajero_total(documento: str):
 
             cursor.execute("DELETE FROM manifiesto WHERE pasajero_doc = ?", (doc,))
             cursor.execute("DELETE FROM cola_standby WHERE pasajero_doc = ?", (doc,))
-            cursor.execute("DELETE FROM lista_espera WHERE pasajero_doc = ?", (doc,))
             cursor.execute("DELETE FROM pasajeros_recientes_pagos WHERE documento = ?", (doc,))
             cursor.execute("DELETE FROM pasajeros WHERE documento = ?", (doc,))
 
@@ -565,11 +585,6 @@ def persistir_standby(vuelo_codigo: str, nodo_dict: dict):
                 INSERT INTO cola_standby (vuelo_codigo, pasajero_doc, pasajero_nombre, categoria, hora_ingreso_12h)
                 VALUES (?, ?, ?, ?, ?)
             """, (v_cod, p_doc, p_nom, p_cat, p_hora))
-
-            cursor.execute("""
-                INSERT INTO lista_espera (vuelo_codigo, pasajero_doc, pasajero_nombre, categoria, hora_ingreso_12h)
-                VALUES (?, ?, ?, ?, ?)
-            """, (v_cod, p_doc, p_nom, p_cat, p_hora))
             conn.commit()
     finally:
         conn.close()
@@ -583,9 +598,6 @@ def eliminar_standby_persistido(vuelo_codigo: str, pasajero_doc: str):
             p_doc = str(pasajero_doc).strip()
             cursor.execute("""
                 DELETE FROM cola_standby WHERE vuelo_codigo = ? AND pasajero_doc = ?
-            """, (v_cod, p_doc))
-            cursor.execute("""
-                DELETE FROM lista_espera WHERE vuelo_codigo = ? AND pasajero_doc = ?
             """, (v_cod, p_doc))
             conn.commit()
     finally:
@@ -622,12 +634,19 @@ def persistir_pago_reciente(pago: dict):
     finally:
         conn.close()
 
-def obtener_pasajeros_recientes_pagos():
+def obtener_pasajeros_recientes_pagos(incluir_cancelados: bool = False):
     init_db()
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM pasajeros_recientes_pagos ORDER BY id DESC")
+        if incluir_cancelados:
+            cursor.execute("SELECT * FROM pasajeros_recientes_pagos ORDER BY id DESC")
+        else:
+            cursor.execute(
+                "SELECT * FROM pasajeros_recientes_pagos "
+                "WHERE UPPER(COALESCE(estado_embarque, '')) != 'CANCELADO' "
+                "ORDER BY id DESC"
+            )
         rows = [dict(r) for r in cursor.fetchall()]
         return rows
     finally:
@@ -638,11 +657,18 @@ def actualizar_estado_embarque_pago(vuelo_id: str, documento: str, nuevo_estado:
     try:
         with conn:
             cursor = conn.cursor()
+            cod_upper = str(vuelo_id).strip().upper()
+            doc_str = str(documento).strip()
             cursor.execute("""
                 UPDATE pasajeros_recientes_pagos
                 SET estado_embarque = ?
                 WHERE UPPER(vuelo_id) = ? AND documento = ?
-            """, (nuevo_estado, str(vuelo_id).strip().upper(), str(documento).strip()))
+            """, (nuevo_estado, cod_upper, doc_str))
+            cursor.execute("""
+                UPDATE manifiesto
+                SET estado_embarque = ?
+                WHERE UPPER(vuelo_codigo) = ? AND pasajero_doc = ?
+            """, (nuevo_estado, cod_upper, doc_str))
             conn.commit()
     finally:
         conn.close()
@@ -684,16 +710,49 @@ def eliminar_vuelo_definitivo(codigo: str):
     finally:
         conn.close()
 
-def actualizar_todos_embarcados_vuelo(vuelo_id: str, nuevo_estado: str = 'EMBARCADO'):
+def actualizar_todos_embarcados_vuelo(vuelo_id: str, nuevo_estado: str = 'ABORDADO'):
     conn = get_connection()
     try:
         with conn:
             cursor = conn.cursor()
+            cod_upper = str(vuelo_id).strip().upper()
             cursor.execute("""
                 UPDATE pasajeros_recientes_pagos
                 SET estado_embarque = ?
                 WHERE UPPER(vuelo_id) = ?
-            """, (nuevo_estado, str(vuelo_id).strip().upper()))
+                  AND UPPER(COALESCE(estado_embarque, '')) != 'CANCELADO'
+            """, (nuevo_estado, cod_upper))
+            cursor.execute("""
+                UPDATE manifiesto
+                SET estado_embarque = ?
+                WHERE UPPER(vuelo_codigo) = ?
+            """, (nuevo_estado, cod_upper))
+            conn.commit()
+    finally:
+        conn.close()
+
+def marcar_vuelo_despegado(vuelo_codigo: str):
+    """Persiste atómicamente el estado DESPEGADO del vuelo y de sus pasajeros en SQLite."""
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cod_upper = str(vuelo_codigo).strip().upper()
+            cursor.execute(
+                "UPDATE vuelos SET estado = 'DESPEGADO' WHERE UPPER(codigo) = ?",
+                (cod_upper,),
+            )
+            cursor.execute("""
+                UPDATE manifiesto
+                SET estado_embarque = 'ABORDADO'
+                WHERE UPPER(vuelo_codigo) = ?
+            """, (cod_upper,))
+            cursor.execute("""
+                UPDATE pasajeros_recientes_pagos
+                SET estado_embarque = 'ABORDADO'
+                WHERE UPPER(vuelo_id) = ?
+                  AND UPPER(COALESCE(estado_embarque, '')) != 'CANCELADO'
+            """, (cod_upper,))
             conn.commit()
     finally:
         conn.close()
@@ -702,10 +761,14 @@ def obtener_documentos_embarcados_vuelo(vuelo_id: str) -> set:
     conn = get_connection()
     try:
         cursor = conn.cursor()
+        cod_upper = str(vuelo_id).strip().upper()
         cursor.execute("""
             SELECT documento FROM pasajeros_recientes_pagos
-            WHERE UPPER(vuelo_id) = ? AND UPPER(estado_embarque) IN ('ABORDADO', 'EMBARCADO')
-        """, (str(vuelo_id).strip().upper(),))
+            WHERE UPPER(vuelo_id) = ? AND UPPER(COALESCE(estado_embarque, '')) IN ('ABORDADO', 'EMBARCADO')
+            UNION
+            SELECT pasajero_doc FROM manifiesto
+            WHERE UPPER(vuelo_codigo) = ? AND UPPER(COALESCE(estado_embarque, '')) IN ('ABORDADO', 'EMBARCADO')
+        """, (cod_upper, cod_upper))
         rows = cursor.fetchall()
         return {str(r[0]).strip() for r in rows}
     finally:
@@ -837,7 +900,6 @@ def reiniciar_semilla_limpia():
             cursor = conn.cursor()
             # 1. Limpieza Total (Flush de todas las tablas operativas)
             cursor.execute("DELETE FROM cola_standby;")
-            cursor.execute("DELETE FROM lista_espera;")
             cursor.execute("DELETE FROM manifiesto;")
             cursor.execute("DELETE FROM pasajeros_recientes_pagos;")
             cursor.execute("DELETE FROM pasajeros;")
@@ -930,9 +992,10 @@ def reiniciar_semilla_limpia():
             _sembrar_usuarios_demo(cursor)
             _crear_indices(cursor)
 
-            fecha_salida_semilla = datetime.now().date().isoformat()
+            fecha_hoy_semilla = datetime.now().date().isoformat()
+            fecha_manana_semilla = (datetime.now().date() + timedelta(days=1)).isoformat()
 
-            # Catálogo oficial de vuelos comerciales activos con fotografías y precios
+            # Catálogo oficial de vuelos comerciales activos con fotografías y precios (HOY y MAÑANA)
             vuelos_base = [
                 (
                     "AF1001",
@@ -941,12 +1004,12 @@ def reiniciar_semilla_limpia():
                     "Airbus A319 Corporate",
                     "09h 45m",
                     8034,
-                    fecha_salida_semilla,
+                    fecha_hoy_semilla,
                     "11:00 AM",
                     "05:45 AM",
                     "B-01",
                     26,
-                    "Embarcando",
+                    "Check-in abierto",
                     "/static/img/oferta-medellin.jpg",
                     2850000,
                     "ciudad",
@@ -959,7 +1022,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 05m",
                     300,
-                    fecha_salida_semilla,
+                    fecha_hoy_semilla,
                     "08:30 AM",
                     "09:35 AM",
                     "B-03",
@@ -977,7 +1040,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 15m",
                     490,
-                    fecha_salida_semilla,
+                    fecha_manana_semilla,
                     "09:40 AM",
                     "10:55 AM",
                     "C-02",
@@ -995,7 +1058,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "00h 55m",
                     240,
-                    fecha_salida_semilla,
+                    fecha_hoy_semilla,
                     "07:15 AM",
                     "08:10 AM",
                     "B-02",
@@ -1013,7 +1076,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 25m",
                     650,
-                    fecha_salida_semilla,
+                    fecha_hoy_semilla,
                     "05:00 PM",
                     "06:25 PM",
                     "C-01",
@@ -1031,7 +1094,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 30m",
                     735,
-                    fecha_salida_semilla,
+                    fecha_manana_semilla,
                     "11:20 AM",
                     "12:50 PM",
                     "C-03",
@@ -1049,7 +1112,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "01h 25m",
                     705,
-                    fecha_salida_semilla,
+                    fecha_manana_semilla,
                     "02:15 PM",
                     "03:40 PM",
                     "B-05",
@@ -1067,7 +1130,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A320neo",
                     "04h 10m",
                     2435,
-                    fecha_salida_semilla,
+                    fecha_hoy_semilla,
                     "01:30 PM",
                     "05:40 PM",
                     "B-04",
@@ -1085,11 +1148,11 @@ def reiniciar_semilla_limpia():
                     "Boeing 787-8 Dreamliner",
                     "05h 50m",
                     3995,
-                    fecha_salida_semilla,
+                    fecha_manana_semilla,
                     "03:15 PM",
                     "09:05 PM",
                     "A-02",
-                    36,
+                    64,
                     "Check-in abierto",
                     "/static/img/oferta-medellin.jpg",
                     1250000,
@@ -1103,7 +1166,7 @@ def reiniciar_semilla_limpia():
                     "Airbus A319 Corporate",
                     "04h 45m",
                     3160,
-                    fecha_salida_semilla,
+                    fecha_manana_semilla,
                     "07:30 PM",
                     "12:15 AM",
                     "B-06",
@@ -1123,21 +1186,27 @@ def reiniciar_semilla_limpia():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, vuelos_base)
 
-            # 3. Inserción atómica de los 26 Pasajeros, Asientos en Manifiesto y Pagos Recientes para AF1001
-            for idx, (doc, nombre, nac, cat, asiento, metodo, monto, hora_ck) in enumerate(PASAJEROS_SEMILLA_26, start=1):
-                ref_pago = f"AF-1001-{(idx * 179) % 8999 + 1000}"
-                clase = "VIP" if asiento in ("1A", "1B", "2A", "2B", "3A", "3B") else "Estándar"
+            def _insertar_pasajero_semilla_completo(
+                vuelo_cod, tipo_aero, origen_dest, fecha_v,
+                doc, nombre, nac, cat, asiento, metodo, monto, hora_ck, ref_pago
+            ):
+                asientos_validos = {
+                    s["id"]: s for s in obtener_configuracion_aeronave(tipo_aero)["asientos"]
+                }
+                if asiento not in asientos_validos:
+                    raise ValueError(f"Asiento semilla inválido {asiento} para {tipo_aero}")
+                clase = "VIP" if asientos_validos[asiento]["clase"].upper().startswith("VIP") else "Estándar"
 
                 cursor.execute("""
-                    INSERT INTO pasajeros (documento, nombre, nacionalidad, categoria_viajero, vuelo_asignado)
+                    INSERT OR REPLACE INTO pasajeros (documento, nombre, nacionalidad, categoria_viajero, vuelo_asignado)
                     VALUES (?, ?, ?, ?, ?)
-                """, (doc, nombre, nac, cat, "AF1001"))
+                """, (doc, nombre, nac, cat, vuelo_cod))
 
                 cursor.execute("""
                     INSERT INTO manifiesto (vuelo_codigo, pasajero_doc, pasajero_nombre, asiento,
-                                            hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, ("AF1001", doc, nombre, asiento, hora_ck, cat, clase, monto))
+                                            hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop, estado_embarque)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Confirmado')
+                """, (vuelo_cod, doc, nombre, asiento, hora_ck, cat, clase, monto))
 
                 cursor.execute("""
                     INSERT INTO pasajeros_recientes_pagos (
@@ -1145,21 +1214,53 @@ def reiniciar_semilla_limpia():
                         origen_destino, asiento, metodo_pago, monto_cop, referencia_pago,
                         estado_embarque, fecha_hora_registro
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Confirmado', ?)
                 """, (
-                    doc,
-                    nombre,
-                    nac,
-                    cat,
-                    "AF1001",
-                    "BOG ✈ MAD",
-                    asiento,
-                    metodo,
-                    monto,
-                    ref_pago,
-                    "Confirmado",
-                    f"{fecha_salida_semilla} • {hora_ck}"
+                    doc, nombre, nac, cat, vuelo_cod,
+                    origen_dest, asiento, metodo, monto, ref_pago,
+                    f"{fecha_v} • {hora_ck}"
                 ))
+
+            # 3. Inserción atómica de los 26 Pasajeros para AF1001 (HOY)
+            for idx, (doc, nombre, nac, cat, asiento, metodo, monto, hora_ck) in enumerate(PASAJEROS_SEMILLA_26, start=1):
+                ref_pago = f"AF-1001-{(idx * 179) % 8999 + 1000}"
+                _insertar_pasajero_semilla_completo(
+                    "AF1001", "Airbus A319 Corporate", "BOG ✈ MAD", fecha_hoy_semilla,
+                    doc, nombre, nac, cat, asiento, metodo, monto, hora_ck, ref_pago
+                )
+
+            # 4. Pasajeros consistentes pre-cargados en rutas troncales de HOY (listos para abordar)
+            pasajeros_rutas_hoy = [
+                ("AF2025", "Airbus A320neo", "BOG -> MDE", [
+                    ("20100101", "Santiago Morales Ruiz", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 331500, "06:40 AM"),
+                    ("20100102", "Valeria Castaño Gómez", "Colombia", "VIP", "1B", "PSE Bancolombia", 331500, "06:45 AM"),
+                    ("20100103", "Andrés Felipe Ospina", "Colombia", "Estándar", "5A", "Nequi / QR", 288454, "06:50 AM"),
+                    ("20100104", "Mariana Duque Salazar", "Colombia", "Estándar", "5B", "Tarjeta Bancaria", 288454, "06:55 AM"),
+                ]),
+                ("AF4055", "Airbus A320neo", "BOG -> CTG", [
+                    ("20200201", "Gabriel Restrepo Mejía", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 365000, "04:10 PM"),
+                    ("20200202", "Camila Vargas Patiño", "Colombia", "VIP", "1B", "PSE Bancolombia", 365000, "04:15 PM"),
+                    ("20200203", "Nicolás Herrera Vélez", "Colombia", "Estándar", "5A", "Tarjeta Bancaria", 310000, "04:20 PM"),
+                    ("20200204", "Sofía Castro Londoño", "Colombia", "Estándar", "5B", "Nequi / QR", 310000, "04:25 PM"),
+                ]),
+                ("AF2020", "Airbus A320neo", "BOG -> MIA", [
+                    ("20400401", "Alejandro Mendoza León", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 1120000, "12:30 PM"),
+                    ("20400402", "Laura Daniela Nieto", "Colombia", "VIP", "1B", "PSE Bancolombia", 1120000, "12:35 PM"),
+                    ("20400403", "Tomás Arango Quintero", "Colombia", "Estándar", "5A", "Tarjeta Bancaria", 890000, "12:40 PM"),
+                ]),
+                ("AF2022", "Airbus A320neo", "BOG -> CLO", [
+                    ("20300301", "Isabella Torres Bermúdez", "Colombia", "VIP", "1A", "Tarjeta Bancaria", 295000, "07:40 AM"),
+                    ("20300302", "Sebastián Cárdenas Gil", "Colombia", "VIP", "1B", "Nequi / QR", 295000, "07:45 AM"),
+                    ("20300303", "Paula Andrea Méndez", "Colombia", "Estándar", "5A", "PSE Bancolombia", 252000, "07:50 AM"),
+                ]),
+            ]
+            for v_cod, t_aero, od_str, pax_list in pasajeros_rutas_hoy:
+                for idx_p, (doc, nom, nac, cat, asi, met, mnt, hck) in enumerate(pax_list, start=1):
+                    _insertar_pasajero_semilla_completo(
+                        v_cod, t_aero, od_str, fecha_hoy_semilla,
+                        doc, nom, nac, cat, asi, met, mnt, hck,
+                        f"AF-{v_cod[2:]}-{1100 + idx_p}"
+                    )
 
             conn.commit()
     finally:
@@ -1217,6 +1318,345 @@ def _base_de_datos_vacia() -> bool:
         conn.close()
 
 
+def sanear_vuelos_inconsistentes(purgar_despegados: bool = False) -> Dict[str, Any]:
+    """
+    Rutina de saneamiento integral sobre aerocore.db:
+    - Detecta y purga vuelos con fecha pasada (< hoy), estados terminales opcionales,
+      o manifiestos inconsistentes (pasajeros en manifiesto sin registro completo en
+      pasajeros / pasajeros_recientes_pagos, o asientos fuera del catálogo de la aeronave).
+    - Limpia vuelo_asignado en pasajeros y elimina registros huérfanos.
+    """
+    hoy_str = datetime.now().date().isoformat()
+    codigos_eliminados = []
+
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT codigo, tipo_aeronave, fecha_salida, estado FROM vuelos")
+            vuelos_rows = [dict(r) for r in cursor.fetchall()]
+
+            for v in vuelos_rows:
+                cod = str(v["codigo"]).strip().upper()
+                fecha_v = str(v.get("fecha_salida") or "").split(" ")[0].strip()
+                estado_u = str(v.get("estado") or "").strip().upper()
+                es_terminal = (
+                    estado_u in ("DESPEGADO", "CERRADO", "ARCHIVADO")
+                    or "CANCELADO" in estado_u
+                    or "EXPIRADO" in estado_u
+                )
+
+                purgar = False
+                if fecha_v and fecha_v < hoy_str:
+                    purgar = True
+                elif purgar_despegados and es_terminal:
+                    purgar = True
+                else:
+                    asientos_validos = {
+                        s["id"] for s in obtener_configuracion_aeronave(v.get("tipo_aeronave", "Airbus A320neo"))["asientos"]
+                    }
+                    cursor.execute(
+                        "SELECT pasajero_doc, asiento FROM manifiesto WHERE UPPER(vuelo_codigo) = ?",
+                        (cod,),
+                    )
+                    manif_rows = cursor.fetchall()
+                    docs_manif = {str(r[0]).strip() for r in manif_rows}
+
+                    for doc_m, asi_m in manif_rows:
+                        doc_m = str(doc_m).strip()
+                        asi_m = str(asi_m).strip().upper()
+                        if asi_m not in asientos_validos:
+                            purgar = True
+                            break
+                        pax_ok = cursor.execute(
+                            "SELECT 1 FROM pasajeros WHERE documento = ?",
+                            (doc_m,),
+                        ).fetchone()
+                        pago_ok = cursor.execute(
+                            """
+                            SELECT 1 FROM pasajeros_recientes_pagos
+                            WHERE UPPER(vuelo_id) = ? AND documento = ?
+                              AND UPPER(COALESCE(estado_embarque, '')) != 'CANCELADO'
+                            """,
+                            (cod, doc_m),
+                        ).fetchone()
+                        if not pax_ok or not pago_ok:
+                            purgar = True
+                            break
+
+                    if not purgar:
+                        cursor.execute(
+                            """
+                            SELECT documento FROM pasajeros_recientes_pagos
+                            WHERE UPPER(vuelo_id) = ?
+                              AND UPPER(COALESCE(estado_embarque, '')) NOT IN ('CANCELADO', 'EN ESPERA (STANDBY)')
+                            """,
+                            (cod,),
+                        )
+                        for (doc_p,) in cursor.fetchall():
+                            if str(doc_p).strip() not in docs_manif:
+                                purgar = True
+                                break
+
+                if purgar:
+                    cursor.execute("DELETE FROM manifiesto WHERE UPPER(vuelo_codigo) = ?", (cod,))
+                    cursor.execute("DELETE FROM cola_standby WHERE UPPER(vuelo_codigo) = ?", (cod,))
+                    cursor.execute("DELETE FROM pasajeros_recientes_pagos WHERE UPPER(vuelo_id) = ?", (cod,))
+                    cursor.execute(
+                        "DELETE FROM pagos WHERE orden_id IN (SELECT id FROM ordenes WHERE UPPER(vuelo_codigo) = ?)",
+                        (cod,),
+                    )
+                    cursor.execute("DELETE FROM ordenes WHERE UPPER(vuelo_codigo) = ?", (cod,))
+                    cursor.execute(
+                        "UPDATE pasajeros SET vuelo_asignado = NULL WHERE UPPER(COALESCE(vuelo_asignado, '')) = ?",
+                        (cod,),
+                    )
+                    cursor.execute("DELETE FROM vuelos WHERE UPPER(codigo) = ?", (cod,))
+                    codigos_eliminados.append(cod)
+
+            # Purga de huérfanos residuales sin vuelo padre o sin asiento en manifiesto
+            cursor.execute("DELETE FROM manifiesto WHERE UPPER(vuelo_codigo) NOT IN (SELECT UPPER(codigo) FROM vuelos)")
+            cursor.execute("DELETE FROM cola_standby WHERE UPPER(vuelo_codigo) NOT IN (SELECT UPPER(codigo) FROM vuelos)")
+            cursor.execute("DELETE FROM pasajeros_recientes_pagos WHERE UPPER(vuelo_id) NOT IN (SELECT UPPER(codigo) FROM vuelos)")
+            cursor.execute(
+                """
+                UPDATE pasajeros SET vuelo_asignado = NULL
+                WHERE vuelo_asignado IS NOT NULL
+                  AND (
+                    UPPER(vuelo_asignado) NOT IN (SELECT UPPER(codigo) FROM vuelos)
+                    OR NOT EXISTS (
+                      SELECT 1 FROM manifiesto m
+                      WHERE m.pasajero_doc = pasajeros.documento
+                        AND UPPER(m.vuelo_codigo) = UPPER(pasajeros.vuelo_asignado)
+                    )
+                  )
+                """
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    return {"codigos_eliminados": codigos_eliminados}
+
+
+def mantenimiento_diario_vuelos() -> Dict[str, Any]:
+    """
+    Rutina diaria de mantenimiento aeronáutico:
+    1. Purga de vuelos vencidos (fecha_salida < hoy) o con manifiestos inconsistentes en SQLite
+       junto con sus registros huérfanos en manifiesto, cola_standby, pasajeros y pagos.
+    2. Sincroniza capacidad_maxima de vuelos vigentes contra el catálogo oficial
+       para evitar desajustes en el mapa de asientos.
+    3. Verifica que existan al menos 6 vuelos activos para hoy y mañana; de lo
+       contrario genera e inserta vuelos comerciales nuevos con rutas troncales.
+    """
+    hoy = datetime.now().date()
+    hoy_str = hoy.isoformat()
+    manana_str = (hoy + timedelta(days=1)).isoformat()
+
+    saneamiento = sanear_vuelos_inconsistentes(purgar_despegados=False)
+    codigos_eliminados = list(saneamiento.get("codigos_eliminados", []))
+    vuelos_creados = []
+    vuelos_sincronizados = []
+
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+
+            # 2. Sincronizar capacidad_maxima de vuelos existentes con el catálogo oficial
+            cursor.execute("SELECT codigo, tipo_aeronave, capacidad_maxima FROM vuelos")
+            for row in cursor.fetchall():
+                cod = str(row["codigo"]).strip().upper()
+                tipo = row["tipo_aeronave"]
+                cap_catalogo = int(obtener_configuracion_aeronave(tipo)["capacidad"])
+                if int(row["capacidad_maxima"] or 0) != cap_catalogo:
+                    cursor.execute(
+                        "UPDATE vuelos SET capacidad_maxima = ? WHERE UPPER(codigo) = ?",
+                        (cap_catalogo, cod),
+                    )
+                    vuelos_sincronizados.append({"codigo": cod, "capacidad_maxima": cap_catalogo})
+
+            # 3. Contar vuelos activos disponibles para hoy y mañana (o fechas futuras)
+            cursor.execute("""
+                SELECT codigo, origen, destino, fecha_salida FROM vuelos
+                WHERE fecha_salida >= ?
+                  AND estado NOT LIKE '%CANCELADO%'
+                  AND estado NOT LIKE '%EXPIRADO%'
+                  AND estado NOT IN ('DESPEGADO', 'Despegado', 'Cerrado', 'ARCHIVADO')
+            """, (hoy_str,))
+            activos_rows = cursor.fetchall()
+            codigos_existentes = {str(r["codigo"]).strip().upper() for r in activos_rows}
+
+            if len(activos_rows) < 6:
+                plantillas_diarias = [
+                    {
+                        "codigo_prefijo": "AF2025",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "MDE - Medellín José María Córdova",
+                        "tipo_aeronave": "Airbus A320neo",
+                        "duracion_estimada": "00h 55m",
+                        "distancia_km": 240,
+                        "fecha_salida": hoy_str,
+                        "hora_salida_12h": "07:15 AM",
+                        "hora_llegada_12h": "08:10 AM",
+                        "puerta": "B-02",
+                        "imagen_url": "/static/img/oferta-medellin.jpg",
+                        "precio_base_cop": 82010,
+                        "categoria": "ciudad",
+                        "tag_destacado": "Mejor precio",
+                    },
+                    {
+                        "codigo_prefijo": "AF4055",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "CTG - Cartagena Rafael Núñez",
+                        "tipo_aeronave": "Airbus A320neo",
+                        "duracion_estimada": "01h 25m",
+                        "distancia_km": 650,
+                        "fecha_salida": hoy_str,
+                        "hora_salida_12h": "05:00 PM",
+                        "hora_llegada_12h": "06:25 PM",
+                        "puerta": "C-01",
+                        "imagen_url": "/static/img/oferta-cartagena.jpg",
+                        "precio_base_cop": 89900,
+                        "categoria": "playa",
+                        "tag_destacado": "Más vendido",
+                    },
+                    {
+                        "codigo_prefijo": "AF1001",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "MAD - Madrid Barajas",
+                        "tipo_aeronave": "Airbus A319 Corporate",
+                        "duracion_estimada": "09h 45m",
+                        "distancia_km": 8034,
+                        "fecha_salida": manana_str,
+                        "hora_salida_12h": "11:00 AM",
+                        "hora_llegada_12h": "05:45 AM",
+                        "puerta": "B-01",
+                        "imagen_url": "/static/img/oferta-medellin.jpg",
+                        "precio_base_cop": 2850000,
+                        "categoria": "ciudad",
+                        "tag_destacado": "Transatlántico",
+                    },
+                    {
+                        "codigo_prefijo": "AF2020",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "MIA - Miami International",
+                        "tipo_aeronave": "Boeing 737 MAX 8",
+                        "duracion_estimada": "03h 55m",
+                        "distancia_km": 2435,
+                        "fecha_salida": manana_str,
+                        "hora_salida_12h": "09:15 AM",
+                        "hora_llegada_12h": "01:10 PM",
+                        "puerta": "A-04",
+                        "imagen_url": "/static/img/oferta-miami.jpg",
+                        "precio_base_cop": 1150000,
+                        "categoria": "playa",
+                        "tag_destacado": "Internacional",
+                    },
+                    {
+                        "codigo_prefijo": "AF2022",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "CLO - Cali Alfonso Bonilla Aragón",
+                        "tipo_aeronave": "Airbus A320neo",
+                        "duracion_estimada": "01h 05m",
+                        "distancia_km": 300,
+                        "fecha_salida": hoy_str,
+                        "hora_salida_12h": "08:30 AM",
+                        "hora_llegada_12h": "09:35 AM",
+                        "puerta": "B-03",
+                        "imagen_url": "/static/img/oferta-cali.jpg",
+                        "precio_base_cop": 71810,
+                        "categoria": "nocturna",
+                        "tag_destacado": "Recomendado para ti",
+                    },
+                    {
+                        "codigo_prefijo": "AF2030",
+                        "origen": "BOG - Bogotá El Dorado",
+                        "destino": "SMR - Santa Marta Simón Bolívar",
+                        "tipo_aeronave": "Airbus A320neo",
+                        "duracion_estimada": "01h 20m",
+                        "distancia_km": 725,
+                        "fecha_salida": manana_str,
+                        "hora_salida_12h": "02:30 PM",
+                        "hora_llegada_12h": "03:50 PM",
+                        "puerta": "C-04",
+                        "imagen_url": "/static/img/oferta-santamarta.jpg",
+                        "precio_base_cop": 84500,
+                        "categoria": "playa",
+                        "tag_destacado": "Caribe",
+                    },
+                ]
+
+                cursor.execute("SELECT codigo FROM vuelos")
+                todos_codigos_bd = {str(r[0]).strip().upper() for r in cursor.fetchall()}
+                total_activos = len(activos_rows)
+
+                for plantilla in plantillas_diarias:
+                    if total_activos >= 6 and plantilla["codigo_prefijo"] in codigos_existentes:
+                        continue
+                    cod_nuevo = plantilla["codigo_prefijo"]
+                    if cod_nuevo in todos_codigos_bd:
+                        # Si ese código ya existe como terminal, generar variante diaria
+                        if cod_nuevo in codigos_existentes:
+                            continue
+                        sufijo = hoy.strftime("%d")
+                        cod_nuevo = f"{plantilla['codigo_prefijo'][:4]}{sufijo}"
+                        idx_extra = 1
+                        while cod_nuevo in todos_codigos_bd:
+                            cod_nuevo = f"AF{hoy.strftime('%m%d')}{idx_extra}"
+                            idx_extra += 1
+
+                    cap = int(obtener_configuracion_aeronave(plantilla["tipo_aeronave"])["capacidad"])
+                    vuelo_nuevo = {
+                        "codigo": cod_nuevo,
+                        "origen": plantilla["origen"],
+                        "destino": plantilla["destino"],
+                        "tipo_aeronave": plantilla["tipo_aeronave"],
+                        "duracion_estimada": plantilla["duracion_estimada"],
+                        "distancia_km": plantilla["distancia_km"],
+                        "fecha_salida": plantilla["fecha_salida"],
+                        "hora_salida_12h": plantilla["hora_salida_12h"],
+                        "hora_llegada_12h": plantilla["hora_llegada_12h"],
+                        "puerta": plantilla["puerta"],
+                        "capacidad_maxima": cap,
+                        "estado": "Check-in abierto",
+                        "imagen_url": plantilla["imagen_url"],
+                        "precio_base_cop": plantilla["precio_base_cop"],
+                        "categoria": plantilla["categoria"],
+                        "tag_destacado": plantilla["tag_destacado"],
+                    }
+                    cursor.execute("""
+                        INSERT INTO vuelos (
+                            codigo, origen, destino, tipo_aeronave, duracion_estimada, distancia_km,
+                            fecha_salida, hora_salida_12h, hora_llegada_12h, puerta, capacidad_maxima,
+                            estado, imagen_url, precio_base_cop, categoria, tag_destacado
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        vuelo_nuevo["codigo"], vuelo_nuevo["origen"], vuelo_nuevo["destino"],
+                        vuelo_nuevo["tipo_aeronave"], vuelo_nuevo["duracion_estimada"],
+                        vuelo_nuevo["distancia_km"], vuelo_nuevo["fecha_salida"],
+                        vuelo_nuevo["hora_salida_12h"], vuelo_nuevo["hora_llegada_12h"],
+                        vuelo_nuevo["puerta"], vuelo_nuevo["capacidad_maxima"],
+                        vuelo_nuevo["estado"], vuelo_nuevo["imagen_url"],
+                        vuelo_nuevo["precio_base_cop"], vuelo_nuevo["categoria"],
+                        vuelo_nuevo["tag_destacado"],
+                    ))
+                    todos_codigos_bd.add(cod_nuevo)
+                    codigos_existentes.add(cod_nuevo)
+                    vuelos_creados.append(vuelo_nuevo)
+                    total_activos += 1
+
+            conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "codigos_eliminados": codigos_eliminados,
+        "vuelos_creados": vuelos_creados,
+        "vuelos_sincronizados": vuelos_sincronizados,
+    }
+
+
 def verificar_y_poblar_semilla(reset: bool = False) -> bool:
     """
     Pobla la semilla solo cuando la base de datos está vacía.
@@ -1230,6 +1670,7 @@ def verificar_y_poblar_semilla(reset: bool = False) -> bool:
     if reset or _base_de_datos_vacia():
         reiniciar_semilla_limpia()
         return True
+    mantenimiento_diario_vuelos()
     return False
 
 

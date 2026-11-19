@@ -425,7 +425,7 @@
               <div class="gate-badges-flex">
                 <span class="gate-badge-pill" id="gate-number-badge">Puerta B-03</span>
                 <span class="gate-badge-pill" id="gate-plane-badge">Airbus A320neo</span>
-                <span class="gate-badge-pill gate-badge-live">Abordaje Activo</span>
+                <span class="gate-badge-pill gate-badge-live" id="gate-live-status-badge">Abordaje Activo</span>
               </div>
             </div>
           </div>
@@ -434,15 +434,15 @@
           <div class="gate-progress-container">
             <div class="gate-progress-meta">
               <span>Progreso de Abordaje en Rampa</span>
-              <span id="gate-counter-text" class="tabular-nums">0 / 12 Pasajeros Abordados</span>
+              <span id="gate-counter-text" class="tabular-nums">0 / 0 Pasajeros Abordados (0%)</span>
             </div>
             <div class="gate-progress-track">
               <div class="gate-progress-fill" id="gate-progress-fill" style="width: 0%;"></div>
             </div>
           </div>
 
-          <!-- Botones de Acción de Abordaje -->
-          <div style="display:flex;gap:14px;align-items:center;margin-top:20px;flex-wrap:wrap;">
+          <!-- Botones de Acción de Abordaje (Exclusivo Operario / Administrador) -->
+          <div id="gate-operator-controls" style="display:none;gap:14px;align-items:center;margin-top:20px;flex-wrap:wrap;">
             <button type="button" class="btn-primary-flow" id="btn-iniciar-abordaje-masivo" onclick="AeroMinimalUI.iniciarAbordajeAutomatico()" style="background:linear-gradient(180deg,#10B981 0%,#059669 100%);">
               <svg class="arrow-icon-flow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -455,13 +455,21 @@
               </svg>
               <span>Abordar Siguiente (1 por 1)</span>
             </button>
-            <button type="button" class="btn-secondary-glass" onclick="AeroMinimalUI.reiniciarFilaAbordaje()" style="color:#FFFFFF;border-color:#334155;background:#1E293B;">
+            <button type="button" class="btn-secondary-glass" id="btn-reiniciar-fila" onclick="AeroMinimalUI.reiniciarFilaAbordaje()" style="color:#FFFFFF;border-color:#334155;background:#1E293B;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="1 4 1 10 7 10"></polyline>
                 <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
               </svg>
               <span>Reiniciar Fila</span>
             </button>
+          </div>
+
+          <div id="gate-readonly-notice" style="margin-top:16px;padding:10px 14px;border-radius:10px;background:rgba(15,23,42,0.45);border:1px solid rgba(148,163,184,0.25);color:#CBD5E1;font-size:0.8125rem;display:flex;align-items:center;gap:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Modo informativo: los controles de abordaje y escaneo en puerta son exclusivos del Operario / Administrador.</span>
           </div>
 
           <!-- Lector Láser Óptico HUD -->
@@ -474,6 +482,32 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-end;">
               <span class="scanner-hud-subtext" id="scanner-hud-telemetry">TELEMETRÍA: PUERTA B-03 • FRECUENCIA LÁSER 635nm • MANIFIESTO ENLAZADO</span>
               <span class="scanner-hud-subtext" id="scanner-last-scanned-pax">Último pasajero: Ninguno</span>
+            </div>
+          </div>
+
+          <!-- Overlay Cinemático de Despegue y Cierre de Puerta (Fase 3) -->
+          <div class="gate-departure-overlay" id="gate-departure-overlay" aria-live="polite" style="display:none;">
+            <div class="departure-sky-backdrop">
+              <div class="departure-plane-runner" aria-hidden="true">
+                <svg class="departure-plane-svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                </svg>
+                <span class="departure-contrail"></span>
+              </div>
+              <div class="departure-telemetry-row">
+                <span class="departure-pill-live">DESPEGUE EN CURSO • PUERTA SELLADA</span>
+                <span class="departure-telemetry-code" id="gate-departure-telemetry">V1 / VR ALCANZADA • TRANSPONDER ACTIVO • SQLITE COMMIT OK</span>
+              </div>
+              <h3 class="departure-headline" id="gate-departure-headline">
+                ✈️ VUELO HA DESPEGADO — PUERTA CERRADA Y SELLADA
+              </h3>
+              <p class="departure-subtext" id="gate-departure-subtext">
+                Preparando asignación automática al siguiente vuelo disponible en rampa...
+              </p>
+              <div class="runway-lights-strip" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -791,11 +825,11 @@
                 <div class="fuselage-divider-line"></div>
               </div>
 
-              <!-- Cabecera de Columnas: A B C | D E F -->
-              <div class="fuselage-columns-header">
-                <span>A</span><span>B</span><span>C</span>
+              <!-- Cabecera de Columnas Dinámica según aeronave -->
+              <div class="fuselage-columns-header" id="fuselage-columns-header">
+                <span>A</span><span>B</span>
                 <span></span>
-                <span>D</span><span>E</span><span>F</span>
+                <span>C</span><span>D</span>
               </div>
 
               <!-- Lista de Filas con Scroll -->
@@ -1160,6 +1194,40 @@
 
       <div id="boarding-passes-container">
         <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMACIÓN CANCELAR RESERVA / VUELO -->
+  <div class="modal-overlay" id="modal-confirmar-cancelacion" role="dialog" aria-modal="true" aria-labelledby="cancel-res-modal-title">
+    <div class="modal-card modal-card-confirm-cancel" style="max-width:480px;padding:24px;">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalCancelarReserva()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div style="width:42px;height:42px;border-radius:12px;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <div>
+          <h2 id="cancel-res-modal-title" style="font-size:1.1875rem;font-weight:800;color:#0F172A;margin:0;">Cancelar Reserva / Vuelo</h2>
+          <p style="font-size:0.8125rem;color:#64748B;margin:2px 0 0;">Esta accion liberara el asiento en el manifiesto oficial.</p>
+        </div>
+      </div>
+      <div id="cancel-res-modal-body" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:14px;font-size:0.875rem;color:#334155;line-height:1.5;margin-bottom:18px;">
+        <!-- Detalle dinamico -->
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="btn-secondary-glass" onclick="AeroMinimalUI.cerrarModalCancelarReserva()">Mantener Reserva</button>
+        <button type="button" class="btn-cancelar-reserva-confirm" id="btn-confirmar-cancelacion-definitiva" onclick="AeroMinimalUI.confirmarCancelacionReserva()">
+          <span>✕ Si, Cancelar Reserva</span>
+        </button>
       </div>
     </div>
   </div>

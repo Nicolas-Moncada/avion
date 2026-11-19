@@ -520,6 +520,10 @@ document.addEventListener('click', (e) => {
     archivarVueloOperador(cod);
   } else if (accion === 'cancelar-tiquete') {
     cancelarTiquete(cod, doc);
+  } else if (accion === 'cancelar-reserva-pasajero') {
+    const vuelo = actionBtn.getAttribute('data-vuelo') || cod;
+    const documento = actionBtn.getAttribute('data-documento') || doc;
+    cancelarReservaPasajeroConfirmada(vuelo, documento, nomb);
   } else if (accion === 'seleccionar-reserva') {
     irAReservarVuelo(cod);
   }
@@ -877,9 +881,13 @@ function sanitizeCommercialText(str) {
 function showToast(message, isError = false) {
   const container = document.getElementById('toast-container');
   if (!container) return;
+  const cleanMsg = sanitizeCommercialText(message);
+  if (Array.from(container.children).some(el => el.innerText === cleanMsg)) {
+    return;
+  }
   const toast = document.createElement('div');
   toast.className = `toast ${isError ? 'toast-error' : 'toast-info'}`;
-  toast.innerText = sanitizeCommercialText(message);
+  toast.innerText = cleanMsg;
   container.appendChild(toast);
 
   if (isError && typeof window.reproducirTonoAeronautico === 'function') {
@@ -1810,8 +1818,15 @@ async function cargarPasajerosRecientes() {
           ? '<span class="status-pill-clean embarcando" style="font-size:0.75rem;">A Bordo</span>'
           : '<span class="status-pill-clean abierto" style="font-size:0.75rem;">Confirmado</span>';
 
+        const sesionActual = window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === 'function' ? window.AeroAuth.obtenerSesionActual() : null;
+        const rolAct = String(sesionActual?.rol || (document.body.classList.contains('role-mode-cliente') ? 'pasajero' : 'admin')).toLowerCase();
+        const esOpAdmin = ['admin', 'integral', 'operador', 'todos'].includes(rolAct);
+        const nomSes = String(sesionActual?.nombre || '').toLowerCase();
+        const esPropio = nomSes && String(p.nombre_completo || '').toLowerCase().includes(nomSes.split(' ')[0]);
+        const puedeCancelarFila = (esOpAdmin || esPropio) && !esDespegado && !embarcado && p.estado_embarque !== 'CANCELADO';
+
         filasPasajeros += `
-          <tr>
+          <tr data-reserva-row="${escAttr(vueloId)}::${escAttr(p.documento)}">
             <td>
               <strong>${esc(p.nombre_completo)}</strong>
               <div style="margin-top:0.2rem;">
@@ -1839,9 +1854,16 @@ async function cargarPasajerosRecientes() {
             </td>
             <td>${embarquePill}</td>
             <td>
-              <button type="button" class="btn-secondary" data-action="reimprimir-ticket" data-doc="${escAttr(p.documento)}" data-codificador="${escAttr(vueloId)}" style="padding:0.35rem 0.75rem; font-size:0.75rem; border-radius:9999px; white-space:nowrap; display:inline-flex; align-items:center; gap:0.3rem;">
-                Reimprimir 🖨️
-              </button>
+              <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn-secondary" data-action="reimprimir-ticket" data-doc="${escAttr(p.documento)}" data-codificador="${escAttr(vueloId)}" style="padding:0.35rem 0.75rem; font-size:0.75rem; border-radius:9999px; white-space:nowrap; display:inline-flex; align-items:center; gap:0.3rem;">
+                  Reimprimir 🖨️
+                </button>
+                ${puedeCancelarFila ? `
+                  <button type="button" class="btn-cancelar-reserva btn-avianca-red" data-action="cancelar-reserva-pasajero" data-vuelo="${escAttr(vueloId)}" data-documento="${escAttr(p.documento)}" data-nomb="${escAttr(p.nombre_completo)}" style="padding:0.35rem 0.75rem; font-size:0.75rem; border-radius:9999px; white-space:nowrap; display:inline-flex; align-items:center; gap:0.3rem;">
+                    ✕ Cancelar Vuelo / Reserva
+                  </button>
+                ` : ''}
+              </div>
             </td>
           </tr>
         `;
@@ -2669,20 +2691,43 @@ window.cancelarTiquete = async function(codigoVuelo, documento) {
     });
     const data = await res.json();
     if (res.ok) {
+      // Remover fila del DOM inmediatamente
+      const docClean = String(documento || '').replace(/^[A-Za-z]+-/, '').trim();
+      document.querySelectorAll(`[data-reserva-row="${codigoVuelo}::${docClean}"]`).forEach(el => el.remove());
+
       showToast(data.mensaje);
       if (data.ascenso_standby) {
         showToast(data.ascenso_standby.mensaje);
       }
       cargarMapaAvion(codigoVuelo);
       cargarVuelos();
+      if (typeof cargarPasajeros === 'function') cargarPasajeros();
+      if (typeof cargarPasajerosRecientes === 'function') cargarPasajerosRecientes();
+      if (typeof syncAllViews === 'function') syncAllViews();
     } else {
-      showToast(data.error || 'Error al cancelar');
+      showToast(data.error || 'Error al cancelar', true);
     }
   } catch (err) {
-    showToast('Error de comunicación');
+    showToast('Error de comunicación', true);
   } finally {
     state.isCancellingTicket = false;
   }
+};
+
+window.cancelarReservaPasajeroConfirmada = async function(codigoVuelo, documento, nombre) {
+  if (!codigoVuelo || !documento) return;
+  const paxDesc = nombre ? `"${nombre}" (Doc: ${documento})` : `documento ${documento}`;
+  const confirmar = typeof mostrarTacticalConfirmModal === 'function'
+    ? await mostrarTacticalConfirmModal({
+        titulo: `Cancelar Reserva en ${codigoVuelo}`,
+        mensaje: `¿Desea cancelar el tiquete del pasajero ${paxDesc} en el vuelo ${codigoVuelo}?\nEsta acción liberará su asiento en cabina y, si hay lista de espera (Standby FIFO), promoverá al siguiente pasajero.`,
+        textoConfirmar: '✕ Sí, Cancelar Reserva',
+        esPeligroso: true
+      })
+    : window.confirm(`¿Cancelar reserva del pasajero ${paxDesc} en el vuelo ${codigoVuelo}?`);
+
+  if (!confirmar) return;
+  await window.cancelarTiquete(codigoVuelo, documento);
 };
 
 // --- MÓDULO 4: SIMULADOR DE EMBARQUE & BOARDING PASS ---
