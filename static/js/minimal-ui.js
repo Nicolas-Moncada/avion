@@ -4898,13 +4898,38 @@
         ? escapeHtml(u.documento)
         : `<span style="color:#94A3B8;font-style:italic;">Sin doc</span>`;
 
+      const totalRes = parseInt(u.total_reservas, 10) || 0;
+      const reservasCell = totalRes > 0
+        ? `<button type="button" class="btn-reservas-count" onclick="AeroMinimalUI.verDetalleReservasUsuario('${escapeAttr(u.id)}', '${escapeAttr(u.nombre)}')" title="Ver detalle de reservas de ${escapeAttr(u.nombre)}">
+             <span>${totalRes}</span>
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+           </button>`
+        : `<span class="reservas-count-zero">0</span>`;
+
+      const sesionActual = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+        ? window.AeroAuth.obtenerSesionActual()
+        : null;
+      const esSuperAdmin = String(u.email || "").toLowerCase().trim() === "admin@aeroflow.com";
+      const esPropiaCuenta = sesionActual && (sesionActual.id === u.id || String(sesionActual.email || "").toLowerCase() === String(u.email || "").toLowerCase());
+      const noEliminable = esSuperAdmin || esPropiaCuenta;
+
+      const deleteBtn = noEliminable
+        ? `<button type="button" class="btn-admin-subaction btn-delete-user" disabled title="${esSuperAdmin ? 'El Administrador Principal no puede ser eliminado' : 'No puedes eliminar tu propia cuenta en sesión activa'}">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+             <span>Eliminar</span>
+           </button>`
+        : `<button type="button" class="btn-admin-subaction btn-delete-user" onclick="AeroMinimalUI.confirmarEliminarUsuario('${escapeAttr(u.id)}', '${escapeAttr(u.nombre)}', '${escapeAttr(u.email)}')" title="Eliminar este usuario de la base de datos">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+             <span>Eliminar</span>
+           </button>`;
+
       tr.innerHTML = `
         <td><strong>${escapeHtml(u.nombre)}</strong></td>
         <td>${docDisplay}</td>
         <td>${escapeHtml(u.email)}</td>
         <td><span class="badge-rol ${rolClass}">${rolText}</span></td>
         <td>${pwdBadge}</td>
-        <td><strong>${u.total_reservas || 0}</strong></td>
+        <td>${reservasCell}</td>
         <td style="text-align:right;">
           <div class="admin-actions-cell">
             <button type="button" class="btn-admin-subaction btn-otp-action" onclick="AeroMinimalUI.generarOtpUsuario('${escapeAttr(u.id)}', '${escapeAttr(u.nombre)}')" title="Generar contraseña de un solo uso">
@@ -4921,6 +4946,7 @@
               </svg>
               <span>Restablecer</span>
             </button>
+            ${deleteBtn}
           </div>
         </td>
       `;
@@ -5131,6 +5157,194 @@
       }
     } catch (e) {
       console.warn("[Admin OTP] Fallback de copiado:", e);
+    }
+  }
+
+  // ===========================================================================
+  // DETALLE DE RESERVAS Y ELIMINACIÓN DE USUARIOS EN EL PANEL ADMIN
+  // ===========================================================================
+  async function verDetalleReservasUsuario(userId, nombre) {
+    const modal = document.getElementById("modal-admin-user-reservas");
+    const nameEl = document.getElementById("admin-user-reservas-name");
+    const tbody = document.getElementById("admin-user-reservas-tbody");
+    const vacioEl = document.getElementById("admin-user-reservas-vacio");
+    const table = document.getElementById("admin-user-reservas-table");
+
+    if (nameEl) nameEl.textContent = nombre || "Usuario";
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#64748B;">Cargando reservas desde la base de datos...</td></tr>`;
+    }
+    if (vacioEl) vacioEl.style.display = "none";
+    if (table) table.style.display = "table";
+
+    if (modal) {
+      modal.style.display = "flex";
+      modal.classList.add("active");
+    }
+
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+
+    try {
+      const resp = await fetch(`/api/admin/usuarios/${encodeURIComponent(userId)}/reservas`, {
+        headers: {
+          "X-User-Role": rol,
+          "Cache-Control": "no-cache",
+        },
+      });
+      const data = await resp.json();
+      if (resp.ok && data.exito && Array.isArray(data.reservas)) {
+        renderizarFilasDetalleReservas(data.reservas);
+      } else {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#EF4444;">${data.error || "No se pudieron obtener las reservas."}</td></tr>`;
+        }
+      }
+    } catch (err) {
+      console.error("[Admin Reservas] Error al consultar:", err);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#EF4444;">Error de red al consultar reservas.</td></tr>`;
+      }
+    }
+  }
+
+  function renderizarFilasDetalleReservas(reservas) {
+    const tbody = document.getElementById("admin-user-reservas-tbody");
+    const vacioEl = document.getElementById("admin-user-reservas-vacio");
+    const table = document.getElementById("admin-user-reservas-table");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (reservas.length === 0) {
+      if (table) table.style.display = "none";
+      if (vacioEl) vacioEl.style.display = "block";
+      return;
+    }
+
+    if (table) table.style.display = "table";
+    if (vacioEl) vacioEl.style.display = "none";
+
+    reservas.forEach((r) => {
+      const tr = document.createElement("tr");
+      const pnr = r.codigo_pnr || "SIN-PNR";
+      const vuelo = r.vuelo_codigo || "—";
+      const ruta = (r.origen && r.destino) ? `${r.origen} → ${r.destino}` : "";
+      const fechaHora = `${r.fecha_salida || "Próximo"} ${r.hora_salida_12h || ""}`.trim();
+      const silla = r.asiento || "Sin asignar";
+      const tarifa = r.tarifa_pagada_cop
+        ? `COP ${Number(r.tarifa_pagada_cop).toLocaleString("es-CO")}`
+        : "COP 0";
+
+      let estadoClass = "badge-reserva-confirmado";
+      const est = String(r.estado_embarque || r.estado_tiquete || "Confirmado").toLowerCase();
+      if (est.includes("abordado") || est.includes("embarcado")) {
+        estadoClass = "badge-reserva-abordado";
+      } else if (est.includes("checkin")) {
+        estadoClass = "badge-reserva-checkin";
+      }
+
+      tr.innerHTML = `
+        <td><span class="pnr-code-badge">${escapeHtml(pnr)}</span></td>
+        <td><strong>${escapeHtml(vuelo)}</strong> ${ruta ? `<span style="color:#64748B;font-size:0.75rem;">(${escapeHtml(ruta)})</span>` : ""}</td>
+        <td>${escapeHtml(fechaHora)}</td>
+        <td><strong>${escapeHtml(silla)}</strong></td>
+        <td class="tabular-nums">${tarifa}</td>
+        <td><span class="badge-reserva-status ${estadoClass}">${escapeHtml(r.estado_embarque || r.estado_tiquete || "Confirmado")}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function cerrarModalUserReservas() {
+    const modal = document.getElementById("modal-admin-user-reservas");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  function confirmarEliminarUsuario(userId, nombre, email) {
+    const modal = document.getElementById("modal-admin-confirm-delete");
+    const nameEl = document.getElementById("admin-delete-user-name");
+    const emailEl = document.getElementById("admin-delete-user-email");
+    const idEl = document.getElementById("admin-delete-user-id");
+
+    if (nameEl) nameEl.textContent = nombre || "Usuario";
+    if (emailEl) emailEl.textContent = email || "";
+    if (idEl) idEl.value = userId;
+
+    if (modal) {
+      modal.style.display = "flex";
+      modal.classList.add("active");
+    }
+  }
+
+  function cerrarModalConfirmDelete() {
+    const modal = document.getElementById("modal-admin-confirm-delete");
+    if (!modal) return;
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+
+  async function ejecutarEliminarUsuario() {
+    const idEl = document.getElementById("admin-delete-user-id");
+    const userId = idEl ? idEl.value : "";
+    if (!userId) return;
+
+    const sesion = (window.AeroAuth && typeof window.AeroAuth.obtenerSesionActual === "function")
+      ? window.AeroAuth.obtenerSesionActual()
+      : null;
+    const rol = sesion ? sesion.rol : "admin";
+    const adminActorId = sesion ? sesion.id : "";
+    const adminActorEmail = sesion ? sesion.email : "";
+
+    const accion = async () => {
+      const resp = await fetch(`/api/admin/usuarios/${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        headers: {
+          "X-User-Role": rol,
+          "X-User-Id": adminActorId,
+          "X-User-Email": adminActorEmail,
+        },
+      });
+      const data = await resp.json();
+      return { ok: resp.ok && data.exito, data };
+    };
+
+    if (window.AeroLoader && typeof window.AeroLoader.transaccionConCarga === "function") {
+      await window.AeroLoader.transaccionConCarga(
+        "Eliminando usuario de la base de datos...",
+        accion,
+        async () => {
+          await cargarUsuariosAdmin();
+        },
+        async (res) => {
+          cerrarModalConfirmDelete();
+          if (!res.ok) {
+            if (typeof window.showToast === "function") {
+              window.showToast(res.data.error || "No se pudo eliminar el usuario.", true);
+            }
+            return;
+          }
+          if (typeof window.showToast === "function") {
+            window.showToast(res.data.mensaje || "Usuario eliminado exitosamente.", false);
+          }
+        }
+      );
+    } else {
+      const res = await accion();
+      cerrarModalConfirmDelete();
+      if (!res.ok) {
+        if (typeof window.showToast === "function") {
+          window.showToast(res.data.error || "No se pudo eliminar el usuario.", true);
+        }
+        return;
+      }
+      await cargarUsuariosAdmin();
+      if (typeof window.showToast === "function") {
+        window.showToast(res.data.mensaje || "Usuario eliminado exitosamente.", false);
+      }
     }
   }
 
@@ -5742,6 +5956,11 @@
     generarOtpUsuario,
     cerrarModalOtpDisplay,
     copiarOtpGenerado,
+    verDetalleReservasUsuario,
+    cerrarModalUserReservas,
+    confirmarEliminarUsuario,
+    cerrarModalConfirmDelete,
+    ejecutarEliminarUsuario,
     guardarCambiosVueloAdmin,
     playAirportChime,
     playScannerBeep,

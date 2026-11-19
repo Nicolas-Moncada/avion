@@ -136,6 +136,30 @@ const fs = require("fs");
   );
   console.log("   - Total filas de usuarios renderizadas en Admin:", usuariosRowsCount);
 
+  // Verificar que CADA fila corresponde a un usuario único (cero filas duplicadas)
+  const userEmails = await page.$$eval("#admin-usuarios-tbody tr", (rows) =>
+    rows.map((r) => r.children[2] ? r.children[2].innerText.trim().toLowerCase() : "")
+  );
+  console.log("   - Emails en la tabla:", userEmails);
+  const emailsSet = new Set(userEmails);
+  if (userEmails.length !== emailsSet.size) {
+    throw new Error(`¡ERROR! Se detectaron filas duplicadas para el mismo usuario: ${userEmails}`);
+  }
+  console.log("   - [OK]: Cada usuario aparece en EXACTAMENTE UNA SOLA FILA (0 duplicados).");
+
+  // Verificar que el botón Eliminar esté deshabilitado para el Administrador Principal
+  const adminDeleteDisabled = await page.$$eval("#admin-usuarios-tbody tr", (rows) => {
+    for (const r of rows) {
+      const email = r.children[2] ? r.children[2].innerText.trim().toLowerCase() : "";
+      if (email === "admin@aeroflow.com") {
+        const btnDel = r.querySelector(".btn-delete-user");
+        return btnDel ? btnDel.disabled : false;
+      }
+    }
+    return false;
+  });
+  console.log("   - Botón 'Eliminar' deshabilitado para admin@aeroflow.com:", adminDeleteDisabled);
+
   // Probar buscador reactivo en vivo
   await page.fill("#input-buscar-usuarios", "Carlos");
   await page.waitForTimeout(400);
@@ -151,6 +175,112 @@ const fs = require("fs");
     path: path.join(screenshotsDir, "03_admin_users_management.png"),
   });
   console.log("   - Guardado 03_admin_users_management.png");
+
+  // 4b. VERIFICAR DETALLE DE RESERVAS EN MODAL AL CLIC EN CONTEO DE RESERVAS
+  console.log("4b. Probando visualización de reservas en modal (#modal-admin-user-reservas)...");
+  // Buscar fila de Carlos Mendoza que tiene reservas
+  await page.fill("#input-buscar-usuarios", "Carlos");
+  await page.waitForTimeout(400);
+
+  const btnReservaCount = await page.$("#admin-usuarios-tbody .btn-reservas-count");
+  if (!btnReservaCount) {
+    throw new Error("No se encontró el botón de reservas para Carlos Mendoza");
+  }
+  const countText = await btnReservaCount.innerText();
+  console.log("   - Conteo de reservas visible al frente:", countText.trim());
+
+  // Click en el conteo de reservas
+  await btnReservaCount.click();
+  await page.waitForSelector("#modal-admin-user-reservas.active", { timeout: 8000 });
+  await page.waitForTimeout(600);
+
+  const reservasRowCount = await page.$$eval(
+    "#admin-user-reservas-tbody tr",
+    (rows) => rows.length,
+  );
+  console.log("   - Filas de tiquetes renderizadas en modal de reservas:", reservasRowCount);
+
+  const primerPnr = await page.$eval(
+    "#admin-user-reservas-tbody tr:first-child .pnr-code-badge",
+    (el) => el.innerText.trim(),
+  );
+  console.log("   - PNR verificado en detalle de reservas:", primerPnr);
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "08_admin_user_reservas_modal.png"),
+  });
+  console.log("   - Guardado 08_admin_user_reservas_modal.png");
+
+  // Cerrar modal de reservas sin duplicar filas en la tabla principal
+  await page.click('button[onclick="AeroMinimalUI.cerrarModalUserReservas()"]');
+  await page.waitForSelector("#modal-admin-user-reservas", { state: "hidden", timeout: 8000 });
+  await page.waitForTimeout(300);
+
+  // Limpiar búsqueda
+  await page.fill("#input-buscar-usuarios", "");
+  await page.waitForTimeout(400);
+
+  // 4c. PROBAR ELIMINACIÓN DE USUARIO CON CONFIRMACIÓN Y BARRERA TRANSACCIONAL
+  console.log("4c. Probando creación y eliminación limpia de usuario de prueba...");
+  // Crear usuario temporal vía API
+  const tempEmail = `e2e.test.${Date.now()}@aeroflow.com`;
+  const regResp = await page.evaluate(async (email) => {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: "Pasajero Temporal E2E",
+        email: email,
+        password: "Password123!",
+        documento: "8887776655",
+        telefono: "+57 300 000 0000"
+      }),
+    });
+    return res.json();
+  }, tempEmail);
+  console.log("   - Usuario de prueba registrado:", regResp.exito, tempEmail);
+
+  // Recargar tabla de usuarios
+  await page.evaluate(async () => {
+    await AeroMinimalUI.cargarUsuariosAdmin();
+  });
+  await page.waitForTimeout(600);
+
+  // Filtrar por el usuario temporal
+  await page.fill("#input-buscar-usuarios", tempEmail);
+  await page.waitForTimeout(500);
+
+  const deleteBtnTemp = await page.$("#admin-usuarios-tbody .btn-delete-user");
+  if (!deleteBtnTemp) {
+    throw new Error("No se encontró el botón Eliminar para el usuario temporal");
+  }
+
+  // Click en Eliminar -> Abre modal de confirmación
+  await deleteBtnTemp.click();
+  await page.waitForSelector("#modal-admin-confirm-delete.active", { timeout: 8000 });
+
+  await page.screenshot({
+    path: path.join(screenshotsDir, "09_admin_confirm_delete_modal.png"),
+  });
+  console.log("   - Guardado 09_admin_confirm_delete_modal.png");
+
+  // Confirmar eliminación
+  await page.click('button[onclick="AeroMinimalUI.ejecutarEliminarUsuario()"]');
+
+  // Esperar a que se cierre el modal de confirmación y se actualice la tabla
+  await page.waitForSelector("#modal-admin-confirm-delete", { state: "hidden", timeout: 8000 });
+  await page.waitForTimeout(800);
+
+  // Verificar que ya no exista
+  const filasTrasBorrado = await page.$$eval(
+    "#admin-usuarios-tbody tr",
+    (rows) => rows.length,
+  );
+  console.log("   - Filas filtradas tras borrado:", filasTrasBorrado);
+
+  // Limpiar búsqueda
+  await page.fill("#input-buscar-usuarios", "");
+  await page.waitForTimeout(400);
 
   // 5. GENERAR OTP DESDE EL PANEL ADMIN
   console.log("5. Probando Generación de OTP por Administrador...");

@@ -836,6 +836,7 @@ def catalogo_flota():
 # =====================================================================
 
 @app.route("/api/auth/register", methods=["POST"])
+@app.route("/api/auth/registro", methods=["POST"])
 def api_auth_register():
     try:
         data = request.get_json(force=True, silent=True) or {}
@@ -1047,6 +1048,33 @@ def api_admin_usuario_otp(user_id):
         return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
     try:
         res = db.admin_generar_otp_usuario(user_id)
+        status_code = 200 if res.get("exito") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/usuarios/<user_id>/reservas", methods=["GET"])
+def api_admin_usuario_reservas(user_id):
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    try:
+        reservas = db.obtener_reservas_usuario_admin(user_id)
+        return jsonify({"exito": True, "reservas": reservas, "total": len(reservas)}), 200
+    except Exception as e:
+        return jsonify({"exito": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/usuarios/<user_id>", methods=["DELETE"])
+def api_admin_eliminar_usuario(user_id):
+    role = request.headers.get("X-User-Role", "").lower()
+    if role not in ("admin", "integral"):
+        return jsonify({"error": "Acceso no autorizado: requiere rol Administrador"}), 403
+    try:
+        admin_actor_id = request.headers.get("X-User-Id", "")
+        admin_actor_email = request.headers.get("X-User-Email", "")
+        res = db.admin_eliminar_usuario(user_id, admin_actor_id=admin_actor_id, admin_actor_email=admin_actor_email)
         status_code = 200 if res.get("exito") else 400
         return jsonify(res), status_code
     except Exception as e:

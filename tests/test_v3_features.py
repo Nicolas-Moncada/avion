@@ -206,3 +206,61 @@ def test_international_routes_coherence(client):
     if vuelo_scl:
         assert vuelo_scl['precio_base_cop'] >= 1000000, f"Tarifa irreal para SCL: {vuelo_scl['precio_base_cop']}"
         assert 'api/destinos/SCL/imagen' in vuelo_scl['imagen_url']
+
+def test_admin_usuarios_unique_rows_and_grouped_reservas(client):
+    """Verifica que cada usuario aparezca en exactamente UNA fila con su conteo de reservas real."""
+    res = client.get('/api/admin/usuarios', headers={'X-User-Role': 'admin'})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data['exito'] is True
+    usuarios = data['usuarios']
+    assert len(usuarios) >= 2
+
+    # Verificar unicidad absoluta de IDs y emails
+    ids = [u['id'] for u in usuarios]
+    emails = [u['email'].lower().strip() for u in usuarios]
+    assert len(ids) == len(set(ids)), f"IDs de usuario duplicados detectados: {ids}"
+    assert len(emails) == len(set(emails)), f"Emails de usuario duplicados detectados: {emails}"
+
+    # Verificar que el pasajero oficial tenga sus reservas reflejadas
+    pax = next((u for u in usuarios if u['email'] == 'pasajero@aeroflow.com'), None)
+    assert pax is not None, "El usuario oficial pasajero@aeroflow.com debe existir"
+    assert isinstance(pax['total_reservas'], int)
+
+    # Detalle de reservas del pasajero
+    res_det = client.get(f"/api/admin/usuarios/{pax['id']}/reservas", headers={'X-User-Role': 'admin'})
+    assert res_det.status_code == 200
+    data_det = res_det.get_json()
+    assert data_det['exito'] is True
+    assert isinstance(data_det['reservas'], list)
+    assert len(data_det['reservas']) == pax['total_reservas']
+
+def test_admin_eliminar_usuario_protection_and_cleanup(client):
+    """Verifica la protección de admin@aeroflow.com y la eliminación limpia de cuentas de prueba."""
+    # 1. Prohibido eliminar a admin@aeroflow.com
+    res_admin = client.get('/api/admin/usuarios', headers={'X-User-Role': 'admin'})
+    admin_usr = next(u for u in res_admin.get_json()['usuarios'] if u['email'] == 'admin@aeroflow.com')
+    res_del_admin = client.delete(f"/api/admin/usuarios/{admin_usr['id']}", headers={'X-User-Role': 'admin'})
+    assert res_del_admin.status_code == 400
+    assert 'no puede ser eliminado' in res_del_admin.get_json()['error'].lower()
+
+    # 2. Registrar usuario de prueba temporal y verificar eliminación limpia
+    import uuid
+    test_email = f"test.delete.{uuid.uuid4().hex[:8]}@aeroflow.com"
+    reg_res = db.registrar_nuevo_usuario("Usuario Test Borrado", test_email, "Temporal123!", "9988776655", "+573000000000")
+    assert reg_res['exito'] is True
+    temp_user_id = reg_res['usuario']['id']
+
+    # Eliminar cuenta temporal
+    res_del = client.delete(
+        f"/api/admin/usuarios/{temp_user_id}",
+        headers={'X-User-Role': 'admin', 'X-User-Id': 'usr-adm-001', 'X-User-Email': 'admin@aeroflow.com'}
+    )
+    assert res_del.status_code == 200
+    assert res_del.get_json()['exito'] is True
+
+    # Verificar que ya no exista
+    res_after = client.get('/api/admin/usuarios', headers={'X-User-Role': 'admin'})
+    after_ids = [u['id'] for u in res_after.get_json()['usuarios']]
+    assert temp_user_id not in after_ids
+

@@ -170,9 +170,39 @@ def _migrar_tabla_usuarios(cursor):
     cursor.execute("UPDATE usuarios SET documento = 'ADMIN001', telefono = '+57 315 566 7152' WHERE email = 'admin@aeroflow.com' AND (documento IS NULL OR documento = '')")
 
 
+def _migrar_tabla_manifiesto(cursor):
+    """Asegura columnas usuario_id y pasajero_email en manifiesto y crea vista de reservas."""
+    cursor.execute("PRAGMA table_info(manifiesto)")
+    cols = {row["name"] if isinstance(row, dict) else row[1] for row in cursor.fetchall()}
+    if "usuario_id" not in cols:
+        cursor.execute("ALTER TABLE manifiesto ADD COLUMN usuario_id VARCHAR(50)")
+    if "pasajero_email" not in cols:
+        cursor.execute("ALTER TABLE manifiesto ADD COLUMN pasajero_email VARCHAR(100)")
+
+    # Enlazar usuario_id existente con el pasajero demo o usuarios por documento
+    cursor.execute("""
+        UPDATE manifiesto
+        SET usuario_id = 'usr-pax-001'
+        WHERE (pasajero_doc = '101829384' OR pasajero_doc = 'CC-101829384')
+          AND (usuario_id IS NULL OR usuario_id = '')
+    """)
+    cursor.execute("""
+        CREATE VIEW IF NOT EXISTS reservas AS
+        SELECT m.id, m.vuelo_codigo, m.pasajero_doc, m.pasajero_nombre, m.asiento,
+               m.hora_checkin_12h, m.categoria, m.clase_cabina, m.tarifa_pagada_cop,
+               m.estado_embarque, m.estado_tiquete, m.codigo_pnr, m.grupo_abordaje,
+               m.usuario_id, m.pasajero_email,
+               v.origen, v.destino, v.fecha_salida, v.hora_salida_12h, v.hora_llegada_12h,
+               v.puerta, v.tipo_aeronave
+        FROM manifiesto m
+        LEFT JOIN vuelos v ON UPPER(v.codigo) = UPPER(m.vuelo_codigo);
+    """)
+
+
 def _sembrar_usuarios_demo(cursor):
     """Siembra los 2 usuarios maestros oficiales por defecto: admin y pasajero."""
     _migrar_tabla_usuarios(cursor)
+    _migrar_tabla_manifiesto(cursor)
     usuarios_base = [
         ("usr-adm-001", "Administrador AeroFlow", "admin@aeroflow.com", "ADMIN001", "+57 315 566 7152", "admin123", "admin"),
         ("usr-pax-001", "Carlos Mendoza", "pasajero@aeroflow.com", "101829384", "+57 300 123 4567", "pasajero123", "pasajero"),
@@ -2094,15 +2124,32 @@ def procesar_pago_atomic(
             cursor.execute("UPDATE pasajeros SET vuelo_asignado = ? WHERE documento = ?",
                            (orden["vuelo_codigo"], orden["documento_pasajero"]))
 
+            # Resolver usuario_id y email si el pasajero está registrado
+            usuario_id_pax = None
+            email_pax = None
+            doc_pax_raw = orden["documento_pasajero"] if orden else ""
+            if doc_pax_raw:
+                cursor.execute(
+                    "SELECT id, email FROM usuarios WHERE documento = ? OR REPLACE(documento, 'CC-', '') = ?",
+                    (doc_pax_raw, doc_pax_raw.replace("CC-", ""))
+                )
+                u_row = cursor.fetchone()
+                if u_row:
+                    usuario_id_pax = u_row["id"]
+                    email_pax = u_row["email"]
+
             # Persistir en manifiesto
             cursor.execute("""
                 INSERT INTO manifiesto (
                     vuelo_codigo, pasajero_doc, pasajero_nombre, asiento,
-                    hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop
-                ) VALUES (?, ?, ?, ?, ?, 'Estándar', 'Estándar', ?)
+                    hora_checkin_12h, categoria, clase_cabina, tarifa_pagada_cop,
+                    codigo_pnr, grupo_abordaje, estado_embarque, estado_tiquete,
+                    usuario_id, pasajero_email
+                ) VALUES (?, ?, ?, ?, ?, 'Estándar', 'Estándar', ?, ?, 'Grupo 2', 'Confirmado', 'Confirmado', ?, ?)
             """, (
                 orden["vuelo_codigo"], orden["documento_pasajero"], orden["nombre_pasajero"],
-                orden["asiento_id"], datetime.now().strftime('%I:%M %p'), orden["total_cop"]
+                orden["asiento_id"], datetime.now().strftime('%I:%M %p'), orden["total_cop"],
+                orden["pnr"], usuario_id_pax, email_pax
             ))
 
             # Registrar en bitácora histórica de pagos
@@ -2278,7 +2325,13 @@ def registrar_nuevo_usuario(nombre: str, email: str, password: str, documento: s
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM usuarios WHERE email = ?", (email_clean,))
             if cursor.fetchone():
-                return {"exito": False, "error": "El correo electrónico ya se encuentra registrado."}
+                return {"exito": False, "error": "El correo electrónico ya se encuentra registrado con otra cuenta."}
+
+            if doc_clean:
+                cursor.execute("SELECT id, email FROM usuarios WHERE documento = ? AND documento != ''", (doc_clean,))
+                row_doc = cursor.fetchone()
+                if row_doc and row_doc["email"].lower() != email_clean:
+                    return {"exito": False, "error": f"El documento de identidad {doc_clean} ya se encuentra registrado con otra cuenta."}
 
             user_id = f"usr-pax-{uuid.uuid4().hex[:8]}"
             p_hash = generate_password_hash(password)
@@ -2353,11 +2406,12 @@ def listar_usuarios_registrados() -> list:
 
 
 def obtener_usuarios_admin() -> list:
-    """Retorna la lista completa de usuarios con métricas de reservas y estado de clave para el Admin."""
+    """Retorna la lista completa de usuarios agrupados estrictamente por u.id, con métricas exactas de reservas reales."""
     init_db()
     conn = get_connection()
     try:
         cursor = conn.cursor()
+        _migrar_tabla_manifiesto(cursor)
         cursor.execute("""
             SELECT u.id, u.nombre, u.email,
                    COALESCE(u.documento, '') AS documento,
@@ -2365,12 +2419,14 @@ def obtener_usuarios_admin() -> list:
                    u.rol,
                    COALESCE(u.debe_cambiar_password, 0) AS debe_cambiar_password,
                    u.creado_en,
-                   (
-                       SELECT COUNT(*) FROM manifiesto m
-                       WHERE (m.pasajero_doc = u.documento AND m.pasajero_doc != '' AND u.documento IS NOT NULL)
-                          OR (LOWER(m.pasajero_nombre) = LOWER(u.nombre) AND m.pasajero_nombre != '')
-                   ) AS total_reservas
+                   COUNT(DISTINCT r.id) AS total_reservas
             FROM usuarios u
+            LEFT JOIN manifiesto r ON (
+                (r.usuario_id IS NOT NULL AND r.usuario_id != '' AND r.usuario_id = u.id)
+                OR (r.pasajero_doc IS NOT NULL AND r.pasajero_doc != '' AND (r.pasajero_doc = u.documento OR REPLACE(r.pasajero_doc, 'CC-', '') = REPLACE(u.documento, 'CC-', '')))
+                OR (r.pasajero_email IS NOT NULL AND r.pasajero_email != '' AND LOWER(r.pasajero_email) = LOWER(u.email))
+            ) AND (r.estado_tiquete != 'Cancelado' AND r.estado_embarque != 'CANCELADO')
+            GROUP BY u.id
             ORDER BY u.creado_en DESC
         """)
         usuarios = []
@@ -2383,10 +2439,98 @@ def obtener_usuarios_admin() -> list:
                 "telefono": r["telefono"],
                 "rol": r["rol"],
                 "debe_cambiar_password": bool(r["debe_cambiar_password"]),
-                "total_reservas": r["total_reservas"],
+                "total_reservas": int(r["total_reservas"] or 0),
                 "creado_en": str(r["creado_en"] or "")
             })
         return usuarios
+    finally:
+        conn.close()
+
+
+def obtener_reservas_usuario_admin(user_id: str) -> list:
+    """Retorna la lista detallada de reservas pertenecientes a un usuario para visualización modal en el Admin."""
+    init_db()
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        _migrar_tabla_manifiesto(cursor)
+        cursor.execute("SELECT id, nombre, email, documento FROM usuarios WHERE id = ?", (user_id,))
+        usr = cursor.fetchone()
+        if not usr:
+            return []
+
+        doc = usr["documento"] or ""
+        email = (usr["email"] or "").lower()
+
+        cursor.execute("""
+            SELECT m.id, m.vuelo_codigo, m.pasajero_doc, m.pasajero_nombre, m.asiento,
+                   m.clase_cabina, m.tarifa_pagada_cop, m.estado_embarque, m.estado_tiquete,
+                   m.grupo_abordaje, m.codigo_pnr,
+                   v.origen, v.destino, v.tipo_aeronave, v.fecha_salida, v.hora_salida_12h,
+                   v.hora_llegada_12h, v.puerta
+            FROM manifiesto m
+            LEFT JOIN vuelos v ON UPPER(v.codigo) = UPPER(m.vuelo_codigo)
+            WHERE (
+                (m.usuario_id IS NOT NULL AND m.usuario_id != '' AND m.usuario_id = ?)
+                OR (m.pasajero_doc IS NOT NULL AND m.pasajero_doc != '' AND (m.pasajero_doc = ? OR REPLACE(m.pasajero_doc, 'CC-', '') = REPLACE(?, 'CC-', '')))
+                OR (m.pasajero_email IS NOT NULL AND m.pasajero_email != '' AND LOWER(m.pasajero_email) = ?)
+            )
+            AND m.estado_tiquete != 'Cancelado'
+            ORDER BY m.id DESC
+        """, (user_id, doc, doc, email))
+        return [dict(r) for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def admin_eliminar_usuario(user_id: str, admin_actor_id: str = "", admin_actor_email: str = "") -> Dict[str, Any]:
+    """Elimina de forma segura un usuario del sistema impidiendo la eliminación del Administrador activo."""
+    init_db()
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nombre, email, rol, documento FROM usuarios WHERE id = ?", (user_id,))
+        usr = cursor.fetchone()
+        if not usr:
+            return {"exito": False, "error": "Usuario no encontrado en la base de datos."}
+
+        email_norm = (usr["email"] or "").lower().strip()
+        if email_norm == "admin@aeroflow.com":
+            return {"exito": False, "error": "Por seguridad de la plataforma, el Administrador Principal (admin@aeroflow.com) no puede ser eliminado."}
+
+        if admin_actor_id and usr["id"] == admin_actor_id:
+            return {"exito": False, "error": "No puedes eliminar tu propia cuenta de administrador en sesión activa."}
+
+        if admin_actor_email and email_norm == admin_actor_email.lower().strip():
+            return {"exito": False, "error": "No puedes eliminar tu propia cuenta de administrador en sesión activa."}
+
+        doc = usr["documento"] or ""
+
+        # Limpiar reservas asociadas huérfanas si es una cuenta de prueba
+        cursor.execute("""
+            DELETE FROM manifiesto
+            WHERE usuario_id = ?
+               OR (pasajero_doc = ? AND ? != '')
+               OR (pasajero_email = ? AND ? != '')
+        """, (user_id, doc, doc, email_norm, email_norm))
+
+        cursor.execute("""
+            DELETE FROM pasajeros_recientes_pagos
+            WHERE documento = ? AND ? != ''
+        """, (doc, doc))
+
+        cursor.execute("""
+            DELETE FROM ordenes
+            WHERE documento_pasajero = ? AND ? != ''
+        """, (doc, doc))
+
+        cursor.execute("DELETE FROM usuarios WHERE id = ?", (user_id,))
+        conn.commit()
+
+        return {
+            "exito": True,
+            "mensaje": f"Usuario {usr['nombre']} ({usr['email']}) eliminado exitosamente de la base de datos."
+        }
     finally:
         conn.close()
 
@@ -2611,9 +2755,12 @@ def obtener_perfil_usuario(user_id: str) -> Dict[str, Any]:
                    u.rol,
                    u.creado_en,
                    (
-                       SELECT COUNT(*) FROM manifiesto m
-                       WHERE (m.pasajero_doc = u.documento AND m.pasajero_doc != '' AND u.documento IS NOT NULL)
-                          OR (LOWER(m.pasajero_nombre) = LOWER(u.nombre) AND m.pasajero_nombre != '')
+                       SELECT COUNT(DISTINCT r.id) FROM manifiesto r
+                       WHERE (
+                           (r.usuario_id IS NOT NULL AND r.usuario_id != '' AND r.usuario_id = u.id)
+                           OR (r.pasajero_doc IS NOT NULL AND r.pasajero_doc != '' AND (r.pasajero_doc = u.documento OR REPLACE(r.pasajero_doc, 'CC-', '') = REPLACE(u.documento, 'CC-', '')))
+                           OR (r.pasajero_email IS NOT NULL AND r.pasajero_email != '' AND LOWER(r.pasajero_email) = LOWER(u.email))
+                       ) AND (r.estado_tiquete != 'Cancelado' AND r.estado_embarque != 'CANCELADO')
                    ) AS total_reservas
             FROM usuarios u
             WHERE u.id = ? OR LOWER(u.email) = LOWER(?)

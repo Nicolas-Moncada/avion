@@ -1926,6 +1926,94 @@
     </div>
   </div>
 
+  <!-- MODAL DETALLE DE RESERVAS DE USUARIO EN ADMIN -->
+  <div class="modal-overlay" id="modal-admin-user-reservas" role="dialog" aria-labelledby="admin-user-reservas-title" style="display:none;z-index:99990;">
+    <div class="modal-card modal-card-reservas">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalUserReservas()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="admin-header-row" style="margin-bottom:14px;">
+        <h2 class="admin-title-h2" id="admin-user-reservas-title">Reservas de <span id="admin-user-reservas-name" style="color:#2563EB;">Usuario</span></h2>
+      </div>
+      <p style="font-size:0.875rem;color:#64748B;margin-bottom:16px;">
+        Historial de vuelos y tiquetes oficiales asociados a este usuario en la base de datos.
+      </p>
+
+      <div class="admin-table-wrapper" style="max-height:360px;overflow-y:auto;">
+        <table class="admin-data-table admin-user-reservas-table" id="admin-user-reservas-table">
+          <thead>
+            <tr>
+              <th>PNR</th>
+              <th>Vuelo / Ruta</th>
+              <th>Fecha / Hora</th>
+              <th>Silla</th>
+              <th>Tarifa</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="admin-user-reservas-tbody">
+            <!-- Dinámico -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="admin-user-reservas-vacio" style="display:none;text-align:center;padding:32px 16px;color:#64748B;">
+        <p style="font-weight:600;margin-bottom:4px;color:#0F172A;">No registra reservas activas</p>
+        <span style="font-size:0.8125rem;">Este usuario aún no tiene vuelos comprados o asociados en el manifiesto.</span>
+      </div>
+
+      <div style="margin-top:18px;display:flex;justify-content:flex-end;">
+        <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.cerrarModalUserReservas()" style="min-width:110px;">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMACIÓN ELIMINAR USUARIO EN ADMIN -->
+  <div class="modal-overlay" id="modal-admin-confirm-delete" role="dialog" aria-labelledby="admin-delete-title" style="display:none;z-index:99995;">
+    <div class="modal-card" style="max-width:440px;">
+      <button type="button" class="modal-close-btn" onclick="AeroMinimalUI.cerrarModalConfirmDelete()" aria-label="Cerrar modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="admin-header-row" style="margin-bottom:12px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#FFF1F2;color:#E11D48;display:flex;align-items:center;justify-content:center;margin-right:12px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </div>
+        <h2 class="admin-title-h2" id="admin-delete-title" style="color:#E11D48;">Eliminar Usuario</h2>
+      </div>
+
+      <p style="font-size:0.875rem;color:#475569;line-height:1.5;margin-bottom:16px;">
+        ¿Estás seguro de que deseas eliminar permanentemente a <strong id="admin-delete-user-name" style="color:#0F172A;">Usuario</strong> (<span id="admin-delete-user-email">email</span>)?
+      </p>
+      <p style="font-size:0.8125rem;color:#64748B;line-height:1.4;margin-bottom:20px;background:#F8FAFC;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+        Esta acción eliminará de forma irreversible el registro del usuario y limpiará sus reservas huérfanas en la base de datos activa.
+      </p>
+
+      <input type="hidden" id="admin-delete-user-id" value="">
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" class="btn-secondary-glass" onclick="AeroMinimalUI.cerrarModalConfirmDelete()" style="border:1px solid #CBD5E1;background:#FFFFFF;color:#0F172A;">
+          Cancelar
+        </button>
+        <button type="button" class="btn-primary-flow" onclick="AeroMinimalUI.ejecutarEliminarUsuario()" style="background:#E11D48;">
+          Eliminar definitivamente
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================================================================ -->
   <!-- BOTÓN FLOTANTE DE SOPORTE POR WHATSAPP (+57 3155667152)           -->
   <!-- ================================================================ -->
