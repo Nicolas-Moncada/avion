@@ -1023,9 +1023,12 @@
       const fechaCorta = (v.fecha_salida || '2026-12-01').split('-').reverse().join('/');
       const precioExacto = formatoCOP(v.precio_base_cop || 71810);
       const tagText = v.tag_destacado || 'Recomendado para ti';
+      const vTimestamp = v.updated_at ? encodeURIComponent(v.updated_at) : '20261119';
       let imgSrc = v.imagen_url;
-      if (!imgSrc || imgSrc.includes('oferta-')) {
-        imgSrc = `/api/destinos/${iata}/imagen`;
+      if (!imgSrc || imgSrc.includes('oferta-') || imgSrc.startsWith('/static/img/')) {
+        imgSrc = `/api/destinos/${iata}/imagen?v=${vTimestamp}`;
+      } else if (!imgSrc.includes('?v=')) {
+        imgSrc = `${imgSrc}?v=${vTimestamp}`;
       }
 
       card.innerHTML = `
@@ -1358,7 +1361,7 @@
       timeInput.value = vuelo.hora_salida_12h || '08:30 AM';
       gateInput.value = vuelo.puerta || 'B-03';
       statusInput.value = vuelo.estado || 'Programado';
-      urlInput.value = vuelo.imagen_url || '/static/img/oferta-cali.jpg';
+      urlInput.value = vuelo.imagen_url || `/api/destinos/${extraerIataTexto(vuelo.destino) || 'CTG'}/imagen`;
       tagInput.value = vuelo.tag_destacado || 'Recomendado para ti';
       submitBtnText.textContent = 'Guardar Cambios en Base de Datos';
     }
@@ -1451,7 +1454,7 @@
     const hora = document.getElementById('editor-flight-time')?.value?.trim();
     const puerta = document.getElementById('editor-flight-gate')?.value?.trim();
     const estado = document.getElementById('editor-flight-status')?.value;
-    const imagenUrl = document.getElementById('editor-flight-image-url')?.value?.trim() || '/static/img/oferta-cali.jpg';
+    const imagenUrl = document.getElementById('editor-flight-image-url')?.value?.trim() || '';
     const tag = document.getElementById('editor-flight-tag')?.value?.trim() || 'Recomendado para ti';
 
     if (!codigo || !destino) {
@@ -1472,8 +1475,9 @@
     }
 
     let imagenFinal = imagenUrl;
-    if (!imagenFinal || imagenFinal === '/static/img/oferta-cali.jpg' || imagenFinal.includes('placeholder')) {
+    if (!imagenFinal || imagenFinal.includes('oferta-') || imagenFinal.includes('placeholder')) {
       if (iataDest) imagenFinal = `/api/destinos/${iataDest}/imagen`;
+      else imagenFinal = '/api/destinos/BOG/imagen';
     }
 
     const payload = {

@@ -106,6 +106,15 @@
     "vuelo",
     "webp",
     "werkzeug",
-    "widebody"
+    "widebody",
+    "aeroloader",
+    "bimensual",
+    "fids",
+    "pnr",
+    "whatsapp",
+    "pyinstaller",
+    "autocontenido",
+    "idempotencia",
+    "idempotency"
   ]
 }

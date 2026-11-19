@@ -12,6 +12,7 @@ import logging
 import threading
 import io
 import base64
+import hashlib
 import uuid
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, g, send_from_directory
@@ -517,25 +518,26 @@ def api_listar_destinos():
 @app.route("/api/destinos/<codigo_iata>/imagen", methods=["GET"])
 def api_obtener_imagen_destino(codigo_iata):
     """Sirve la fotografía HD del destino almacenada como BLOB en la base de datos."""
-    blob, mime, updated_at = db.obtener_imagen_destino_bd(codigo_iata)
+    iata_clean = (codigo_iata or "").strip().upper()
+    blob, mime, updated_at = db.obtener_imagen_destino_bd(iata_clean)
     if not blob:
         try:
             from PIL import Image, ImageDraw
             img = Image.new("RGB", (1280, 800), (15, 23, 42))
             draw = ImageDraw.Draw(img)
-            draw.text((640, 400), f"AEROFLOW • {codigo_iata.upper()}", fill=(255, 255, 255), anchor="mm")
+            draw.text((640, 400), f"AEROFLOW • {iata_clean}", fill=(255, 255, 255), anchor="mm")
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=85)
+            img.save(buf, format="WEBP", quality=90)
             blob = buf.getvalue()
-            mime = "image/jpeg"
+            mime = "image/webp"
         except Exception:
-            return jsonify({"error": f"No se encontró fotografía para {codigo_iata}"}), 404
+            return jsonify({"error": f"No se encontró fotografía para {iata_clean}"}), 404
 
-    etag = f'"{hash(blob)}"'
+    etag = f'"{hashlib.sha256(blob).hexdigest()[:16]}"'
     if request.headers.get("If-None-Match") == etag:
         return "", 304
 
-    resp = app.response_class(blob, mimetype=mime or "image/jpeg")
+    resp = app.response_class(blob, mimetype=mime or "image/webp")
     resp.headers["ETag"] = etag
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
